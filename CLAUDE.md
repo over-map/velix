@@ -78,8 +78,8 @@ docs/                    BRIEF, BUILD_PLAN, DECISIONS, TEST_TRIPS
 ## Commands
 
 - Generate project: `xcodegen generate`
-- Build: `xcodebuild -scheme Velix -destination 'platform=iOS Simulator,name=iPhone 16' build`
-- Test: `xcodebuild -scheme Velix -destination 'platform=iOS Simulator,name=iPhone 16' test`
+- Build: `xcodebuild -scheme Velix -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.0' -derivedDataPath build/DerivedData -skipMacroValidation build`
+- Test: same with `test` instead of `build`. `OS=18.0` is needed because Xcode 26 defaults to the newest runtime, which has no iPhone 16 (snapshot reference device, 393 × 852). `-skipMacroValidation` trusts the MapLibre SwiftUI DSL macro (via Ferrostar).
 - Regenerate tokens: `swift run --package-path tools TokenGen design/velix-tokens.json App/DesignSystem/Generated`
 - Simulate a ride: `xcrun simctl location booted start --speed=5 <lat,lon> <lat,lon> …` (or the GPX files in `Tests/Fixtures/gpx/`)
 
