@@ -8,3 +8,5 @@ iPhone bike navigation that picks the best route for how you ride, explains why 
 - Working with Claude Code: `CLAUDE.md`, `START_CLAUDE_CODE.md`
 
 Map data © OpenStreetMap contributors (ODbL).
+
+Code licensed under Apache-2.0 (`LICENSE`); third-party licences in `THIRD_PARTY.md`.
