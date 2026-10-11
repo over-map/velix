@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode and simulators
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: build/DerivedData/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('Velix.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+
+      - name: Pick simulator
+        # Prefer iPhone 16 on iOS 18 (the snapshot reference device), else the newest iPhone.
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)["devices"]
+          ios = sorted((k for k in d if "iOS" in k), key=lambda k: [int(x) for x in k.split("iOS-")[1].split("-")], reverse=True)
+          pick = next((x["udid"] for k in ios if "iOS-18" in k for x in d[k] if x["name"] == "iPhone 16"), None)
+          pick = pick or next(x["udid"] for k in ios for x in d[k] if x["name"].startswith("iPhone"))
+          print(pick)')
+          echo "DEST=platform=iOS Simulator,id=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl list devices | grep "$UDID"
+
+      - name: Build
+        run: >
+          xcodebuild -scheme Velix -destination "$DEST"
+          -derivedDataPath build/DerivedData -skipMacroValidation -skipPackagePluginValidation
+          CODE_SIGNING_ALLOWED=NO build
+
+      - name: Test
+        run: >
+          xcodebuild -scheme Velix -destination "$DEST"
+          -derivedDataPath build/DerivedData -skipMacroValidation -skipPackagePluginValidation
+          -resultBundlePath build/Velix.xcresult
+          CODE_SIGNING_ALLOWED=NO test
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Velix-xcresult
+          path: build/Velix.xcresult
