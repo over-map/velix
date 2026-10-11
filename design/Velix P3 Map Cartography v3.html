@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Velix P3 · Map Cartography v3 · Chart</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Familjen+Grotesk:wght@500;700&display=swap">
+<script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#EFEEE2;color:#021624;font-family:'Atkinson Hyperlegible',sans-serif}
+a{color:#021624}a:hover{color:#2E4A5A}
+.wrap{max-width:1640px;margin:0 auto;padding-bottom:80px}
+header{padding:48px 48px 28px;display:flex;flex-direction:column;gap:14px}
+.eyebrow{font:700 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;color:#4F6570;white-space:nowrap}
+h1{margin:0;font:700 44px/1.05 'Familjen Grotesk',sans-serif;letter-spacing:-.01em;max-width:1100px;text-wrap:balance}
+h2{margin:0;font:700 28px/1.15 'Familjen Grotesk',sans-serif}
+p.lead{margin:0;max-width:900px;font:17px/1.5 'Atkinson Hyperlegible',sans-serif;color:#2E4A5A;text-wrap:pretty}
+p.sub{margin:0;max-width:880px;font:15px/1.5 'Atkinson Hyperlegible',sans-serif;color:#2E4A5A;text-wrap:pretty}
+section{padding:40px 48px;border-top:1px solid #D3D2BF;display:flex;flex-direction:column;gap:20px}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.card{background:#fff;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:6px}
+.card b{font:700 15px 'Familjen Grotesk',sans-serif}
+.card span{font:14px/1.45 'Atkinson Hyperlegible',sans-serif;color:#2E4A5A;text-wrap:pretty}
+.grid{display:grid;grid-template-columns:repeat(4,360px);gap:28px 24px}
+.frame{display:flex;flex-direction:column;gap:10px}
+.frame.wide{grid-column:span 2}
+.ft{display:flex;align-items:center;gap:8px}
+.id{font:700 12px/1 ui-monospace,Menlo,monospace;background:#021624;color:#fff;padding:5px 7px;border-radius:6px}
+.ttl{font:700 15px 'Familjen Grotesk',sans-serif;white-space:nowrap}
+.cv{border-radius:20px;overflow:hidden;box-shadow:0 0 0 1px rgba(22,24,27,.12),0 8px 24px rgba(22,24,27,.10);background:#E4E3D3;position:relative}
+.cv canvas{display:block}
+.cv .ld{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 11px ui-monospace,Menlo,monospace;color:#4F6570;letter-spacing:.08em}
+.note{font:13px/1.45 'Atkinson Hyperlegible',sans-serif;color:#2E4A5A;text-wrap:pretty}
+.kit{display:grid;grid-template-columns:repeat(6,244px);gap:24px 16px}
+.kit .ttl{font-size:14px}
+.kit .cv{border-radius:16px;box-shadow:0 0 0 1px rgba(22,24,27,.12)}
+.kit .note{font-size:12.5px}
+.tbl{background:#fff;border-radius:16px;overflow:hidden}
+.tr{display:grid;border-top:1px solid #DEDDCB;font:13px/1.4 'Atkinson Hyperlegible',sans-serif;align-items:start}
+.tr.hd{border-top:0;background:#F1F1E6;font:700 11.5px/1.3 'Atkinson Hyperlegible',sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#4F6570}
+.tr>div{padding:9px 8px}
+.mono{font:12px/1.45 ui-monospace,Menlo,monospace;color:#2E4A5A;word-break:break-word}
+.sw{display:flex;gap:6px;align-items:flex-start;white-space:nowrap}
+.sw i{flex:none;width:14px;height:14px;margin-top:2px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
+.sw span{white-space:normal}
+.spec-grid{grid-template-columns:40px 200px 70px 250px 170px 170px 140px 56px minmax(0,1fr)}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px}
+.rules{display:flex;flex-direction:column;gap:10px;font:15px/1.5 'Atkinson Hyperlegible',sans-serif;color:#2E4A5A}
+.rules b{color:#021624}
+.legend{display:flex;flex-direction:column;gap:10px}
+.lg{display:flex;align-items:center;gap:12px;font:14px 'Atkinson Hyperlegible',sans-serif;color:#2E4A5A}
+.ramp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.rampbox{background:#fff;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:flex;flex-direction:column;gap:4px;width:88px;font:11px/1.3 'Atkinson Hyperlegible',sans-serif;color:#2E4A5A}
+.chip i{height:34px;border-radius:8px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div style="display:flex;align-items:center;gap:14px"><span style="width:44px;height:44px;border-radius:12px;background:#DBF227;box-shadow:inset 0 0 0 2px #021624;display:flex;align-items:center;justify-content:center;font:700 22px 'Familjen Grotesk',sans-serif;color:#021624">V</span><div class="eyebrow">VELIX · P3 v3 · CHART DIRECTION · 9 OCT 2026</div></div>
+  <h1>A night chart of the city. One chartreuse line through it.</h1>
+  <p class="lead">Rebuilt from the reference style you shared: navy land, teal water, khaki hairline streets that open into outlined streets as you zoom in, lime labels and parks. Day is the same chart printed on paper. The base map uses 9 colours, and three signals sit on top: the chartreuse route, coral hazards and lilac avoided roads. Metro lines use 12 Velix colour families. Same real OpenMapTiles data and bike routes as v2.</p>
+  <div class="cards">
+    <div class="card"><b>9-colour base</b><span>Abyss, navy, slate, teal, khaki, lime, mist, paper and a few tints of them. Every landuse, building and road is drawn from that set. There are no extra greys.</span></div>
+    <div class="card"><b>Hairlines open into streets</b><span>Up to z15.2 the streets are khaki hairlines whose weight follows class. From there they open into outlined streets that reach full width by z18–19. The route never has to fight a filled khaki road.</span></div>
+    <div class="card"><b>One bright line</b><span>Chartreuse #DBF227 is reserved for your route, puck and Start. It sits 3× brighter than any lime in the base and always carries an abyss casing. See the squint test in <a href="#1k">1k</a>.</span></div>
+    <div class="card"><b>2.5D, cast to the south-east</b><span>Slate roofs with an abyss outline, three-tone walls and long abyss shadows. Landmarks are lighter teal with a lime edge.</span></div>
+  </div>
+</header>
+
+<section id="standard">
+  <div class="eyebrow">01 · STANDARD · CITY, ROAD, CARGO / KIDS</div>
+  <h2>Standard: Politecnico trip</h2>
+  <p class="sub">Best (accent) runs on quiet streets via Piazza Ascoli and Via Pascoli. Fastest (alt) takes Corso Buenos Aires and its painted lane. Tram crossings are found by intersecting the route with the OSM tram network. The cobbles at Piazza Ascoli are illustrative. The avoided street is the closest tram line along the route.</p>
+  <div class="grid" id="g-std"></div>
+</section>
+
+<section id="overlays">
+  <div class="eyebrow">02 · OVERLAYS</div>
+  <h2>Bike lanes, and train and metro lines</h2>
+  <p class="sub">Loreto, z14, no route except in <a href="#2c">2c</a>. Metro lines use their colour family (see <a href="#metrofam">07</a>) with an ink casing and line-coloured station tiles. When a route is active the overlay drops to 60%. Off-road cycleways come from OMT. On-road lanes come from velix_cycling, and the streets shown here are illustrative until the OSM check is done.</p>
+  <div class="grid" id="g-ov"></div>
+</section>
+
+<section id="outdoor">
+  <div class="eyebrow">03 · OUTDOOR · GRAVEL, MTB, E-BIKE</div>
+  <h2>Outdoor: Parco di Monza</h2>
+  <p class="sub">Adds Copernicus/SRTM hillshade (4× exaggeration, since Monza only has about 50 m of relief), 5 m contours with 25 m index lines, tree texture in woods, and track surfaces: paved solid, unpaved dashed, paths dotted. The loop is a real bike-routed 8.6 km from Villa Reale via Viale Cavriga.</p>
+  <div class="grid" id="g-od"></div>
+</section>
+
+<section id="satellite">
+  <div class="eyebrow">04 · SATELLITE · OPEN IMAGERY ONLY</div>
+  <h2>Satellite: free and open sources, self-hosted</h2>
+  <p class="sub">Imagery in these frames is still a placeholder drawn from OSM landcover and roof tones. Production uses only imagery that is free and openly licensed for commercial use, re-tiled by Velix as <span class="mono">velix_imagery</span> (PMTiles). Velix lines get a white halo. At night the imagery dims by 55% before the overlays draw.</p>
+  <div class="tbl">
+    <div class="tr hd" style="grid-template-columns:150px 200px 110px 190px minmax(0,1fr)"><div style="padding:12px 16px">Zoom</div><div>Source</div><div>Pixel</div><div>Licence</div><div>Notes</div></div>
+    <div class="tr" style="grid-template-columns:150px 200px 110px 190px minmax(0,1fr)"><div style="padding:10px 16px;font-weight:700">z0–13 · all Europe</div><div>Velix yearly cloud-free mosaic from Copernicus Sentinel-2 L2A</div><div>10 m</div><div>Copernicus free, full and open</div><div>Built once a year (summer composite). Interim: EOX Sentinel-2 cloudless <b>2016</b> only, which is CC BY 4.0. The 2018+ EOX layers are CC BY-NC-SA, so not usable.</div></div>
+    <div class="tr" style="grid-template-columns:150px 200px 110px 190px minmax(0,1fr)"><div style="padding:10px 16px;font-weight:700">z14–19 · Italy</div><div>AGEA national orthophotos</div><div>20 cm</div><div>CC BY 4.0 (since Aug 2026)</div><div>Covers Milan and Monza. Lombardy's own geoportal layers vary by year (CC BY, IODL, some NC), so use AGEA.</div></div>
+    <div class="tr" style="grid-template-columns:150px 200px 110px 190px minmax(0,1fr)"><div style="padding:10px 16px;font-weight:700">z14–19 · elsewhere</div><div>France IGN BD ORTHO · Spain PNOA · Netherlands PDOK · Switzerland SWISSIMAGE · Austria basemap.at · Brussels, Bavaria, Rhineland-Palatinate, Finland</div><div>7–50 cm</div><div>Etalab Licence Ouverte, CC BY 4.0 or OGD (source credit)</div><div>Check each licence before ingesting. Coverage map grows country by country.</div></div>
+    <div class="tr" style="grid-template-columns:150px 200px 110px 190px minmax(0,1fr)"><div style="padding:10px 16px;font-weight:700">No open ortho</div><div>Sentinel-2 mosaic, overzoomed</div><div>10 m</div><div>as above</div><div>Overzoom to z14, then crossfade to Standard by z14.6. Velix lines keep their halo until the fade ends.</div></div>
+    <div class="tr" style="grid-template-columns:150px 200px 110px 190px minmax(0,1fr)"><div style="padding:10px 16px;font-weight:700;color:#B3261E">Never</div><div>Esri, Google, Bing, Mapbox, Maxar, Apple</div><div>—</div><div>proprietary</div><div>Not open, or not free at Velix scale.</div></div>
+  </div>
+  <p class="sub">Attribution is per provider and shown in the map credits whenever that layer is on screen, e.g. “Contains modified Copernicus Sentinel data 2026 · AGEA CC BY 4.0”.</p>
+  <div class="grid" id="g-sat"></div>
+</section>
+
+<section id="kit">
+  <div class="eyebrow">05 · ROUTE AND HAZARD RENDERING</div>
+  <h2>Navigation stack, close up</h2>
+  <p class="sub">Each element on the real basemap. Top row day, bottom row night. Widths come from <span class="mono">mapLine</span> in velix-tokens.json and are unchanged from P2.</p>
+  <div class="kit" id="g-kit"></div>
+</section>
+
+<section id="metro">
+  <div class="eyebrow">06 · METRO VS ACCENT</div>
+  <h2>Yellow metro never reads as your route</h2>
+  <p class="sub">Chartreuse #DBF227 and metro yellow #F5C400 are different hues, and form still does the work. The route is at least 3.5× wider and heavily cased. Metro lines are hairline-cased, have station tiles with line numbers, sit at 60% opacity under an active route, and draw dashed with a badge when ridden.</p>
+  <div class="grid" id="g-metro"></div>
+</section>
+
+<section id="metrofam">
+  <div class="eyebrow">07 · METRO COLOURS ACROSS EUROPE</div>
+  <h2>12 colour families, not 200 brand hexes</h2>
+  <p class="sub">Velix runs in every European city, so metro lines don't use each operator's exact hex. A line's OSM <span class="mono">colour=*</span> is converted to OKLCH and snapped to one of 12 Velix families by hue and lightness. Red stays red, green stays green, and every family is tuned once for contrast and kept apart from the accent, hazard and avoided colours. When two lines in one city land in the same family, the second gets the alt tone. A third reuses the main tone, and the line number on station tiles tells them apart.</p>
+  <div id="mfam" style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px"></div>
+  <div class="two">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font:700 17px 'Familjen Grotesk',sans-serif">Snapping, from real OSM colours</div>
+      <div id="msnap" style="display:flex;flex-direction:column;gap:8px;background:#fff;border-radius:16px;padding:16px"></div>
+    </div>
+    <div class="rules">
+      <div><b>Rule.</b> grey if chroma &lt; 0.04 · brown if hue 30–95° and L &lt; 0.6 · red/pink/purple around 330–30° by lightness · orange 30–70° · yellow or olive 70–130° by lightness · green 130–165° · cyan 165–215° · light blue or blue 215–275° by lightness · purple 275–330°.</div>
+      <div><b>Signals win.</b> Purple sits on the red side of violet so it never reads as avoided lilac. Green is bluer than the lime protected lane. Red is a cool crimson, away from hazard coral. Form does the rest: metro is 2.5 pt, cased, with station tiles.</div>
+      <div><b>Missing colour tag.</b> Use the line's position in its network: red, green, yellow, blue, orange, purple, then the rest.</div>
+      <div><b>Milan.</b> M1 red, M2 green, M3 yellow, M4 blue, M5 purple. No ATM hex needed.</div>
+    </div>
+  </div>
+  <div class="tbl" id="mcity"><div class="tr hd" style="grid-template-columns:1fr"><div style="padding:12px 16px">Illustrative: line families by city (alt tones where a family repeats)</div></div></div>
+</section>
+
+<section id="eurovelo">
+  <div class="eyebrow">08 · EUROVELO</div>
+  <h2>One badge for all 17 EuroVelo routes</h2>
+  <p class="sub">EuroVelo's own panel (Council of Europe blue with stars) is a registered mark, and the ECF has to approve logo use. So Velix uses its own badge: navy tile, khaki ring, Lucide bike, “EV” and the number. One design for every route, no per-route colours. On the map the route is a soft ribbon under the cycle infrastructure, with badges along it. Lines come from OSM <span class="mono">network=icn</span> relations. The route list is checked against the ECF once a year (EV16 and EV21 are planned).</p>
+  <div id="evall" style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px"></div>
+  <div id="evuse" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px"></div>
+</section>
+
+<section id="palette">
+  <div class="eyebrow">09 · PALETTE</div>
+  <h2>Basemap ramps</h2>
+  <p class="sub">The basemap sits in a narrow band so nothing in it competes with navigation colours. Night is the reference mood. Day is the same chart printed on paper.</p>
+  <div class="ramp" id="ramps"></div>
+</section>
+
+<section id="contrast">
+  <div class="eyebrow">10 · CONTRAST</div>
+  <h2>Line contrast against each basemap</h2>
+  <p class="sub">WCAG ratio of the better of fill or casing/halo against the land colour, plus the worst case against the street fill: white by day, navy #133F5A at night. Khaki hairlines are 0.3–1.4 pt wide and lines draw over them, so they're never the background a line is read against. Target ≥ 3:1.</p>
+  <div class="tbl" id="ctab"></div>
+</section>
+
+<section id="spec">
+  <div class="eyebrow">11 · LAYER SPEC</div>
+  <h2>Layer by layer, bottom to top</h2>
+  <p class="sub">Source <span class="mono">omt</span> is OpenMapTiles from OpenFreeMap. Velix sources cover what OMT lacks: <span class="mono">velix_cycling</span> (on-road lanes), <span class="mono">velix_transit</span> (metro lines and colours), <span class="mono">velix_landmarks</span> (curated landmark ids and names), <span class="mono">velix_shadows</span> (precomputed building shadows, because MapLibre has no shadow casting), and <span class="mono">velix_dem</span>. Widths are pt at MapLibre zooms 13 · 15 · 17, interpolated exponentially (base 1.5).</p>
+  <div id="specs" style="display:flex;flex-direction:column;gap:24px"></div>
+</section>
+
+<section id="labels">
+  <div class="two">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="eyebrow">12 · LABELS AND POIS</div><h2>Labels</h2>
+      <div class="rules">
+        <div><b>Fonts.</b> Atkinson Hyperlegible Regular and Bold, as self-hosted SDF glyphs. Familjen Grotesk is never used on the map.</div>
+        <div><b>Priority</b> (symbol-sort-key, low wins): 1 hazards and avoided tags, 2 start and end, 3 landmarks, 4 metro and rail stations, 4.5 EuroVelo badges, 5 places, 6 road names, 7 POIs, 8 house numbers.</div>
+        <div><b>Roads.</b> Placed along the line. Primary from z14.6, all classes from z15.2, paths from z16. 11 / 12 / 13 pt at z15 / 16 / 17. Primary names are Bold. Road labels draw below the route layer, so the route covers its own street names. The UI carries those.</div>
+        <div><b>Places.</b> Suburbs in caps, Bold 12 pt, +0.08 em, z11.5–15.6. Neighbourhoods Bold 10.5 pt, z13.8–16.4.</div>
+        <div><b>Landmarks.</b> Bold 12 pt in landmark ink, anchored to the roof, from z14.4.</div>
+        <div><b>POIs.</b> 13 pt category discs in muted tones (food, shop, education, health, culture, worship, lodging, green, water). Bike parking uses mix.protected. Civic categories show from z15.6, everything from z16.4, with names from z16.8.</div>
+        <div><b>House numbers</b> from z17.6, 9.5 pt, at the lowest priority.</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="eyebrow">13 · OPEN</div><h2>Still to verify</h2>
+      <div class="rules">
+        <div><b>velix_cycling.</b> The on-road lanes shown (Corso Buenos Aires, Corso Venezia, Viale Monza, Via Melchiorre Gioia, Viale Brianza, Viale Abruzzi) are illustrative. Build them from OSM cycleway=* and check them on the ground.</div>
+        <div><b>Shadows.</b> Need the precomputed velix_shadows source (fixed sun, north-west light). Without it, fall back to fill-extrusion vertical-gradient only.</div>
+        <div><b>Satellite imagery.</b> Sources chosen (<a href="#satellite">04</a>). Build the Sentinel-2 mosaic and AGEA tiles, then re-run the contrast row against real imagery.</div>
+        <div><b>Performance.</b> Check that the full building extrusion at z15 with pitch holds 60 fps on iPhone 12. If not, cap extrusion to buildings over 8 m below z16.</div>
+        <div><b>Priority 4.5</b> (badges) sits between stations and places in the label list.</div>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+
+<script src="p3v3/palettes.js"></script>
+<script src="p3v3/render.js"></script>
+<script src="p3v3/page.js"></script>
+</body>
+</html>

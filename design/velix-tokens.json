@@ -1,0 +1,1002 @@
+{
+  "meta": {
+    "name": "Velix",
+    "version": "1.1.0 (P2 v2 / P3 v3 · Chart)",
+    "direction": "Chart (after reference style.json): abyss, navy, slate, teal, khaki, lime, mist, paper + chartreuse accent",
+    "swift": {
+      "color": "Color.velix.<name>",
+      "font": "Font.velix.<name>",
+      "spacing": "CGFloat.velix.<name>",
+      "radius": "CGFloat.velix.radius.<name>"
+    },
+    "note": "Hex sRGB. Light and dark map to an Asset Catalog colour set with Any / Dark appearances."
+  },
+  "color": {
+    "accent": {
+      "light": "#DBF227",
+      "dark": "#DBF227",
+      "swift": "Color.velix.accent",
+      "use": "Your selected route, Start / primary button, current location"
+    },
+    "accentInk": {
+      "light": "#021624",
+      "dark": "#021624",
+      "swift": "Color.velix.accentInk",
+      "use": "Text and icons on accent"
+    },
+    "ink": {
+      "light": "#021624",
+      "dark": "#EEEDD6",
+      "swift": "Color.velix.ink",
+      "use": "Primary text"
+    },
+    "ink2": {
+      "light": "#2E4A5A",
+      "dark": "#BFC8C2",
+      "swift": "Color.velix.ink2",
+      "use": "Secondary text"
+    },
+    "ink3": {
+      "light": "#4F6570",
+      "dark": "#93A3A6",
+      "swift": "Color.velix.ink3",
+      "use": "Tertiary text, labels"
+    },
+    "surface": {
+      "light": "#FFFFFF",
+      "dark": "#0A2E45",
+      "swift": "Color.velix.surface",
+      "use": "Sheets, cards"
+    },
+    "surface2": {
+      "light": "#F1F1E6",
+      "dark": "#123A54",
+      "swift": "Color.velix.surface2",
+      "use": "Inset fills, pressed, chips"
+    },
+    "canvas": {
+      "light": "#F7F7EF",
+      "dark": "#021624",
+      "swift": "Color.velix.canvas",
+      "use": "Screen background behind sheets"
+    },
+    "line": {
+      "light": "#DEDDCB",
+      "dark": "#1F4862",
+      "swift": "Color.velix.line",
+      "use": "Separators, unselected card borders"
+    },
+    "casing": {
+      "light": "#021624",
+      "dark": "#021624",
+      "swift": "Color.velix.casing",
+      "use": "Route casing, marker rings"
+    },
+    "routeAlt": {
+      "light": "#6A808B",
+      "dark": "#9AA6AA",
+      "swift": "Color.velix.routeAlt",
+      "use": "Non-selected routes (dark raised in P3 v2 for 3:1 vs night roads)"
+    },
+    "hazard": {
+      "light": "#E0532A",
+      "dark": "#FF7A4F",
+      "swift": "Color.velix.hazard",
+      "use": "Hazard tubes, markers, next-hazard card"
+    },
+    "hazardInk": {
+      "light": "#1A0A03",
+      "dark": "#1A0A03",
+      "swift": "Color.velix.hazardInk",
+      "use": "Glyphs and text on hazard"
+    },
+    "avoided": {
+      "light": "#7A4FD6",
+      "dark": "#B79CFF",
+      "swift": "Color.velix.avoided",
+      "use": "Avoided-road lines"
+    },
+    "avoidedInk": {
+      "light": "#5B34B8",
+      "dark": "#CDBBFF",
+      "swift": "Color.velix.avoidedInk",
+      "use": "Avoided-road tag text"
+    },
+    "warningSurface": {
+      "light": "#F3EFC2",
+      "dark": "#33361A",
+      "swift": "Color.velix.warningSurface",
+      "use": "Severe weather, late / missed notices"
+    },
+    "warningInk": {
+      "light": "#4B4300",
+      "dark": "#E6E4A6",
+      "swift": "Color.velix.warningInk",
+      "use": "Text on warning surface"
+    },
+    "success": {
+      "light": "#005C53",
+      "dark": "#9FC131",
+      "swift": "Color.velix.success",
+      "use": "Synced ✓, ready"
+    },
+    "danger": {
+      "light": "#C82C45",
+      "dark": "#FF7A88",
+      "swift": "Color.velix.danger",
+      "use": "End button, failed"
+    },
+    "dangerInk": {
+      "light": "#FFFFFF",
+      "dark": "#1A0003",
+      "swift": "Color.velix.dangerInk",
+      "use": "Text on danger"
+    },
+    "mixProtected": {
+      "light": "#4E8A12",
+      "dark": "#9FC131",
+      "swift": "Color.velix.mixProtected",
+      "use": "Protected lane / bike path (solid)"
+    },
+    "mixPainted": {
+      "light": "#0A7F73",
+      "dark": "#7FD1C3",
+      "swift": "Color.velix.mixPainted",
+      "use": "Painted lane (solid + ticks), teal family"
+    },
+    "mixPaintedTick": {
+      "light": "#BFE3DC",
+      "dark": "#1E5A55",
+      "swift": "Color.velix.mixPaintedTick",
+      "use": "Painted-lane tick pattern"
+    },
+    "mixQuiet": {
+      "light": "#A9C7A0",
+      "dark": "#4E7A55",
+      "swift": "Color.velix.mixQuiet",
+      "use": "Quiet street (solid, light)"
+    },
+    "mixMixed": {
+      "light": "#B0ADAD",
+      "dark": "#5B7380",
+      "swift": "Color.velix.mixMixed",
+      "use": "Mixed traffic (solid grey)"
+    },
+    "mixCobbles": {
+      "light": "#8A5A3C",
+      "dark": "#C4925E",
+      "swift": "Color.velix.mixCobbles",
+      "use": "Cobbles (hatched 45°)"
+    },
+    "mixCobblesAlt": {
+      "light": "#D8C4A8",
+      "dark": "#4A3424",
+      "swift": "Color.velix.mixCobblesAlt",
+      "use": "Cobbles hatch, second stripe"
+    },
+    "mixUnpaved": {
+      "light": "#E7DFBF",
+      "dark": "#3A3A22",
+      "swift": "Color.velix.mixUnpaved",
+      "use": "Unpaved (dotted), base"
+    },
+    "mixUnpavedDot": {
+      "light": "#8F7A3A",
+      "dark": "#D6C27A",
+      "swift": "Color.velix.mixUnpavedDot",
+      "use": "Unpaved dots"
+    },
+    "transitTrain": {
+      "light": "#415C70",
+      "dark": "#B0ADAD",
+      "swift": "Color.velix.transitTrain",
+      "use": "Train legs and lines"
+    },
+    "transitMetroRed": {
+      "light": "#C8102E",
+      "dark": "#C8102E",
+      "alt": "#94101F",
+      "ink": "#FFFFFF",
+      "altInk": "#FFFFFF",
+      "swift": "Color.velix.transitMetroRed",
+      "use": "Metro colour family red. 2nd line of this family in a city uses alt"
+    },
+    "transitMetroOrange": {
+      "light": "#F08A00",
+      "dark": "#F08A00",
+      "alt": "#C46A00",
+      "ink": "#021624",
+      "altInk": "#021624",
+      "swift": "Color.velix.transitMetroOrange",
+      "use": "Metro colour family orange. 2nd line of this family in a city uses alt"
+    },
+    "transitMetroYellow": {
+      "light": "#F5C400",
+      "dark": "#F5C400",
+      "alt": "#C99A00",
+      "ink": "#021624",
+      "altInk": "#021624",
+      "swift": "Color.velix.transitMetroYellow",
+      "use": "Metro colour family yellow. 2nd line of this family in a city uses alt"
+    },
+    "transitMetroOlive": {
+      "light": "#9C9A2E",
+      "dark": "#9C9A2E",
+      "alt": "#757318",
+      "ink": "#021624",
+      "altInk": "#FFFFFF",
+      "swift": "Color.velix.transitMetroOlive",
+      "use": "Metro colour family olive. 2nd line of this family in a city uses alt"
+    },
+    "transitMetroGreen": {
+      "light": "#0F9158",
+      "dark": "#0F9158",
+      "alt": "#4DB37A",
+      "ink": "#021624",
+      "altInk": "#021624",
+      "swift": "Color.velix.transitMetroGreen",
+      "use": "Metro colour family green. 2nd line of this family in a city uses alt"
+    },
+    "transitMetroCyan": {
+      "light": "#1AA6C4",
+      "dark": "#1AA6C4",
+      "alt": "#0B86A8",
+      "ink": "#021624",
+      "altInk": "#021624",
+      "swift": "Color.velix.transitMetroCyan",
+      "use": "Metro colour family cyan. 2nd line of this family in a city uses alt"
+    },
+    "transitMetroLightblue": {
+      "light": "#5AAEE6",
+      "dark": "#5AAEE6",
+      "alt": "#3C8CC8",
+      "ink": "#021624",
+      "altInk": "#021624",
+      "swift": "Color.velix.transitMetroLightblue",
+      "use": "Metro colour family lightblue. 2nd line of this family in a city uses alt"
+    },
+    "transitMetroBlue": {
+      "light": "#1F5FB5",
+      "dark": "#1F5FB5",
+      "alt": "#163F80",
+      "ink": "#FFFFFF",
+      "altInk": "#FFFFFF",
+      "swift": "Color.velix.transitMetroBlue",
+      "use": "Metro colour family blue. 2nd line of this family in a city uses alt"
+    },
+    "transitMetroPurple": {
+      "light": "#9A3A92",
+      "dark": "#9A3A92",
+      "alt": "#6E2470",
+      "ink": "#FFFFFF",
+      "altInk": "#FFFFFF",
+      "swift": "Color.velix.transitMetroPurple",
+      "use": "Metro colour family purple. 2nd line of this family in a city uses alt"
+    },
+    "transitMetroPink": {
+      "light": "#E46FA8",
+      "dark": "#E46FA8",
+      "alt": "#C24F88",
+      "ink": "#021624",
+      "altInk": "#FFFFFF",
+      "swift": "Color.velix.transitMetroPink",
+      "use": "Metro colour family pink. 2nd line of this family in a city uses alt"
+    },
+    "transitMetroBrown": {
+      "light": "#8A5A2B",
+      "dark": "#8A5A2B",
+      "alt": "#B07A45",
+      "ink": "#FFFFFF",
+      "altInk": "#021624",
+      "swift": "Color.velix.transitMetroBrown",
+      "use": "Metro colour family brown. 2nd line of this family in a city uses alt"
+    },
+    "transitMetroGrey": {
+      "light": "#8C9196",
+      "dark": "#8C9196",
+      "alt": "#4A4F55",
+      "ink": "#021624",
+      "altInk": "#FFFFFF",
+      "swift": "Color.velix.transitMetroGrey",
+      "use": "Metro colour family grey. 2nd line of this family in a city uses alt"
+    }
+  },
+  "pattern": {
+    "mixPainted": "solid mixPainted with 2 pt mixPaintedTick vertical ticks every 8 pt",
+    "mixCobbles": "45° hatch, 3 pt mixCobbles / 3 pt mixCobblesAlt",
+    "mixUnpaved": "mixUnpaved base, 1.4 pt mixUnpavedDot dots on a 5 pt grid",
+    "hazardTube": "45° stripes, hazard / casing, 5 pt each (scale with width)",
+    "avoided": "dash 7 / gap 6",
+    "transitLeg": "dash 10 / gap 4 with 1 pt casing"
+  },
+  "mixOrder": [
+    "mixProtected",
+    "mixPainted",
+    "mixQuiet",
+    "mixMixed",
+    "mixCobbles",
+    "mixUnpaved"
+  ],
+  "font": {
+    "display": {
+      "family": "Familjen Grotesk",
+      "weight": 700,
+      "size": 34,
+      "lineHeight": 40,
+      "tracking": "-0.01em",
+      "tabularNumbers": false,
+      "swift": "Font.velix.display",
+      "dynamicType": "full range"
+    },
+    "title1": {
+      "family": "Familjen Grotesk",
+      "weight": 700,
+      "size": 28,
+      "lineHeight": 34,
+      "tracking": "-0.01em",
+      "tabularNumbers": false,
+      "swift": "Font.velix.title1",
+      "dynamicType": "full range"
+    },
+    "title2": {
+      "family": "Familjen Grotesk",
+      "weight": 700,
+      "size": 22,
+      "lineHeight": 28,
+      "tracking": "0",
+      "tabularNumbers": false,
+      "swift": "Font.velix.title2",
+      "dynamicType": "full range"
+    },
+    "headline": {
+      "family": "Familjen Grotesk",
+      "weight": 700,
+      "size": 17,
+      "lineHeight": 22,
+      "tracking": "0",
+      "tabularNumbers": false,
+      "swift": "Font.velix.headline",
+      "dynamicType": "full range"
+    },
+    "body": {
+      "family": "Atkinson Hyperlegible",
+      "weight": 400,
+      "size": 17,
+      "lineHeight": 24,
+      "tracking": "0",
+      "tabularNumbers": false,
+      "swift": "Font.velix.body",
+      "dynamicType": "full range"
+    },
+    "bodyBold": {
+      "family": "Atkinson Hyperlegible",
+      "weight": 700,
+      "size": 17,
+      "lineHeight": 24,
+      "tracking": "0",
+      "tabularNumbers": false,
+      "swift": "Font.velix.bodyBold",
+      "dynamicType": "full range"
+    },
+    "callout": {
+      "family": "Atkinson Hyperlegible",
+      "weight": 400,
+      "size": 15,
+      "lineHeight": 20,
+      "tracking": "0",
+      "tabularNumbers": false,
+      "swift": "Font.velix.callout",
+      "dynamicType": "full range"
+    },
+    "footnote": {
+      "family": "Atkinson Hyperlegible",
+      "weight": 400,
+      "size": 13,
+      "lineHeight": 18,
+      "tracking": "0",
+      "tabularNumbers": false,
+      "swift": "Font.velix.footnote",
+      "dynamicType": "full range"
+    },
+    "caption": {
+      "family": "Atkinson Hyperlegible",
+      "weight": 700,
+      "size": 12,
+      "lineHeight": 16,
+      "tracking": "0.04em",
+      "tabularNumbers": false,
+      "swift": "Font.velix.caption",
+      "dynamicType": "full range"
+    },
+    "numberL": {
+      "family": "Familjen Grotesk",
+      "weight": 700,
+      "size": 30,
+      "lineHeight": 32,
+      "tracking": "-0.01em",
+      "tabularNumbers": true,
+      "swift": "Font.velix.numberL",
+      "dynamicType": "full range"
+    },
+    "numberM": {
+      "family": "Familjen Grotesk",
+      "weight": 700,
+      "size": 24,
+      "lineHeight": 28,
+      "tracking": "0",
+      "tabularNumbers": true,
+      "swift": "Font.velix.numberM",
+      "dynamicType": "full range"
+    },
+    "ridingBigNumber": {
+      "family": "Familjen Grotesk",
+      "weight": 700,
+      "size": 56,
+      "lineHeight": 56,
+      "tracking": "-0.02em",
+      "tabularNumbers": true,
+      "swift": "Font.velix.ridingBigNumber",
+      "dynamicType": "capped at xxLarge (+35%)"
+    },
+    "ridingNumber": {
+      "family": "Familjen Grotesk",
+      "weight": 700,
+      "size": 34,
+      "lineHeight": 36,
+      "tracking": "-0.01em",
+      "tabularNumbers": true,
+      "swift": "Font.velix.ridingNumber",
+      "dynamicType": "capped at xxLarge (+35%)"
+    },
+    "ridingStreet": {
+      "family": "Familjen Grotesk",
+      "weight": 700,
+      "size": 24,
+      "lineHeight": 28,
+      "tracking": "0",
+      "tabularNumbers": false,
+      "swift": "Font.velix.ridingStreet",
+      "dynamicType": "capped at xxLarge (+35%)"
+    },
+    "ridingLabel": {
+      "family": "Atkinson Hyperlegible",
+      "weight": 700,
+      "size": 17,
+      "lineHeight": 22,
+      "tracking": "0",
+      "tabularNumbers": false,
+      "swift": "Font.velix.ridingLabel",
+      "dynamicType": "capped at xxLarge (+35%)"
+    }
+  },
+  "spacing": {
+    "xxs": {
+      "value": 4,
+      "swift": "CGFloat.velix.xxs"
+    },
+    "xs": {
+      "value": 8,
+      "swift": "CGFloat.velix.xs"
+    },
+    "s": {
+      "value": 12,
+      "swift": "CGFloat.velix.s"
+    },
+    "m": {
+      "value": 16,
+      "swift": "CGFloat.velix.m"
+    },
+    "l": {
+      "value": 24,
+      "swift": "CGFloat.velix.l"
+    },
+    "xl": {
+      "value": 32,
+      "swift": "CGFloat.velix.xl"
+    },
+    "xxl": {
+      "value": 48,
+      "swift": "CGFloat.velix.xxl"
+    }
+  },
+  "radius": {
+    "chip": {
+      "value": 8,
+      "swift": "CGFloat.velix.radius.chip"
+    },
+    "card": {
+      "value": 16,
+      "swift": "CGFloat.velix.radius.card"
+    },
+    "sheet": {
+      "value": 24,
+      "swift": "CGFloat.velix.radius.sheet"
+    },
+    "capsule": {
+      "value": 999,
+      "swift": "CGFloat.velix.radius.capsule"
+    }
+  },
+  "elevation": {
+    "e0": {
+      "light": null,
+      "dark": null
+    },
+    "e1": {
+      "light": {
+        "y": 2,
+        "blur": 6,
+        "color": "#021624",
+        "opacity": 0.15
+      },
+      "dark": {
+        "border": "#1F4862"
+      }
+    },
+    "e2": {
+      "light": {
+        "y": 8,
+        "blur": 20,
+        "color": "#021624",
+        "opacity": 0.12
+      },
+      "dark": {
+        "border": "#2C5870",
+        "y": 8,
+        "blur": 20,
+        "color": "#021624",
+        "opacity": 0.5
+      }
+    },
+    "e3": {
+      "light": {
+        "y": -8,
+        "blur": 24,
+        "color": "#021624",
+        "opacity": 0.08
+      },
+      "dark": {
+        "border": "#1F4862"
+      }
+    }
+  },
+  "motion": {
+    "press": {
+      "durationMs": 120,
+      "curve": "easeOut",
+      "use": "Scale 0.96 on tap",
+      "reduceMotion": "Opacity only"
+    },
+    "sheetSnap": {
+      "durationMs": 350,
+      "curve": "spring(response 0.35, damping 0.86)",
+      "use": "Detent changes",
+      "reduceMotion": "Crossfade 150 ms"
+    },
+    "routeDrawIn": {
+      "durationMs": 600,
+      "curve": "easeOut",
+      "use": "Best route draws start → end, alt fades in 200 ms later",
+      "reduceMotion": "Lines appear at once"
+    },
+    "viewMode": {
+      "durationMs": 450,
+      "curve": "easeInOut",
+      "use": "2D ↔ 3D pitch 0° ↔ 50°, North-up rotate",
+      "reduceMotion": "Cut with 150 ms fade"
+    },
+    "hazardApproach": {
+      "durationMs": 250,
+      "curve": "easeOut",
+      "use": "NextHazardCard fills with hazard + haptic",
+      "reduceMotion": "Colour change only, no slide"
+    },
+    "banner": {
+      "durationMs": 250,
+      "curve": "easeOut",
+      "use": "NoticeBanner slides from top",
+      "reduceMotion": "Fade"
+    }
+  },
+  "mapLine": {
+    "routeSelectedCasing": {
+      "z13": 8,
+      "z15": 13,
+      "z17": 20,
+      "unit": "pt"
+    },
+    "routeSelected": {
+      "z13": 5,
+      "z15": 9,
+      "z17": 14,
+      "unit": "pt"
+    },
+    "routeAlt": {
+      "z13": 3,
+      "z15": 5,
+      "z17": 8,
+      "unit": "pt"
+    },
+    "routeAltCasing": {
+      "z13": 5,
+      "z15": 8,
+      "z17": 11,
+      "unit": "pt"
+    },
+    "hazardTube": {
+      "z13": 5,
+      "z15": 9,
+      "z17": 14,
+      "unit": "pt"
+    },
+    "avoided": {
+      "z13": 2,
+      "z15": 3,
+      "z17": 4,
+      "unit": "pt"
+    },
+    "transitLeg": {
+      "z13": 3,
+      "z15": 5,
+      "z17": 7,
+      "unit": "pt"
+    },
+    "bikeLaneOverlay": {
+      "z13": 1.5,
+      "z15": 3,
+      "z17": 5,
+      "unit": "pt"
+    },
+    "metro": {
+      "z13": 1.5,
+      "z15": 2.5,
+      "z17": 4,
+      "unit": "pt",
+      "casing": "+1.5, always"
+    },
+    "rail": {
+      "z13": 0.6,
+      "z15": 1,
+      "z17": 2,
+      "unit": "pt"
+    },
+    "roadMajor": {
+      "z13": 1.6,
+      "z15": 4,
+      "z17": 12,
+      "unit": "pt"
+    },
+    "roadSecondary": {
+      "z13": 0.9,
+      "z15": 2.8,
+      "z17": 9,
+      "unit": "pt"
+    },
+    "roadMinor": {
+      "z13": 0.3,
+      "z15": 1.4,
+      "z17": 6,
+      "unit": "pt"
+    },
+    "track": {
+      "z13": 1,
+      "z15": 2,
+      "z17": 4,
+      "unit": "pt"
+    },
+    "path": {
+      "z13": 0.8,
+      "z15": 1.4,
+      "z17": 2.5,
+      "unit": "pt"
+    },
+    "roadPrimary": {
+      "z13": 1.2,
+      "z15": 3.4,
+      "z17": 11,
+      "unit": "pt"
+    }
+  },
+  "touchTarget": {
+    "min": 44,
+    "riding": 60
+  },
+  "mapStyle": {
+    "note": "P3 v3 Chart. Streets: one hairline colour below fillFrom (alpha by class: motor/primary 1, secondary .9, tertiary .8, minor .55, service .4), outlined streets above. Full spec: Velix P3 Map Cartography v3.html",
+    "standard": {
+      "day": {
+        "land": "#EFEEE2",
+        "residential": "#E7E7D9",
+        "commercial": "#E3E4D8",
+        "education": "#E9E7D2",
+        "cemetery": "#D3DDB4",
+        "pitch": "#D3DFA6",
+        "grass": "#DCE3C0",
+        "park": "#CBDC8C",
+        "wood": "#BBD07E",
+        "woodDot": "#9DB860",
+        "water": "#8EC6BC",
+        "waterLine": "#5FA89B",
+        "waterInk": "#005C53",
+        "pedFill": "#F6F5EC",
+        "chartLine": "#2C5870",
+        "chartW": 0.55,
+        "fillFrom": 15.2,
+        "motor": "#FFFFFF",
+        "motorCase": "#5E7883",
+        "primary": "#FFFFFF",
+        "primaryCase": "#8FA3A8",
+        "secondary": "#FFFFFF",
+        "secondaryCase": "#A5B4B3",
+        "minor": "#FFFFFF",
+        "minorCase": "#BFC7BE",
+        "service": "#FBFBF5",
+        "path": "#6F8A8F",
+        "rail": "#8E8B8B",
+        "tram": "#8E8B8B",
+        "roof": [
+          "#D4DEDC",
+          "#D0DAD8",
+          "#D8E1DE",
+          "#CDD8D6"
+        ],
+        "wallL": "#BCCBCB",
+        "wallM": "#A6B8BA",
+        "wallD": "#8EA3A8",
+        "edge": "#F2F5F2",
+        "shadow": "rgba(2,22,36,0.16)",
+        "lmRoof": "#E4E7B0",
+        "lmWallL": "#CFD195",
+        "lmWallD": "#9D9F63",
+        "lmEdge": "#F4F5D8",
+        "label": "#2C5870",
+        "labelMinor": "#4F6E7E",
+        "halo": "#F4F3EA",
+        "place": "#005C53",
+        "placeMajor": "#042940",
+        "hn": "#7E9198",
+        "lmInk": "#021624",
+        "poiAlpha": 1,
+        "glyph": "#FFFFFF"
+      },
+      "night": {
+        "land": "#042940",
+        "residential": "#0B3350",
+        "commercial": "#113953",
+        "education": "#14394C",
+        "cemetery": "#2A4528",
+        "pitch": "#28422D",
+        "grass": "#1F3B33",
+        "park": "#4A6A22",
+        "wood": "#2C4C27",
+        "woodDot": "#6F9A2C",
+        "water": "#005C53",
+        "waterLine": "#00776B",
+        "waterInk": "#5FC2B4",
+        "pedFill": "#1C4560",
+        "chartLine": "#D6D58E",
+        "chartW": 0.55,
+        "fillFrom": 15.2,
+        "motor": "#17465F",
+        "motorCase": "#D6D58E",
+        "primary": "#133F5A",
+        "primaryCase": "#D6D58E",
+        "secondary": "#103A54",
+        "secondaryCase": "#C3C389",
+        "minor": "#0D3550",
+        "minorCase": "#8F9C78",
+        "service": "#0A3049",
+        "path": "#D6D58E",
+        "rail": "#B0ADAD",
+        "tram": "#B0ADAD",
+        "roof": [
+          "#2C5870",
+          "#2A556D",
+          "#2F5B73",
+          "#295369"
+        ],
+        "wallL": "#3A6A84",
+        "wallM": "#214A62",
+        "wallD": "#163A50",
+        "edge": "#042940",
+        "shadow": "rgba(1,10,18,0.55)",
+        "lmRoof": "#4B7F8E",
+        "lmWallL": "#3B6E7E",
+        "lmWallD": "#1E4656",
+        "lmEdge": "#9FC131",
+        "label": "#9FC131",
+        "labelMinor": "#86A632",
+        "halo": "#021624",
+        "place": "#9FC131",
+        "placeMajor": "#D6D58E",
+        "hn": "#5E7F3A",
+        "lmInk": "#EEEDD6",
+        "poiAlpha": 0.75,
+        "glyph": "#021624"
+      }
+    },
+    "outdoor": {
+      "day": {
+        "land": "#F0EEDF",
+        "meadow": "#D9E2B0",
+        "golf": "#CBDDA0",
+        "contour": "#C9C79A",
+        "contourIdx": "#A3A06A",
+        "track": "#6E5A1E",
+        "trackCase": "#F7F6EA",
+        "shadeDark": "2,22,36",
+        "shadeLight": "255,255,240",
+        "spring": "#00766A"
+      },
+      "night": {
+        "meadow": "#2A4A2C",
+        "golf": "#2E5232",
+        "contour": "#2E4E46",
+        "contourIdx": "#55704A",
+        "track": "#D6D58E",
+        "trackCase": "#042940",
+        "shadeDark": "1,10,18",
+        "shadeLight": "44,73,70",
+        "spring": "#5FC2B4"
+      }
+    },
+    "satellite": {
+      "day": {
+        "lineHalo": "#FFFFFF",
+        "labelHalo": "#021624",
+        "placeLabel": "#DBF227"
+      },
+      "night": {
+        "imageryDim": 0.55,
+        "lineHalo": "#FFFFFF",
+        "labelHalo": "#021624",
+        "label": "#9FC131"
+      }
+    },
+    "poi": {
+      "day": "#5E8A22",
+      "dayWater": "#00766A",
+      "night": "#9FC131",
+      "nightWater": "#5FC2B4",
+      "nightAlpha": 0.75
+    }
+  },
+  "mapRules": {
+    "metroWhileRouteActiveOpacity": 0.6,
+    "baseCycleInfraMinZoom": 14,
+    "baseCycleInfraWidthFactor": 0.7,
+    "overlayBikeMinZoom": 11,
+    "arrowsMinZoom": 16,
+    "buildingsMinZoom": 16,
+    "follow3D": {
+      "pitch": 50,
+      "riderAt": 0.72,
+      "extrusionHeightFactor": 0.6,
+      "extrusionOpacity": 0.5
+    },
+    "baseCycleInfraOpacity": 0.8,
+    "buildingsFlatMinZoom": 13.6,
+    "buildingsExtrudeMinZoom": 15,
+    "buildingsExtrudeRamp": [
+      14.6,
+      15.8
+    ],
+    "landmarksExtrudeMinZoom": 14.4,
+    "lightDirection": "NW, anchor map",
+    "shadows": "velix_shadows, offset SE height x0.9, optional",
+    "poiMinZoom": {
+      "civic": 15.6,
+      "all": 16.4,
+      "names": 16.8
+    },
+    "housenumberMinZoom": 17.6,
+    "roadLabelMinZoom": 14.6,
+    "hillshadeExaggerationVisual": 4,
+    "contourInterval": 5,
+    "contourIndex": 25,
+    "metroCasingNight": "#E9EBEE",
+    "routeAltCasingNight": "#021624",
+    "metroCasingDay": "#021624",
+    "metroFamilySnap": "OSM colour=* → OKLCH → family (grey C<0.04; brown H30–95 & L<0.6; red/pink/purple 330–30 by L; orange 30–70; yellow/olive 70–130 by L; green 130–165; cyan 165–215; lightblue/blue 215–275 by L; purple 275–330). Same family twice in one city → alt.",
+    "metroFallbackOrder": [
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "orange",
+      "purple"
+    ],
+    "eurovelo": {
+      "source": "OSM route=bicycle, network=icn, ref=EV*",
+      "routes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        17,
+        19
+      ],
+      "listReview": "yearly vs ECF",
+      "ribbon": {
+        "light": "rgba(44,88,112,.35)",
+        "dark": "rgba(176,173,173,.30)",
+        "width": {
+          "z13": 7,
+          "z15": 10,
+          "z17": 14
+        },
+        "minZoom": 8,
+        "fadeOut": [
+          15,
+          16
+        ]
+      },
+      "badge": {
+        "fill": "#042940",
+        "ring": "#D6D58E",
+        "evText": "#D6D58E",
+        "number": "#EFEEE2",
+        "icon": "lucide/bike",
+        "height": {
+          "z9": 20,
+          "z15": 24
+        },
+        "spacing": 280,
+        "priority": 4.5,
+        "shared": "stack in ref order"
+      }
+    },
+    "imagery": {
+      "lowZoom": {
+        "zoom": "0-13",
+        "source": "Velix yearly Sentinel-2 L2A mosaic (Copernicus, free full and open)",
+        "interim": "EOX Sentinel-2 cloudless 2016 (CC BY 4.0) only"
+      },
+      "highZoom": {
+        "zoom": "14-19",
+        "sources": [
+          "IT AGEA (CC BY 4.0)",
+          "FR IGN BD ORTHO (Etalab)",
+          "ES PNOA (CC BY 4.0)",
+          "NL PDOK (CC BY 4.0)",
+          "CH SWISSIMAGE (OGD)",
+          "AT basemap.at (CC BY 4.0)"
+        ]
+      },
+      "noOrtho": "overzoom to z14, crossfade to Standard by z14.6",
+      "never": [
+        "Esri",
+        "Google",
+        "Bing",
+        "Mapbox",
+        "Maxar",
+        "Apple"
+      ],
+      "hosting": "self-hosted PMTiles",
+      "attribution": "per provider, in map credits while visible"
+    }
+  },
+  "palette": {
+    "abyss": "#021624",
+    "navy": "#042940",
+    "slate": "#2C5870",
+    "teal": "#005C53",
+    "khaki": "#D6D58E",
+    "lime": "#9FC131",
+    "mist": "#B0ADAD",
+    "paper": "#EFEEE2",
+    "chartreuse": "#DBF227",
+    "note": "Base map + UI neutrals are built only from these 9. Signals: chartreuse (you), hazard coral, avoided lilac. Metro uses 12 Velix colour families (transitMetro*)."
+  }
+}
