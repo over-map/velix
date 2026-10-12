@@ -4,6 +4,15 @@ Product decisions live in `BRIEF.md` §8 and `../design/HANDOFF.md` §3. Log her
 
 | Date | Decision | Reason | Who |
 |---|---|---|---|
+| 2026-10-12 | M1 recommendation: GO on on-device Valhalla; real 20-min ride (stability, battery, locked screen) still to do | iPhone 11 routes 2–25 km in ≤ 215 ms (first call) / ≤ 61 ms warm; reroute 8 ms; see docs/spikes/M1_REPORT.md | Claude (Filippo to confirm) |
+| 2026-10-12 | Spike tiles side-loaded into the app's Documents, not bundled in the debug build (BUILD_PLAN M1 says bundle) | Keeps 70 MB out of every build and CI; matches how the downloaded pack will be read in M2 | Claude |
+| 2026-10-12 | Valhalla tiles built with the official `ghcr.io/valhalla/valhalla:3.9.0` image | Same Valhalla version as valhalla-mobile 0.6.3, so the tile format matches | Claude |
+| 2026-10-12 | Local Docker engine: Colima (MIT) instead of Docker Desktop | No account or licence terms; same `docker` CLI | Claude |
+| 2026-10-12 | Bundle id `io.github.over-map.velix` (extension `.LiveActivity`) | Personal GitHub namespace; replaces placeholder `dev.velix.app` | Claude |
+| 2026-10-12 | Free Personal Team: no App Groups; Live Activity fed by local ActivityKit updates only | App Groups entitlement refused by the team profile; HealthKit and Live Activity work | Claude |
+| 2026-10-12 | Pack size is an M2 risk: Lombardy bbox tiles 370 MB raw / 145 MB gzip vs 220 MB budget | Measured in M1; options listed in M1_REPORT.md | Claude |
+| 2026-10-12 | Debug spike screen uses Ferrostar's stock navigation UI (contains SF Symbols); not in release builds | Spike only; Velix riding components replace it in M7 | Claude |
+| 2026-10-12 | M7 must end the ride on distance to destination (≈ 30–50 m), not only Ferrostar's arrival step | Simulator run stopped 50 m from the route end and never auto-ended | Claude |
 | 2026-10-11 | Licence Apache-2.0 | Permissive with a patent grant; compatible with all dependencies | Filippo |
 | 2026-10-11 | `.xcodeproj` not committed (XcodeGen), except `Package.resolved` | Generated file never hand-edited; resolved versions must stay reproducible | Claude |
 | 2026-10-11 | All direct SPM deps pinned with `exactVersion`; valhalla-mobile 0.6.3, not 0.6.4 | 0.6.4 was 5 days old at M0; take it after the M1 spike if needed | Claude |

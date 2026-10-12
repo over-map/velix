@@ -1,0 +1,27 @@
+{"batteryPct":100,"device":"iPhone12,1","event":"engine_init","memMB":58,"ms":227,"t":"2026-10-12T09:55:34Z","tilesMB":69}
+{"batteryPct":100,"event":"benchmark","firstMs":215,"m":2280,"medianMs":21,"memMB":65,"t":"2026-10-12T09:55:34Z","trip":"Porta Venezia → Politecnico"}
+{"batteryPct":100,"event":"benchmark","firstMs":208,"m":6572,"medianMs":53,"memMB":83,"t":"2026-10-12T09:55:34Z","trip":"Duomo → Bicocca"}
+{"batteryPct":100,"event":"benchmark","firstMs":46,"m":6249,"medianMs":22,"memMB":85,"t":"2026-10-12T09:55:35Z","trip":"Darsena → Politecnico"}
+{"batteryPct":100,"event":"benchmark","firstMs":53,"m":8249,"medianMs":28,"memMB":87,"t":"2026-10-12T09:55:35Z","trip":"Porta Venezia → San Siro"}
+{"batteryPct":100,"event":"benchmark","firstMs":138,"m":25227,"medianMs":61,"memMB":89,"t":"2026-10-12T09:55:35Z","trip":"Rho Fiera → San Donato"}
+{"batteryPct":100,"event":"benchmark","firstMs":8,"m":1738,"medianMs":8,"memMB":89,"t":"2026-10-12T09:55:35Z","trip":"Reroute: off route → Politecnico"}
+{"batteryPct":100,"device":"iPhone12,1","event":"engine_init","memMB":64,"ms":99,"t":"2026-10-12T09:55:52Z","tilesMB":69}
+{"batteryPct":100,"event":"ride_start","m":2280,"memMB":77,"routeMs":88,"source":"Simulated","t":"2026-10-12T09:55:53Z","to":"Politecnico"}
+{"batteryPct":100,"event":"ride_tick","memMB":180,"t":"2026-10-12T09:56:53Z"}
+{"batteryPct":100,"event":"ride_tick","memMB":179,"t":"2026-10-12T09:57:53Z"}
+{"batteryPct":100,"event":"ride_tick","memMB":187,"t":"2026-10-12T09:58:53Z"}
+{"batteryPct":100,"event":"ride_tick","memMB":187,"t":"2026-10-12T09:59:53Z"}
+{"batteryPct":100,"event":"ride_end","memMB":187,"reason":"arrived","rerouteMaxMs":0,"reroutes":0,"t":"2026-10-12T10:00:18Z"}
+{"batteryPct":100,"device":"iPhone12,1","event":"engine_init","memMB":78,"ms":217,"t":"2026-10-12T10:00:56Z","tilesMB":69}
+{"batteryPct":100,"event":"ride_start","m":2280,"memMB":99,"routeMs":98,"source":"Simulated","t":"2026-10-12T10:00:56Z","to":"Politecnico"}
+{"batteryPct":100,"event":"ride_tick","memMB":173,"t":"2026-10-12T10:01:56Z"}
+{"batteryPct":100,"event":"ride_tick","memMB":173,"t":"2026-10-12T10:02:56Z"}
+{"batteryPct":100,"event":"ride_tick","memMB":241,"t":"2026-10-12T10:03:56Z"}
+{"batteryPct":100,"event":"ride_tick","memMB":248,"t":"2026-10-12T10:04:56Z"}
+{"batteryPct":100,"event":"ride_end","memMB":248,"reason":"arrived","rerouteMaxMs":0,"reroutes":0,"t":"2026-10-12T10:05:21Z"}
+{"batteryPct":100,"device":"iPhone12,1","event":"engine_init","memMB":71,"ms":164,"t":"2026-10-12T10:11:22Z","tilesMB":69}
+{"batteryPct":100,"event":"ride_start","m":2280,"memMB":100,"routeMs":199,"source":"Simulated","t":"2026-10-12T10:11:23Z","to":"Politecnico"}
+{"batteryPct":100,"enabled":true,"event":"live_activity","memMB":100,"started":true,"t":"2026-10-12T10:11:23Z"}
+{"batteryPct":100,"event":"ride_tick","memMB":199,"t":"2026-10-12T10:12:23Z"}
+{"batteryPct":100,"event":"ride_tick","memMB":199,"t":"2026-10-12T10:13:23Z"}
+{"batteryPct":100,"event":"ride_tick","memMB":207,"t":"2026-10-12T10:14:23Z"}
