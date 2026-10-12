@@ -1,0 +1,12 @@
+{
+  "id": "city",
+  "costing": "bicycle",
+  "costing_options": {
+    "bicycle_type": "hybrid",
+    "cycling_speed": 16,
+    "use_roads": 0.2,
+    "use_hills": 0.3,
+    "avoid_bad_surfaces": 0.6,
+    "use_living_streets": 0.6
+  }
+}
