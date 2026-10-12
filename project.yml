@@ -1,0 +1,130 @@
+name: Velix
+options:
+  bundleIdPrefix: dev.velix
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+
+packages:
+  Ferrostar:
+    url: https://github.com/stadiamaps/ferrostar
+    exactVersion: 0.57.0
+  MapLibre:
+    url: https://github.com/maplibre/maplibre-gl-native-distribution
+    exactVersion: 6.31.0
+  ValhallaMobile:
+    url: https://github.com/Rallista/valhalla-mobile
+    exactVersion: 0.6.3
+  SnapshotTesting:
+    url: https://github.com/pointfreeco/swift-snapshot-testing
+    exactVersion: 1.19.6
+
+targets:
+  Velix:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: Shared
+    dependencies:
+      - target: VelixLiveActivity
+      - package: Ferrostar
+        product: FerrostarCore
+      - package: Ferrostar
+        product: FerrostarMapLibreUI
+      - package: Ferrostar
+        product: FerrostarSwiftUI
+      - package: MapLibre
+        product: MapLibre
+      - package: ValhallaMobile
+        product: Valhalla
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Velix
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIRequiresFullScreen: true
+        NSSupportsLiveActivities: true
+        ITSAppUsesNonExemptEncryption: false
+        UIAppFonts:
+          - AtkinsonHyperlegible-Regular.ttf
+          - AtkinsonHyperlegible-Bold.ttf
+          - FamiljenGrotesk-Medium.ttf
+          - FamiljenGrotesk-SemiBold.ttf
+          - FamiljenGrotesk-Bold.ttf
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.velix.app
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+
+  VelixLiveActivity:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: LiveActivity
+      - path: Shared
+    info:
+      path: LiveActivity/Info.plist
+      properties:
+        CFBundleDisplayName: Velix
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.velix.app.LiveActivity
+
+  VelixTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/Unit
+    dependencies:
+      - target: Velix
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: dev.velix.app.tests
+
+  VelixSnapshotTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/Snapshot
+        excludes:
+          - "**/__Snapshots__/**"
+    dependencies:
+      - target: Velix
+      - package: SnapshotTesting
+        product: SnapshotTesting
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: dev.velix.app.snapshottests
+
+schemes:
+  Velix:
+    build:
+      targets:
+        Velix: all
+        VelixLiveActivity: all
+    test:
+      gatherCoverageData: false
+      targets:
+        - VelixTests
+        - VelixSnapshotTests
+    run:
+      config: Debug
