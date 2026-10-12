@@ -2,7 +2,11 @@
 
 Go/no-go gate from `docs/BUILD_PLAN.md` M1: **route < 2 s, reroute < 2 s, app stable on a real ride.**
 
-## Recommendation: GO (routing), with the real ride still pending
+## Decision: GO (12 Oct). Real-ride checks moved to M7
+
+Filippo can't ride this week, so M1 closes on the device measurements below. The real-ride checklist at the end becomes part of **M7 acceptance** (which already needs 3 real rides in Milan).
+
+## Recommendation: GO (routing)
 
 On-device Valhalla is 10–100× faster than the target on an iPhone 11 (2019, A13), the oldest phone we care about. Ferrostar takes the on-device route through its custom route provider, rerouting works, and a Live Activity runs on the free Personal Team. The one criterion not yet measured is **stability and battery on a real 20-minute ride in Milan**: that needs Filippo on the bike (checklist below). Nothing so far suggests a different engine or an earlier server provider.
 
@@ -73,7 +77,7 @@ Impact of no App Groups: the Live Activity must be fed by ActivityKit content up
 - Xcode command line needs `-skipMacroValidation` (MapLibre SwiftUI DSL macro) and, for this machine, `OS=18.0` with iPhone 16 (M0).
 - Ferrostar's stock UI uses SF Symbols; it is used only in the debug spike screen and is replaced by Velix components in M7.
 
-## Real-ride checklist (Filippo)
+## Real-ride checklist (Filippo, now part of M7 acceptance)
 
 Needs Milan, ~20 min, phone **unplugged**, mounted, Wi-Fi off is fine (routing is offline; map tiles still stream from OpenFreeMap).
 
