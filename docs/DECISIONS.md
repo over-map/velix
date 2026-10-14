@@ -4,6 +4,15 @@ Product decisions live in `BRIEF.md` §8 and `../design/HANDOFF.md` §3. Log her
 
 | Date | Decision | Reason | Who |
 |---|---|---|---|
+| 2026-10-14 | Region pack budget = **download size** ≤ 220 MB; first pack 2026.10 is 120 MB to download (tiles 112 MB, of which ≈ 18 MB is elevation), 439 MB on the phone | Valhalla reads tiles uncompressed (339–361 MB alone), so a 220 MB on-phone limit would mean splitting Lombardy | Filippo |
+| 2026-10-14 | Pack covers the **exact Lombardy border** (relation 44879), no buffer | Smallest pack; routes stop at the border | Filippo |
+| 2026-10-14 | Sidecars are SQLite (+ R*Tree), not GeoJSON/FlatGeobuf as BUILD_PLAN M2 suggested | Native on iOS, fast "within 50 m" queries without loading everything, GTFS tables query naturally | Claude |
+| 2026-10-14 | Pack files are separate Release assets, each xz -9 (single-threaded), decompressed with Apple's Compression (LZMA) | Per-file resume and verification; no new dependency; deterministic output | Claude |
+| 2026-10-14 | Steep descents/climbs come from Valhalla edge grades on the phone, not from the hazard sidecar | Elevation (Copernicus GLO-30) is baked into the tiles; one source of truth for grades | Claude |
+| 2026-10-14 | Valhalla country admin: the Lombardy border re-tagged as Italia (IT), synthetic relation id 2000365331 | The extract cuts the real Italy boundary, so Valhalla dropped country rules; fetching it from Overpass timed out (504). Every edge in the pack is in Italy | Claude |
+| 2026-10-14 | ATM metro timetable: when a feed ends inside the 60-day window, repeat its last full week, flagged `projected` | ATM publishes ≈ 2 weeks of metro times at a time; a monthly pack would otherwise run out | Claude |
+| 2026-10-14 | Trenord bikes-on-board = `check` for every train; ATM metro = allowed all day, carriage per line (ATM "Bici sui mezzi", Nov 2024) | Trenord flags bikes per train only in its own app; its GTFS has no `bikes_allowed`. Product choice for the suggestion row is left to M8 | Claude (Filippo to review) |
+| 2026-10-14 | BUILD_PLAN M3 example "City avoids Via Morgagni cobbles" is outdated: OSM now tags Via Morgagni (Milan) asphalt | Found in the M2 smoke test; pick a cobbled street (e.g. Brera, Via Fiori Chiari) for the M3 golden trips | Claude |
 | 2026-10-14 | M1 GO confirmed by a real ride (49 min, 28 reroutes ≤ 106 ms, no crash, battery 100 → 85 %); supersedes the 12 Oct "real-ride checks move to M7" entry | All M1 criteria now measured on the iPhone 11 | Filippo + Claude |
 | 2026-10-14 | M7: own CoreLocation provider with `pausesLocationUpdatesAutomatically = false` during a ride | 2.5-min log gap while stationary on the real ride | Claude |
 | 2026-10-14 | M7: reroute back-off when the rider keeps ignoring the route, several consecutive off-route fixes, and keep the old route when a reroute fails. Voice on a locked screen still to check in M7 | Real ride: 28 reroutes while Filippo rode his own way on purpose (every 7–10 s); one failed reroute; sound was off | Claude |

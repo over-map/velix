@@ -27,6 +27,12 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 | [osmium-tool](https://osmcode.org/osmium-tool/) | GPL-3.0 (tool only, not linked) | Clipping OSM extracts |
 | [Colima](https://github.com/abiosoft/colima) | MIT | Local Docker engine |
 | [fontTools](https://github.com/fonttools/fonttools) | MIT | Cutting static font instances |
+| [GDAL](https://gdal.org) image `ghcr.io/osgeo/gdal:ubuntu-small-3.11.4` | MIT | DEM → SRTM tiles |
+| [pyosmium](https://osmcode.org/pyosmium/) 4.0.2 | BSD-2-Clause | Reading OSM in the pipeline |
+| [Shapely](https://github.com/shapely/shapely) 2.0.7 | BSD-3-Clause | Hazard geometry |
+| [pyproj](https://github.com/pyproj4/pyproj) 3.7.1 | MIT | Metric projection |
+| [PyYAML](https://github.com/yaml/pyyaml) 6.0.2 | MIT | Config |
+| [jsonschema](https://github.com/python-jsonschema/jsonschema) 4.23.0 | MIT | Manifest validation |
 
 ## Fonts (bundled in `App/Resources/Fonts/`)
 
@@ -48,5 +54,6 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 |---|---|---|
 | OpenStreetMap (Geofabrik extracts) | ODbL 1.0 | "© OpenStreetMap contributors" on every map |
 | OpenFreeMap tiles | Free, attribution requested | You → About |
-| Copernicus GLO-30 DEM | Copernicus licence (free, attribution) | You → About |
-| Trenord / ATM GTFS | Per operator open-data terms (to confirm in M2) | You → About |
+| Copernicus DEM GLO-30 (AWS Open Data) | Copernicus DEM licence (free, attribution) | "© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved" (You → About, release notes) |
+| Trenord GTFS "Orario Ferroviario Regionale" (Regione Lombardia open data, dataset 3z4k-mxz9) | CC BY 4.0 | "Trenord" (You → About) |
+| ATM GTFS (Comune di Milano open data, ds929) | CC BY 4.0 | "ATM, via Comune di Milano" (You → About) |
