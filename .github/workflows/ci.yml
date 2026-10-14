@@ -49,13 +49,13 @@ jobs:
       - name: Build
         run: >
           xcodebuild -scheme Velix -destination "$DEST"
-          -derivedDataPath build/DerivedData -skipMacroValidation -skipPackagePluginValidation
+          -derivedDataPath build/DerivedData -skipMacroValidation -skipPackagePluginValidation -onlyUsePackageVersionsFromResolvedFile
           CODE_SIGNING_ALLOWED=NO build
 
       - name: Test
         run: >
           xcodebuild -scheme Velix -destination "$DEST"
-          -derivedDataPath build/DerivedData -skipMacroValidation -skipPackagePluginValidation
+          -derivedDataPath build/DerivedData -skipMacroValidation -skipPackagePluginValidation -onlyUsePackageVersionsFromResolvedFile
           -resultBundlePath build/Velix.xcresult
           CODE_SIGNING_ALLOWED=NO test
 

@@ -1,0 +1,76 @@
+name: Region pack
+
+on:
+  schedule:
+    - cron: "0 3 1 * *"        # 1st of each month, 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a GitHub Release (main only)"
+        type: boolean
+        default: false
+  pull_request:
+    paths: ["pipeline/**", ".github/workflows/region-pack.yml"]
+
+permissions:
+  contents: write              # create the Release; nothing else
+
+concurrency:
+  group: region-pack-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      REGION: lombardy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Month key
+        id: month
+        run: echo "key=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache downloads (OSM extract, DEM, GTFS)
+        uses: actions/cache@v4
+        with:
+          path: pipeline/cache
+          key: pack-cache-${{ env.REGION }}-${{ steps.month.outputs.key }}
+          restore-keys: pack-cache-${{ env.REGION }}-
+
+      - name: Build pack
+        run: make -C pipeline pack REGION=$REGION
+
+      - name: Summary
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          m = json.load(open("pipeline/out/lombardy/pack/manifest.json"))
+          print(f"## {m['name']} pack {m['version']}\n")
+          print(f"Download **{m['download_bytes']/1e6:.1f} MB** (budget {m['budget_bytes']/1e6:.0f} MB) · on phone {m['unpacked_bytes']/1e6:.0f} MB\n")
+          print("| File | Download | Unpacked |\n|---|---|---|")
+          for f in m["files"]:
+              print(f"| {f['name']} | {f['bytes']/1e6:.1f} MB | {f['unpacked_bytes']/1e6:.1f} MB |")
+          PY
+
+      - name: Upload pack artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pack-${{ env.REGION }}
+          path: pipeline/out/${{ env.REGION }}/pack/
+          retention-days: 7
+
+      - name: Publish release
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PACK=pipeline/out/$REGION/pack
+          VERSION=$(python3 -c "import json;print(json.load(open('$PACK/manifest.json'))['version'])")
+          TAG="pack-$REGION-$VERSION"; N=1; TITLE="Lombardy region pack $VERSION"
+          while gh release view "$TAG" >/dev/null 2>&1; do
+            N=$((N+1)); TAG="pack-$REGION-$VERSION.$N"; TITLE="Lombardy region pack $VERSION (build $N)"
+          done
+          python3 pipeline/stages/release_notes.py "$PACK/manifest.json" > notes.md
+          gh release create "$TAG" --title "$TITLE" --notes-file notes.md "$PACK"/*

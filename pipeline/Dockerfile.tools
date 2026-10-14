@@ -1,0 +1,13 @@
+# Velix region-pack tools: GDAL (elevation), osmium (OSM), Python stages.
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.4@sha256:4b94b5e76e8b5616a4d5dc38e6e20def10ab70c3487eeb923d90547372e70a03
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3-venv osmium-tool xz-utils curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m venv /opt/venv \
+ && /opt/venv/bin/pip install --no-cache-dir \
+      osmium==4.0.2 shapely==2.0.7 pyproj==3.7.1 PyYAML==6.0.2 jsonschema==4.23.0
+
+ENV PATH=/opt/venv/bin:$PATH PYTHONDONTWRITEBYTECODE=1
+WORKDIR /work

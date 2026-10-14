@@ -1,0 +1,6 @@
+porta-venezia-politecnico|45.4746,9.2050|45.4781,9.2272
+duomo-bicocca|45.4642,9.1900|45.5140,9.2110
+darsena-politecnico|45.4520,9.1757|45.4781,9.2272
+porta-venezia-san-siro|45.4746,9.2050|45.4781,9.1240
+rho-fiera-san-donato|45.5200,9.0870|45.4140,9.2690
+duomo-bergamo-citta-alta|45.4642,9.1900|45.7037,9.6625

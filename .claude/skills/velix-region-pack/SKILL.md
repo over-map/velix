@@ -5,22 +5,20 @@ description: Build, test and publish the Velix offline region pack (Valhalla rou
 
 # Velix region pack
 
-Contents: Valhalla tiles · `hazards` sidecar · `routes` (OSM cycle relations) · `transit` (GTFS subset + bikes_allowed_rules.yml) · `manifest.json` (version, bbox, sizes, sha256, source dates). Budget for Lombardy: ≤ 220 MB.
+Contents (separate Release assets, each xz): `valhalla_tiles.tar` · `hazards.sqlite` (R*Tree) · `routes.sqlite` (OSM cycle relations) · `transit.sqlite` (GTFS subset + bike_rules) · `manifest.json` (version, bbox, sizes, sha256 packed + unpacked, sources, licences). Budget for Lombardy: ≤ 220 MB **download** (first pack: 120 MB). Full reference: `pipeline/README.md`.
 
 ## Build locally (Docker required)
-1. Download `https://download.geofabrik.de/europe/italy/nord-ovest-latest.osm.pbf`; clip to the Lombardy polygon with osmium.
-2. Valhalla tiles with the official Valhalla Docker image; include elevation (Copernicus GLO-30) for grades.
-3. Hazard sidecar from OSM tags (see BUILD_PLAN M2 list). Compute tram crossings and "rails along the lane" (rail within ~3 m and < 20° of a cycle edge for > 30 m).
-4. Cycle routes from `route=bicycle|mtb` relations with `network=lcn|rcn|ncn|icn`.
-5. Transit: Trenord + ATM GTFS, trimmed to stops in the bbox and the next 60 days; apply curated bikes-allowed rules.
-6. Write the manifest; validate sizes and checksums.
+`make -C pipeline pack` runs every stage in `pipeline/stages/` (extract → elevation → tiles → hazards → routes → transit → package → validate → smoke). One stage: `make -C pipeline <stage>`. Config: `pipeline/config/<region>.yml`; curated bike rules: `pipeline/config/bikes_allowed_rules.yml`.
+- Valhalla version must match valhalla-mobile (3.9.0 for 0.6.3); the image is pinned by digest in the config.
+- Steep segments are not in the sidecar: they come from Valhalla edge grades on the phone.
+- A new region needs: its Geofabrik extract, its admin relation, its country (see `stages/country_admin.py`), its feeds and bike rules.
 
 ## Test
-- Run golden route tests (docs/TEST_TRIPS.md) against the new tiles before publishing.
+- `make -C pipeline smoke` (6 routes, hazard counts, EuroVelo, transit) runs in every build; from M3 also run the golden route tests (docs/TEST_TRIPS.md) before publishing.
 - Spot-check 3 hazards per type on a debug map against OSM.
 
 ## Publish
-- Workflow `.github/workflows/region-pack.yml` (monthly + manual): build, test, upload as a GitHub Release `pack-lombardy-YYYY.MM`. The app downloads the latest release asset and verifies the checksum.
+- Workflow `.github/workflows/region-pack.yml` (monthly + manual + PRs touching pipeline/): build, smoke-test, artifact; on main publishes Release `pack-lombardy-YYYY.MM` (`.N` if taken). The app finds it with `RegionPackCatalog` and installs it with `RegionPackInstaller` (sha256 per file, atomic switch).
 - Never commit pack binaries to git. Record source dates and licences (ODbL, Copernicus, GTFS licences) in the release notes.
 
 ## When routes look wrong
