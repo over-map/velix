@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/over-map/velix/pipeline/schema/manifest.schema.json",
+  "title": "Velix region pack manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "pack", "name", "version", "built", "valhalla", "bbox", "polygon_sha256", "files",
+               "download_bytes", "unpacked_bytes", "budget_bytes", "sources", "counts"],
+  "properties": {
+    "schema": {"const": 1},
+    "pack": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "name": {"type": "string"},
+    "version": {"type": "string", "pattern": "^[0-9]{4}\\.[0-9]{2}$"},
+    "built": {"type": "string", "format": "date", "description": "OSM extract date; the pack is a pure function of its inputs"},
+    "valhalla": {"type": "string"},
+    "bbox": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
+    "polygon_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "download_bytes": {"type": "integer", "minimum": 1},
+    "unpacked_bytes": {"type": "integer", "minimum": 1},
+    "budget_bytes": {"type": "integer", "minimum": 1},
+    "files": {
+      "type": "array", "minItems": 4,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "asset", "role", "bytes", "sha256", "unpacked_bytes", "unpacked_sha256"],
+        "properties": {
+          "name": {"type": "string"},
+          "asset": {"type": "string", "pattern": "\\.xz$"},
+          "role": {"enum": ["routing_tiles", "hazards", "routes", "transit"]},
+          "bytes": {"type": "integer", "minimum": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "unpacked_bytes": {"type": "integer", "minimum": 1},
+          "unpacked_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "sources": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "url", "date", "licence", "attribution"],
+        "properties": {
+          "id": {"type": "string"}, "name": {"type": "string"}, "url": {"type": "string"},
+          "date": {"type": "string"}, "service_until": {"type": "string"},
+          "licence": {"type": "string"}, "attribution": {"type": "string"}
+        }
+      }
+    },
+    "counts": {"type": "object"}
+  }
+}
