@@ -30,6 +30,7 @@ struct SpikeView: View {
             await model.loadEngine()
             // Launch arguments let the spike run unattended on a device (devicectl process launch … -m1-benchmark).
             let args = ProcessInfo.processInfo.arguments
+            if args.contains("-m2-install-pack") { await model.installLatestPack() }
             if args.contains("-m1-benchmark") { await model.runBenchmark() }
             if args.contains("-m1-simride") {
                 model.locationSource = .simulated
@@ -53,6 +54,7 @@ struct SpikeView: View {
             HStack {
                 Button("Benchmark") { Task { await model.runBenchmark() } }
                 Button("Ride → Politecnico") { Task { await model.startRide(to: SpikeTrip.politecnico, name: "Politecnico") } }
+                Button("Pack") { Task { await model.installLatestPack() } }
                 Button("Log") { showLog = true }
             }
             .buttonStyle(.borderedProminent)

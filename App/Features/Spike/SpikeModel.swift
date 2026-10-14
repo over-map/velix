@@ -64,7 +64,8 @@ final class SpikeModel {
             let ms = Date().timeIntervalSince(start) * 1000
             engineInitMs = ms
             let sizeMB = ((try? FileManager.default.attributesOfItem(atPath: tiles.path)[.size] as? Int) ?? 0) / 1_048_576
-            metrics.log("engine_init", ["ms": ms.rounded(), "tilesMB": sizeMB, "device": Self.deviceModel])
+            metrics.log("engine_init", ["ms": ms.rounded(), "tilesMB": sizeMB, "device": Self.deviceModel,
+                                        "pack": RegionPackInstaller.current()?.manifest.version ?? "sideloaded"])
             provider.onRouteComputed = { [weak self] ms, route in
                 Task { @MainActor in self?.routeComputed(ms: ms, route: route) }
             }
@@ -81,6 +82,34 @@ final class SpikeModel {
         if isNavigating {
             reroutes.append(ms)
             metrics.log("reroute", ["ms": ms.rounded(), "m": Int(route?.distance ?? 0)])
+        }
+    }
+
+    // MARK: Region pack (M2)
+
+    /// Downloads and installs the newest published pack, then reloads the engine from it.
+    func installLatestPack() async {
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            guard let manifest = try await RegionPackCatalog.latestManifestURL() else {
+                status = "No published region pack yet"
+                return
+            }
+            status = "Downloading \(manifest.deletingLastPathComponent().lastPathComponent)…"
+            let start = Date()
+            let installed = try await RegionPackInstaller().install(manifest: manifest) { [weak self] p in
+                Task { @MainActor in self?.status = String(format: "Installing pack… %.0f %%", p * 100) }
+            }
+            let seconds = Date().timeIntervalSince(start)
+            metrics.log("pack_install", ["version": installed.manifest.version, "s": Int(seconds),
+                                         "downloadMB": Int(installed.manifest.downloadBytes / 1_000_000)])
+            provider = nil
+            await loadEngine()
+            status = "Pack \(installed.manifest.version) installed in \(Int(seconds)) s · " + status
+        } catch {
+            status = "Pack install failed: \(error)"
+            metrics.log("pack_error", ["error": String(describing: error)])
         }
     }
 
