@@ -38,7 +38,7 @@ The budget is **220 MB to download** (Filippo, 14 Oct 2026); `validate` fails th
 | `validate.py` | tools | JSON Schema, sizes, sha256, budget |
 | `smoke_routes.sh` + `smoke.py` | Valhalla + tools | 6 Milan/Bergamo routes with the City profile, hazard counts and spot checks, EuroVelo 5, Centrale → Monza trains, M1 stops |
 
-The pack is a pure function of its inputs: there are no wall-clock timestamps; the build date and transit window start come from the OSM extract date. Rebuilding from the same inputs gives the same sha256s (checked in M2).
+The pack is a pure function of its inputs: there are no wall-clock timestamps; the build date and transit window start come from the OSM extract date. Rebuilding from the same inputs gives byte-identical SQLite files. The Valhalla tiles match apart from Valhalla's own build stamps (a few bytes per tile), with the same size and the same routes (checked in M2).
 
 ## Publishing
 

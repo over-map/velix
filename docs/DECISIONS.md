@@ -4,6 +4,7 @@ Product decisions live in `BRIEF.md` §8 and `../design/HANDOFF.md` §3. Log her
 
 | Date | Decision | Reason | Who |
 |---|---|---|---|
+| 2026-10-14 | Reproducibility: hazards, routes and transit SQLite are byte-identical across rebuilds; Valhalla tiles differ only in build stamps (38 of 2.4 M bytes per tile: header + a few 3-byte fields), same size and same routes. Tile mtimes are pinned to the OSM date | Valhalla writes build-time values into tiles even single-threaded; pinning them would need a faked clock in the Valhalla image | Claude |
 | 2026-10-14 | Region pack budget = **download size** ≤ 220 MB; first pack 2026.10 is 120 MB to download (tiles 112 MB, of which ≈ 18 MB is elevation), 439 MB on the phone | Valhalla reads tiles uncompressed (339–361 MB alone), so a 220 MB on-phone limit would mean splitting Lombardy | Filippo |
 | 2026-10-14 | Pack covers the **exact Lombardy border** (relation 44879), no buffer | Smallest pack; routes stop at the border | Filippo |
 | 2026-10-14 | Sidecars are SQLite (+ R*Tree), not GeoJSON/FlatGeobuf as BUILD_PLAN M2 suggested | Native on iOS, fast "within 50 m" queries without loading everything, GTFS tables query naturally | Claude |

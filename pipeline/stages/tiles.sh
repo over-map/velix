@@ -10,9 +10,12 @@ valhalla_build_config \
   --mjolnir-admin "$OUT/admins.sqlite" \
   --mjolnir-timezone "$OUT/timezones.sqlite" \
   --additional-data-elevation "$OUT/elevation/" \
-  --mjolnir-concurrency "$(nproc)" > valhalla.json
+  --mjolnir-concurrency "${TILE_THREADS:-$(nproc)}" > valhalla.json
 [ -f timezones.sqlite ] || valhalla_build_timezones > timezones.sqlite
 valhalla_build_admins -c valhalla.json region.osm.pbf country.osm.pbf
 valhalla_build_tiles -c valhalla.json region.osm.pbf
+# Reproducible tar: the extract records file mtimes, so pin them to the OSM extract date.
+STAMP=$(python3 -c "import json;print(json.load(open('sources/osm.json'))['date'])")
+find valhalla_tiles -exec touch -h -d "$STAMP" {} +
 valhalla_build_extract -c valhalla.json --overwrite
 ls -l valhalla_tiles.tar
