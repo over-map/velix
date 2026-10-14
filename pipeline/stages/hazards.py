@@ -7,7 +7,8 @@ Types (names match the hazard glyphs in design/assets/glyphs/hazard-*.svg):
   steps    highway=steps
   gap      barrier node on a cycle-usable way (bollard, gate, cycle_barrier…), or maxwidth < 1 m
   dismount bicycle=dismount, or a pedestrian street/area where bicycles aren't allowed
-  lane     a cycle lane/track/cycleway ends and the road carries on (rider joins traffic)
+  lane     a cycle lane/track/cycleway ends and the road carries on (rider joins traffic); has a travel heading,
+           and on one-way ways only the downstream end counts
   door     painted cycle lane next to parallel on-street parking (door zone)
 Steep descents/climbs are not here: they come from Valhalla's per-edge grades on the phone (elevation is baked into the tiles).
 """
@@ -101,7 +102,8 @@ class Collect(osmium.SimpleHandler):
         self.crossing_nodes: list[tuple[int, float, float]] = []
         self.trams: list[tuple[int, list]] = []
         self.cycle_ways: list[tuple[int, list, dict]] = []
-        self.infra_ends: list[tuple[int, int, float, float]] = []  # (way, node, lon, lat) ends of cycle infrastructure
+        # (way, node, lon, lat, heading): where riding along a cycle lane/track you reach its end, heading = travel direction
+        self.infra_ends: list[tuple[int, int, float, float, float]] = []
         self.features: list[dict] = []
 
     def node(self, n):
@@ -148,8 +150,14 @@ class Collect(osmium.SimpleHandler):
         if painted_lane_sides(t) & parking_sides(t):
             self.features.append(line("door", coords, f"w{w.id}", "painted lane beside parking"))
         if has_cycle_infra(t):
-            for nd in (w.nodes[0], w.nodes[-1]):
-                self.infra_ends.append((w.id, nd.ref, nd.lon, nd.lat))
+            nodes = list(w.nodes)
+            oneway = t.get("oneway") in {"yes", "true", "1"} and t.get("oneway:bicycle") != "no"
+            reverse = t.get("oneway") == "-1"
+            last, first = nodes[-1], nodes[0]
+            if not reverse:  # riding with the way's direction ends at its last node
+                self.infra_ends.append((w.id, last.ref, last.lon, last.lat, heading(nodes[-2], last)))
+            if not oneway:   # riding against it ends at its first node
+                self.infra_ends.append((w.id, first.ref, first.lon, first.lat, heading(nodes[1], first)))
         self.cycle_ways.append((w.id, coords, tags))
 
 
@@ -173,6 +181,12 @@ class Neighbours(osmium.SimpleHandler):
         for nd in w.nodes:
             if nd.ref in self.nodes:
                 self.node_ways[nd.ref].append((w.id, infra, road))
+
+
+def heading(a, b) -> float:
+    """Compass bearing (0 = north, clockwise) from node a to node b."""
+    dlon = math.radians(b.lon - a.lon) * math.cos(math.radians((a.lat + b.lat) / 2))
+    return round(math.degrees(math.atan2(dlon, math.radians(b.lat - a.lat))) % 360, 1)
 
 
 def parse_m(value):
@@ -246,17 +260,19 @@ def tram_hazards(c: Collect) -> list[dict]:
 
 
 def lane_end_hazards(c: Collect, pbf: str) -> list[dict]:
-    n = Neighbours({nref for _, nref, _, _ in c.infra_ends})
+    n = Neighbours({nref for _, nref, _, _, _ in c.infra_ends})
     n.apply_file(pbf)
     out = []
     seen = set()
-    for wid, nref, lon, lat in sorted(c.infra_ends):
+    for wid, nref, lon, lat, hdg in sorted(c.infra_ends):
         ways = n.node_ways.get(nref, [])
         other_infra = any(infra for w, infra, _ in ways if w != wid)
         continues_on_road = any(road for w, _, road in ways if w != wid)
-        if continues_on_road and not other_infra and nref not in seen:
-            seen.add(nref)
-            out.append(point("lane", lon, lat, f"n{nref}", "cycle lane ends"))
+        if continues_on_road and not other_infra and (nref, hdg) not in seen:
+            seen.add((nref, hdg))
+            f = point("lane", lon, lat, f"n{nref}", "cycle lane ends")
+            f["heading"] = hdg
+            out.append(f)
     return out
 
 
@@ -275,11 +291,12 @@ def write_sqlite(path, features, meta):
             length_m REAL NOT NULL,
             polyline6 TEXT NOT NULL,     -- encoded polyline, precision 6 (lat, lon)
             detail TEXT NOT NULL,
-            osm TEXT NOT NULL            -- n123 / w456
+            osm TEXT NOT NULL,           -- n123 / w456
+            heading REAL                 -- travel direction it applies to (0 = north), NULL = any direction
         );
         CREATE VIRTUAL TABLE hazards_rtree USING rtree(id, min_lon, max_lon, min_lat, max_lat);
     """)
-    features.sort(key=lambda f: (f["type"], f["osm"], f["coords"][0]))
+    features.sort(key=lambda f: (f["type"], f["osm"], f["coords"][0], f.get("heading") or -1))
     for i, f in enumerate(features, start=1):
         co = f["coords"]
         lons, lats = [p[0] for p in co], [p[1] for p in co]
@@ -288,9 +305,9 @@ def write_sqlite(path, features, meta):
         else:
             ls = LineString(co)
             mid = ls.interpolate(0.5, normalized=True).coords[0]
-        db.execute("INSERT INTO hazards VALUES (?,?,?,?,?,?,?,?,?)",
+        db.execute("INSERT INTO hazards VALUES (?,?,?,?,?,?,?,?,?,?)",
                    (i, f["type"], "point" if len(co) == 1 else "line", round(mid[0], 7), round(mid[1], 7),
-                    round(f["length"], 1), encode_polyline6(co), f["detail"], f["osm"]))
+                    round(f["length"], 1), encode_polyline6(co), f["detail"], f["osm"], f.get("heading")))
         db.execute("INSERT INTO hazards_rtree VALUES (?,?,?,?,?)", (i, min(lons), max(lons), min(lats), max(lats)))
     db.execute("CREATE INDEX hazards_type ON hazards(type)")
     db.executemany("INSERT INTO meta VALUES (?,?)", sorted(meta.items()))
