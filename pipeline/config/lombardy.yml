@@ -1,0 +1,37 @@
+# Velix region pack: Lombardy (iteration 1 pilot).
+region:
+  id: lombardy
+  name: Lombardy
+  osm_relation: 44879          # Lombardia, admin_level=4
+  country: {name: Italia, iso: IT, osm_relation: 2000365331}   # synthetic id (real 365331 + 2e9), see stages/country_admin.py
+  city_area_relation: 44915    # Comune di Milano (admin_level=8): "destination outside the city area" transit trigger
+osm:
+  url: https://download.geofabrik.de/europe/italy/nord-ovest-latest.osm.pbf
+  licence: ODbL-1.0
+  attribution: "© OpenStreetMap contributors"
+elevation:
+  # Copernicus GLO-30 DEM, AWS Open Data (no key). 1°×1° Cloud Optimized GeoTIFFs.
+  url_template: "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_{ns}{lat:02d}_00_{ew}{lon:03d}_00_DEM/Copernicus_DSM_COG_10_{ns}{lat:02d}_00_{ew}{lon:03d}_00_DEM.tif"
+  licence: Copernicus-DEM
+  attribution: "© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved"
+transit:
+  days: 60
+  feeds:
+    - id: trenord
+      name: Trenord (Orario Ferroviario Regionale GTFS)
+      url: https://www.dati.lombardia.it/download/3z4k-mxz9/application%2Fzip
+      licence: CC-BY-4.0
+      attribution: Trenord, via Regione Lombardia open data
+      route_types: [2, 100, 101, 102, 103, 106, 109]   # rail (basic + extended)
+    - id: atm
+      name: ATM Milano (GTFS, Comune di Milano ds929)
+      url: https://dati.comune.milano.it/gtfs.zip
+      licence: CC-BY-4.0
+      attribution: ATM, via Comune di Milano open data
+      route_types: [1, 401, 402]                        # metro (basic + extended)
+valhalla:
+  image: ghcr.io/valhalla/valhalla@sha256:511c095b8caf393dccceb8b519ec96b6f85a0166b2288ba014a8a748acc5a63c
+  version: "3.9.0"
+pack:
+  budget_mb: 220            # download size (Filippo, 14 Oct 2026)
+  xz_preset: 9
