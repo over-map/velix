@@ -3,6 +3,7 @@ region:
   id: lombardy
   name: Lombardy
   osm_relation: 44879          # Lombardia, admin_level=4
+  timezone: Europe/Rome
   country: {name: Italia, iso: IT, osm_relation: 2000365331}   # synthetic id (real 365331 + 2e9), see stages/country_admin.py
   city_area_relation: 44915    # Comune di Milano (admin_level=8): "destination outside the city area" transit trigger
 osm:
@@ -16,6 +17,7 @@ elevation:
   attribution: "© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved"
 transit:
   days: 60
+  bike_rules: bikes_allowed_rules.yml   # curated, per region; used only where a feed has no trips.bikes_allowed
   feeds:
     - id: trenord
       name: Trenord (Orario Ferroviario Regionale GTFS)

@@ -73,6 +73,8 @@ def main() -> int:
     later = tr.execute("SELECT count(*) FROM service_dates WHERE service LIKE 'atm:%' AND date >= ?",
                        (month_in,)).fetchone()[0]
     check(later > 0, f"metro service still covered a month in: {later} service-days")
+    cols = {r[1] for r in tr.execute("PRAGMA table_info(trips)")}
+    check("bikes_allowed" in cols, "trips carry the GTFS bikes_allowed flag column")
     rules = dict(tr.execute("SELECT operator, count(*) FROM bike_rules GROUP BY operator"))
     check(rules.get("atm", 0) > 0 and rules.get("trenord", 0) > 0, f"bike rules per operator: {rules}")
 

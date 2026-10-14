@@ -1,9 +1,11 @@
-# Curated bikes-on-board rules for the transit suggestion (BRIEF §8: "bikes-allowed connections only").
-# Applied by pipeline/stages/transit.py into transit.sqlite → bike_rules. First matching rule wins.
+# Curated bikes-on-board rules for Lombardy (BRIEF §8: "bikes-allowed connections only").
+# Order of evidence, same in every region: a feed's own trips.txt bikes_allowed wins; these rules fill feeds
+# that don't publish it; anything else is "check". Loaded into transit.sqlite → bike_rules. First matching rule wins.
+# operator: the feed id in the region config.
 # status: allowed | not_allowed | check   ("check" = the operator decides per train; tell the rider to check)
 # routes: GTFS route_id without the feed prefix (ATM metro: M1…M5), or "*".
 # weekdays: Mon..Sun as 7 characters of 0/1. Times are local, HH:MM, end exclusive.
-# Reviewed by: (Filippo, in the M2 PR)
+# Reviewed: Filippo delegated the Trenord call to Claude (M2 PR, 14 Oct 2026); see DECISIONS.md.
 
 - operator: atm
   routes: [M1, M2, M3]

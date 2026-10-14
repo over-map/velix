@@ -5,7 +5,10 @@
 - Service window: N days from the OSM extract date (deterministic for a given set of inputs).
 - A feed whose service ends inside the window is extended by repeating its last full week, flagged `projected`
   (ATM publishes about two weeks of metro timetable at a time).
-- Curated bikes-on-board rules from config/bikes_allowed_rules.yml.
+- Bikes on board, universal order of evidence (the app applies it per trip):
+    1. the feed's own trips.txt `bikes_allowed` (1 = yes, 2 = no), stored in trips.bikes_allowed (0 = not given);
+    2. curated rules from the region's `bike_rules` file (by feed and route), for feeds without the field;
+    3. otherwise `check`: the rider is told to check with the operator.
 """
 import csv
 import datetime as dt
@@ -103,7 +106,7 @@ def main():
     osm_date = json.loads((out / "sources" / "osm.json").read_text())["date"][:10]
     start = dt.date.fromisoformat(osm_date)
     days = cfg["transit"]["days"]
-    rules = yaml.safe_load((PIPELINE / "config" / "bikes_allowed_rules.yml").read_text())
+    rules = yaml.safe_load((PIPELINE / "config" / cfg["transit"]["bike_rules"]).read_text())
 
     path = out / "transit.sqlite"
     if path.exists():
@@ -118,7 +121,8 @@ def main():
         CREATE TABLE stops (id TEXT PRIMARY KEY, feed TEXT NOT NULL, name TEXT NOT NULL, lat REAL, lon REAL,
                             parent TEXT, is_station INTEGER NOT NULL);
         CREATE TABLE trips (id TEXT PRIMARY KEY, feed TEXT NOT NULL, route TEXT NOT NULL, service TEXT NOT NULL,
-                            headsign TEXT, short_name TEXT, direction INTEGER);
+                            headsign TEXT, short_name TEXT, direction INTEGER,
+                            bikes_allowed INTEGER NOT NULL);  -- GTFS: 1 yes, 2 no, 0 not given (then bike_rules)
         CREATE TABLE stop_times (trip TEXT NOT NULL, seq INTEGER NOT NULL, stop TEXT NOT NULL,
                                  arr INTEGER NOT NULL, dep INTEGER NOT NULL);           -- seconds after local midnight
         CREATE TABLE service_dates (service TEXT NOT NULL, date INTEGER NOT NULL, projected INTEGER NOT NULL);
@@ -162,14 +166,17 @@ def main():
              f"{fid}:{s['parent_station']}" if s.get("parent_station") else None,
              1 if s.get("location_type") == "1" else 0)
             for sid, s in stops_all.items() if sid in used_stops or sid in parents))
-        db.executemany("INSERT INTO trips VALUES (?,?,?,?,?,?,?)", sorted(
+        db.executemany("INSERT INTO trips VALUES (?,?,?,?,?,?,?,?)", sorted(
             (f"{fid}:{tid}", fid, f"{fid}:{t['route_id']}", f"{fid}:{t['service_id']}", t.get("trip_headsign", ""),
-             t.get("trip_short_name", ""), int(t["direction_id"]) if t.get("direction_id") else None)
+             t.get("trip_short_name", ""), int(t["direction_id"]) if t.get("direction_id") else None,
+             int(t["bikes_allowed"]) if t.get("bikes_allowed") in {"1", "2"} else 0)
             for tid, t in trips.items() if f"{fid}:{tid}" in trips_with_times))
         db.executemany("INSERT INTO stop_times VALUES (?,?,?,?,?)", sorted(times))
         db.executemany("INSERT INTO service_dates VALUES (?,?,?)",
                        [(f"{fid}:{sid}", int(d.strftime("%Y%m%d")), p) for sid, d, p in dates])
-        summary[fid] = {"routes": len(routes), "trips": len(trips_with_times), "stops": len(used_stops),
+        flagged = sum(1 for tid, t in trips.items() if f"{fid}:{tid}" in trips_with_times and t.get("bikes_allowed") in {"1", "2"})
+        summary[fid] = {"routes": len(routes), "trips": len(trips_with_times), "trips_with_bike_flag": flagged,
+                        "stops": len(used_stops),
                         "stop_times": len(times), "last_service_date": last.isoformat(), "projected": projected}
         log(f"{fid}: {summary[fid]}")
 
@@ -187,7 +194,8 @@ def main():
     """)
     db.executemany("INSERT INTO meta VALUES (?,?)", [
         ("schema", "1"), ("region", cfg["region"]["id"]), ("window_start", start.isoformat()), ("window_days", str(days)),
-        ("timezone", "Europe/Rome")])
+        ("timezone", cfg["region"]["timezone"]),
+        ("bikes_precedence", "trips.bikes_allowed > bike_rules > check")])
     db.commit()
     db.execute("VACUUM")
     db.close()

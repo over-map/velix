@@ -46,6 +46,11 @@ The pack is a pure function of its inputs: there are no wall-clock timestamps; t
 
 ## Curated data
 
-`config/bikes_allowed_rules.yml` lists the bikes-on-board rules by operator and line, each with its source. **Review it when an operator changes its rules.** Trenord marks bikes per train only in its own app, so Trenord trains carry `status: check`.
+Bikes on board follow one order of evidence in every region:
+1. the feed's own `trips.txt` `bikes_allowed` flag (`trips.bikes_allowed`);
+2. the region's curated rules (`config/bikes_allowed_rules.yml` for Lombardy: by feed and route, each with its source);
+3. otherwise `check`.
+
+**Review the rules when an operator changes them.** Trenord marks bikes per train only in its own app, so Trenord trains carry `status: check`. A new region needs curated rules only for feeds without `bikes_allowed`.
 
 The M1 spike tooling stays in `spike/` for reference.
