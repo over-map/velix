@@ -9,24 +9,28 @@ protocol RoutingProvider: CustomRouteProvider, Sendable {
     var profile: RoutingProfile { get }
 }
 
-/// A ride-type profile: the Valhalla costing and its options.
-/// M1 ships only `city` as a spike; M3 defines all six ride types with golden tests.
+/// One Valhalla costing: the model and its options.
 struct RoutingProfile: Sendable, Decodable, Equatable {
-    let id: String
     let costing: String
     let costingOptions: [String: JSONValue]
 
     enum CodingKeys: String, CodingKey {
-        case id
         case costing
         case costingOptions = "costing_options"
     }
+}
 
-    static func load(_ id: String, bundle: Bundle = .main) throws -> RoutingProfile {
-        guard let url = bundle.url(forResource: id, withExtension: "json", subdirectory: "RoutingProfiles")
-            ?? bundle.url(forResource: id, withExtension: "json")
-        else { throw RoutingError.profileMissing(id) }
-        return try JSONDecoder().decode(RoutingProfile.self, from: Data(contentsOf: url))
+/// A ride type's costings (`RoutingProfiles/<id>.json`): Best = the ride type's own costing, Fastest = permissive.
+struct RideProfile: Sendable, Decodable, Equatable {
+    let id: String
+    let best: RoutingProfile
+    let fastest: RoutingProfile
+
+    static func load(_ type: RideType, bundle: Bundle = .main) throws -> RideProfile {
+        guard let url = bundle.url(forResource: type.rawValue, withExtension: "json", subdirectory: "RoutingProfiles")
+            ?? bundle.url(forResource: type.rawValue, withExtension: "json")
+        else { throw RoutingError.profileMissing(type.rawValue) }
+        return try JSONDecoder().decode(RideProfile.self, from: Data(contentsOf: url))
     }
 }
 

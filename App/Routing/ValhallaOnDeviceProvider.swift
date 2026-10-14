@@ -2,13 +2,14 @@ import CoreLocation
 @preconcurrency import FerrostarCore
 @preconcurrency import FerrostarCoreFFI
 import Foundation
-import Valhalla
+@preconcurrency import Valhalla
 import ValhallaConfigModels
 
 /// Routes on the phone with Valhalla (valhalla-mobile) against the region pack tiles,
 /// and hands the result to Ferrostar as OSRM-format JSON.
 final class ValhallaOnDeviceProvider: RoutingProvider, @unchecked Sendable {
-    let profile: RoutingProfile
+    /// Costing used when Ferrostar asks for a route (start and reroute): the selected option's costing.
+    var profile: RoutingProfile
     /// Called after every route computation with the engine time in milliseconds.
     var onRouteComputed: (@Sendable (_ milliseconds: Double, _ route: Route?) -> Void)?
 
@@ -23,7 +24,28 @@ final class ValhallaOnDeviceProvider: RoutingProvider, @unchecked Sendable {
             throw RoutingError.tilesMissing(tileExtract.path)
         }
         self.profile = profile
-        valhalla = try Valhalla(ValhallaConfig(tileExtractTar: tileExtract))
+        var config = try ValhallaConfig(tileExtractTar: tileExtract)
+        // Rule enforcement excludes small boxes around cobbles, rails, steps… (RoutePlanner); allow more of them.
+        config.serviceLimits?.maxExcludePolygonsLength = 60_000
+        valhalla = try Valhalla(config)
+    }
+
+    /// Valhalla `route` with a raw JSON request, off the main thread.
+    func route(rawRequest json: String) async throws -> String {
+        try await run { try $0.route(rawRequest: json) }
+    }
+
+    /// Valhalla `trace_attributes` with a raw JSON request, off the main thread.
+    func traceAttributes(rawRequest json: String) async throws -> String {
+        try await run { try $0.traceAttributes(rawRequest: json) }
+    }
+
+    private func run(_ body: @escaping @Sendable (Valhalla) throws -> String) async throws -> String {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async { [self] in
+                continuation.resume(with: Result { try body(self.valhalla) })
+            }
+        }
     }
 
     func getRoutes(userLocation: UserLocation, waypoints: [Waypoint]) async throws -> [Route] {
@@ -46,7 +68,8 @@ final class ValhallaOnDeviceProvider: RoutingProvider, @unchecked Sendable {
 
     /// Valhalla route request asking for OSRM output with banner and voice instructions,
     /// which is what Ferrostar's OSRM parser expects.
-    static func requestJSON(from userLocation: UserLocation, waypoints: [Waypoint], profile: RoutingProfile) throws -> String {
+    static func requestJSON(from userLocation: UserLocation, waypoints: [Waypoint], profile: RoutingProfile,
+                            excludePolygons: [[[Double]]] = []) throws -> String {
         var start: [String: JSONValue] = [
             "lat": .number(userLocation.coordinates.lat),
             "lon": .number(userLocation.coordinates.lng),
@@ -62,7 +85,7 @@ final class ValhallaOnDeviceProvider: RoutingProvider, @unchecked Sendable {
                 "type": .string($0.kind == .via ? "via" : "break"),
             ])
         }
-        let body: JSONValue = .object([
+        var fields: [String: JSONValue] = [
             "locations": .array(locations),
             "costing": .string(profile.costing),
             "costing_options": .object([profile.costing: .object(profile.costingOptions)]),
@@ -72,8 +95,11 @@ final class ValhallaOnDeviceProvider: RoutingProvider, @unchecked Sendable {
             "units": .string("kilometers"),
             "language": .string("en-US"),
             "directions_type": .string("instructions"),
-        ])
-        return String(decoding: try JSONEncoder().encode(body), as: UTF8.self)
+        ]
+        if !excludePolygons.isEmpty {  // rings of [lon, lat]
+            fields["exclude_polygons"] = .array(excludePolygons.map { .array($0.map { .array($0.map(JSONValue.number)) }) })
+        }
+        return String(decoding: try JSONEncoder().encode(JSONValue.object(fields)), as: UTF8.self)
     }
 
     private static func milliseconds(since start: DispatchTime) -> Double {

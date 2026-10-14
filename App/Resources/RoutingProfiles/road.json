@@ -1,0 +1,26 @@
+{
+  "id": "road",
+  "note": "Road bike: paved only (avoid_bad_surfaces 1), accepts roads more than City.",
+  "best": {
+    "costing": "bicycle",
+    "costing_options": {
+      "bicycle_type": "Road",
+      "cycling_speed": 25,
+      "use_roads": 0.5,
+      "use_hills": 0.5,
+      "avoid_bad_surfaces": 1.0,
+      "use_living_streets": 0.4
+    }
+  },
+  "fastest": {
+    "costing": "bicycle",
+    "costing_options": {
+      "bicycle_type": "Road",
+      "cycling_speed": 25,
+      "use_roads": 1.0,
+      "use_hills": 0.5,
+      "avoid_bad_surfaces": 0.25,
+      "use_living_streets": 0.5
+    }
+  }
+}

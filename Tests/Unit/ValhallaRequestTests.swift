@@ -5,21 +5,30 @@ import Testing
 @testable import Velix
 
 struct RoutingProfileTests {
-    @Test func cityProfileLoadsFromAppBundle() throws {
-        let profile = try RoutingProfile.load("city")
-        #expect(profile.id == "city")
-        #expect(profile.costing == "bicycle")
-        #expect(profile.costingOptions["bicycle_type"] == .string("hybrid"))
+    @Test(arguments: RideType.allCases)
+    func everyRideTypeHasBestAndFastest(_ type: RideType) throws {
+        let profile = try RideProfile.load(type)
+        #expect(profile.id == type.rawValue)
+        #expect(profile.best.costing == "bicycle")
+        #expect(profile.fastest.costingOptions["use_roads"] == .number(1))
+        #expect(profile.best.costingOptions["bicycle_type"] == profile.fastest.costingOptions["bicycle_type"])
     }
 
-    @Test func missingProfileThrows() {
-        #expect(throws: RoutingError.profileMissing("nope")) { try RoutingProfile.load("nope") }
+    @Test func excludePolygonsAreSentAsLonLatRings() throws {
+        let json = try ValhallaOnDeviceProvider.requestJSON(
+            from: UserLocation(clCoordinateLocation2D: .init(latitude: 45.47, longitude: 9.20)),
+            waypoints: [Waypoint(coordinate: GeographicCoordinate(lat: 45.48, lng: 9.22), kind: .break)],
+            profile: try RideProfile.load(.city).best,
+            excludePolygons: [[[9.2, 45.47], [9.21, 45.47], [9.21, 45.48], [9.2, 45.47]]])
+        let body = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        let rings = try #require(body["exclude_polygons"] as? [[[Double]]])
+        #expect(rings.first?.first == [9.2, 45.47])
     }
 }
 
 struct ValhallaRequestTests {
     private func request(course: UInt16? = nil) throws -> [String: Any] {
-        let profile = try RoutingProfile.load("city")
+        let profile = try RideProfile.load(.city).best
         let start = UserLocation(
             coordinates: GeographicCoordinate(lat: 45.4746, lng: 9.2050),
             horizontalAccuracy: 5,
@@ -47,7 +56,7 @@ struct ValhallaRequestTests {
         let body = try request()
         #expect(body["costing"] as? String == "bicycle")
         let options = try #require((body["costing_options"] as? [String: Any])?["bicycle"] as? [String: Any])
-        #expect(options["bicycle_type"] as? String == "hybrid")
+        #expect(options["bicycle_type"] as? String == "Hybrid")
     }
 
     @Test func startCarriesHeadingOnlyWhenCourseKnown() throws {

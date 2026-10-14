@@ -3,7 +3,7 @@
 set -euo pipefail
 OUT="/work/pipeline/out/${REGION:-lombardy}"
 mkdir -p "$OUT/smoke"
-OPTS=$(python3 -c "import json;p=json.load(open('/work/App/Resources/RoutingProfiles/city.json'));print(json.dumps({'bicycle':p['costing_options']}))")
+OPTS=$(python3 -c "import json;p=json.load(open('/work/App/Resources/RoutingProfiles/city.json'));print(json.dumps({'bicycle':p['best']['costing_options']}))")
 while IFS='|' read -r id a b; do
   [ -z "$id" ] && continue
   REQ="{\"locations\":[{\"lat\":${a%,*},\"lon\":${a#*,}},{\"lat\":${b%,*},\"lon\":${b#*,}}],\"costing\":\"bicycle\",\"costing_options\":$OPTS,\"units\":\"km\"}"

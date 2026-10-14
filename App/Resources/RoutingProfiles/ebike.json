@@ -1,0 +1,26 @@
+{
+  "id": "ebike",
+  "note": "Faster cruising speed; hills matter less; still prefers lanes.",
+  "best": {
+    "costing": "bicycle",
+    "costing_options": {
+      "bicycle_type": "Hybrid",
+      "cycling_speed": 22,
+      "use_roads": 0.3,
+      "use_hills": 0.8,
+      "avoid_bad_surfaces": 0.5,
+      "use_living_streets": 0.6
+    }
+  },
+  "fastest": {
+    "costing": "bicycle",
+    "costing_options": {
+      "bicycle_type": "Hybrid",
+      "cycling_speed": 22,
+      "use_roads": 1.0,
+      "use_hills": 0.5,
+      "avoid_bad_surfaces": 0.0,
+      "use_living_streets": 0.5
+    }
+  }
+}

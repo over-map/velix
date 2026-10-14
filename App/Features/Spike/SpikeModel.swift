@@ -56,7 +56,7 @@ final class SpikeModel {
         isBusy = true
         defer { isBusy = false }
         do {
-            let profile = try RoutingProfile.load("city")
+            let profile = try RideProfile.load(.city).best
             let start = Date()
             let provider = try await Task.detached(priority: .userInitiated) {
                 try ValhallaOnDeviceProvider(tileExtract: tiles, profile: profile)

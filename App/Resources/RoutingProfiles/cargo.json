@@ -1,0 +1,26 @@
+{
+  "id": "cargo",
+  "note": "Slow and steady: lanes and quiet streets, no hills, smooth surfaces.",
+  "best": {
+    "costing": "bicycle",
+    "costing_options": {
+      "bicycle_type": "Hybrid",
+      "cycling_speed": 13,
+      "use_roads": 0.0,
+      "use_hills": 0.0,
+      "avoid_bad_surfaces": 0.9,
+      "use_living_streets": 0.9
+    }
+  },
+  "fastest": {
+    "costing": "bicycle",
+    "costing_options": {
+      "bicycle_type": "Hybrid",
+      "cycling_speed": 13,
+      "use_roads": 1.0,
+      "use_hills": 0.5,
+      "avoid_bad_surfaces": 0.0,
+      "use_living_streets": 0.5
+    }
+  }
+}

@@ -1,12 +1,26 @@
 {
   "id": "city",
-  "costing": "bicycle",
-  "costing_options": {
-    "bicycle_type": "hybrid",
-    "cycling_speed": 16,
-    "use_roads": 0.2,
-    "use_hills": 0.3,
-    "avoid_bad_surfaces": 0.6,
-    "use_living_streets": 0.6
+  "note": "Calm streets and lanes over busy roads; avoids rough surfaces; mild hill aversion.",
+  "best": {
+    "costing": "bicycle",
+    "costing_options": {
+      "bicycle_type": "Hybrid",
+      "cycling_speed": 16,
+      "use_roads": 0.15,
+      "use_hills": 0.3,
+      "avoid_bad_surfaces": 0.7,
+      "use_living_streets": 0.7
+    }
+  },
+  "fastest": {
+    "costing": "bicycle",
+    "costing_options": {
+      "bicycle_type": "Hybrid",
+      "cycling_speed": 16,
+      "use_roads": 1.0,
+      "use_hills": 0.5,
+      "avoid_bad_surfaces": 0.0,
+      "use_living_streets": 0.5
+    }
   }
 }
