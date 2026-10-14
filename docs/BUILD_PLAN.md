@@ -58,7 +58,7 @@ Each milestone: plan mode → approval → implement on a branch → PR with scr
 - Route behind the rider trimmed; avoided-road tags only near the rider.
 - Live Activity + Dynamic Island (compact, minimal, expanded), local updates within the ActivityKit budget.
 - Background location and screen-locked riding.
-- **Accept when:** 3 real rides in Milan without a crash; hazards fire on time (log review); P5 snapshots match. Includes the checks carried over from M1 (docs/spikes/M1_REPORT.md): battery over 20 min unplugged, screen locked ≥ 5 min with Live Activity and voice, real reroutes < 2 s.
+- **Accept when:** 3 real rides in Milan without a crash; hazards fire on time (log review); P5 snapshots match. Includes the M1 real-ride findings (docs/spikes/M1_REPORT.md): no reroute bursts, no location gap while stopped, failed reroutes keep the old route.
 
 ## M8 · Bike + transit
 - Planner (iteration 1): direct connections only (no train changes): ride to a station → train/metro with bikes allowed at that time → ride. Uses the static timetable from the pack.

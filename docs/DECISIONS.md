@@ -4,6 +4,9 @@ Product decisions live in `BRIEF.md` §8 and `../design/HANDOFF.md` §3. Log her
 
 | Date | Decision | Reason | Who |
 |---|---|---|---|
+| 2026-10-14 | M1 GO confirmed by a real ride (49 min, 28 reroutes ≤ 106 ms, no crash, battery 100 → 85 %); supersedes the 12 Oct "real-ride checks move to M7" entry | All M1 criteria now measured on the iPhone 11 | Filippo + Claude |
+| 2026-10-14 | M7: own CoreLocation provider with `pausesLocationUpdatesAutomatically = false` during a ride | 2.5-min log gap while stationary on the real ride | Claude |
+| 2026-10-14 | M7: tune off-route rule (≈ 40–50 m, several consecutive fixes, back-off) and keep the old route when a reroute fails | Reroute bursts every 7–10 s and one failed reroute on the real ride | Claude |
 | 2026-10-12 | M1 closed as GO without the real ride; real-ride checks (20-min stability, battery unplugged, locked screen + Live Activity, real reroutes) move to M7 acceptance, which already requires 3 real rides in Milan | Routing criteria met on iPhone 11 with > 10× margin; Filippo can't ride this week and doesn't want to wait. Risk: a real-ride problem (battery, background) surfaces later, after UI is built on top | Filippo |
 | 2026-10-12 | M1 recommendation: GO on on-device Valhalla; real 20-min ride (stability, battery, locked screen) still to do | iPhone 11 routes 2–25 km in ≤ 215 ms (first call) / ≤ 61 ms warm; reroute 8 ms; see docs/spikes/M1_REPORT.md | Claude (Filippo to confirm) |
 | 2026-10-12 | Spike tiles side-loaded into the app's Documents, not bundled in the debug build (BUILD_PLAN M1 says bundle) | Keeps 70 MB out of every build and CI; matches how the downloaded pack will be read in M2 | Claude |

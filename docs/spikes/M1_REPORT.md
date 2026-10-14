@@ -2,13 +2,13 @@
 
 Go/no-go gate from `docs/BUILD_PLAN.md` M1: **route < 2 s, reroute < 2 s, app stable on a real ride.**
 
-## Decision: GO (12 Oct). Real-ride checks moved to M7
+## Decision: GO (14 Oct), all criteria met
 
-Filippo can't ride this week, so M1 closes on the device measurements below. The real-ride checklist at the end becomes part of **M7 acceptance** (which already needs 3 real rides in Milan).
+Filippo rode it in Milan on 14 Oct (below), so every M1 criterion is now measured on the iPhone 11.
 
-## Recommendation: GO (routing)
+## Recommendation: GO
 
-On-device Valhalla is 10–100× faster than the target on an iPhone 11 (2019, A13), the oldest phone we care about. Ferrostar takes the on-device route through its custom route provider, rerouting works, and a Live Activity runs on the free Personal Team. The one criterion not yet measured is **stability and battery on a real 20-minute ride in Milan**: that needs Filippo on the bike (checklist below). Nothing so far suggests a different engine or an earlier server provider.
+On-device Valhalla is 10–100× faster than the target on an iPhone 11 (2019, A13), the oldest phone we care about. Ferrostar takes the on-device route through its custom route provider, rerouting works, and a Live Activity runs on the free Personal Team. A 49-minute real ride in Milan ran without a crash, with 28 reroutes all under 110 ms. Nothing suggests a different engine or an earlier server provider.
 
 The new risk is **pack size** (see below): it belongs to M2, not this gate.
 
@@ -58,7 +58,7 @@ Comfortable for a 4 GB phone. Most of the navigating number is MapLibre (3D buil
 **Risk for M2:** the 220 MB budget fits the compressed download, not the unpacked tiles, and the pack also needs the hazard sidecar, cycle routes, GTFS and elevation. Options to try in M2: clip to the Lombardy polygon (not bbox), drop data cyclists never use (motorways via `mjolnir` include options / pre-filter `highway=motorway*`, `trunk` without bicycle access), ship tiles compressed and decompress on the phone, or split city / region packs. Decide in M2 with numbers.
 
 ### Battery
-Not measured: the phone was charging over the cable for every run (battery reads 100%). Needs the real ride, unplugged.
+Desk runs were on the cable (100 %). Real ride: 100 → 85 % in 49 min (see Real ride).
 
 ### Free Apple ID (Personal Team `F2ZGNLP242`)
 | Capability | Result | How checked |
@@ -72,12 +72,31 @@ Not measured: the phone was charging over the cable for every run (battery reads
 
 Impact of no App Groups: the Live Activity must be fed by ActivityKit content updates from the app (fine: HANDOFF asks for local updates), and the widget extension can't read SwiftData directly. No design change needed.
 
+## Real ride, Milan, 14 Oct (iPhone 11, unplugged, device GPS)
+
+| What | Result |
+|---|---|
+| Duration | 49 min, start 10:09 → arrival 10:59, including a ~20 min stop with the app open |
+| Route | 5.0 km to Politecnico, first route 212 ms |
+| Reroutes | **28**, median 19 ms, max **106 ms** (target < 2 s ✅); 1 reroute returned no route (31 ms, during the stop) and the next one recovered |
+| Stability | No crash; ended by itself on arrival ✅ |
+| Memory | 95–233 MB, no upward trend over 49 min |
+| Battery | 100 → 85 % (iOS reports in 5 % steps), ≈ 18 %/h with the screen kept on |
+| Live Activity | Started (`enabled: true`) |
+| Locked screen | Log ticks kept coming every minute; one 2.5-min gap at 10:46–10:48 (see finding below) |
+
+Findings to act on in M7 (logged in DECISIONS.md):
+1. **Reroute bursts**: 9–10 reroutes 7–10 s apart at 10:17–10:21 and 10:48–10:50. Either the ride left the route on purpose for a while, or the deviation rule (30 m, accuracy ≤ 25 m) is too strict for Milan streets. M7: wider threshold (≈ 40–50 m), require several consecutive off-route fixes, and back off when a new route is immediately left again.
+2. **Background gap**: no log for 2.5 min while stationary. Most likely iOS pausing location updates when the rider stands still (`pausesLocationUpdatesAutomatically` is on by default; Ferrostar's `CoreLocationProvider` doesn't expose it). M7: own location provider with pausing off during a ride.
+3. **No-route reroute**: one reroute failed silently. M7 must keep the old route and retry, and say so only if it keeps failing.
+4. **Battery** ≈ 18 %/h on a 2019 phone with the screen on all the time. M10 target to set; try dimming / screen-off riding with Live Activity.
+
 ## Found along the way
 - **Auto-end on arrival** fired on the phone (simulated location ends on the route) but not in the simulator, where the GPS path stopped 50 m from the route's end. M7 should end the ride on distance to the destination (≈ 30–50 m) as well as Ferrostar's arrival step.
 - Xcode command line needs `-skipMacroValidation` (MapLibre SwiftUI DSL macro) and, for this machine, `OS=18.0` with iPhone 16 (M0).
 - Ferrostar's stock UI uses SF Symbols; it is used only in the debug spike screen and is replaced by Velix components in M7.
 
-## Real-ride checklist (Filippo, now part of M7 acceptance)
+## Real-ride checklist (done 14 Oct; reuse for M7 rides)
 
 Needs Milan, ~20 min, phone **unplugged**, mounted, Wi-Fi off is fine (routing is offline; map tiles still stream from OpenFreeMap).
 
