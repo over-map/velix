@@ -8,7 +8,7 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 |---|---|---|---|
 | [Ferrostar](https://github.com/stadiamaps/ferrostar) (FerrostarCore, FerrostarMapLibreUI, FerrostarSwiftUI) | 0.57.0 | BSD-3-Clause | Navigation core, route progress, rerouting |
 | [MapLibre Native iOS](https://github.com/maplibre/maplibre-gl-native-distribution) | 6.31.0 | BSD-2-Clause | Map rendering |
-| [MapLibre SwiftUI DSL](https://github.com/maplibre/swiftui-dsl) (via Ferrostar) | 0.25.0 | BSD-3-Clause | SwiftUI map wrapper |
+| [MapLibre SwiftUI DSL](https://github.com/maplibre/swiftui-dsl) (MapLibreSwiftUI; also via Ferrostar) | 0.25.0 | BSD-3-Clause | SwiftUI map wrapper |
 | [valhalla-mobile](https://github.com/Rallista/valhalla-mobile) | 0.6.3 | MIT | On-device Valhalla routing |
 | [Valhalla](https://github.com/valhalla/valhalla) (inside valhalla-mobile) | bundled | MIT | Routing engine |
 | [valhalla-openapi-models-swift](https://github.com/Rallista/valhalla-openapi-models-swift) (via valhalla-mobile) | 0.5.4 | MIT | Valhalla request/response models |
@@ -18,6 +18,15 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 | [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing) (tests only) | 1.19.6 | MIT | Snapshot tests |
 | [swift-custom-dump](https://github.com/pointfreeco/swift-custom-dump) (tests only) | 1.7.3 | MIT | Test diffs |
 | [xctest-dynamic-overlay](https://github.com/pointfreeco/xctest-dynamic-overlay) (tests only) | 1.13.1 | MIT | Test support |
+
+## Build tools (not shipped)
+
+| Tool | Licence | Used for |
+|---|---|---|
+| [Valhalla](https://github.com/valhalla/valhalla) Docker image `ghcr.io/valhalla/valhalla:3.9.0` | MIT | Building routing tiles |
+| [osmium-tool](https://osmcode.org/osmium-tool/) | GPL-3.0 (tool only, not linked) | Clipping OSM extracts |
+| [Colima](https://github.com/abiosoft/colima) | MIT | Local Docker engine |
+| [fontTools](https://github.com/fonttools/fonttools) | MIT | Cutting static font instances |
 
 ## Fonts (bundled in `App/Resources/Fonts/`)
 
@@ -37,7 +46,7 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 
 | Data | Licence | Attribution |
 |---|---|---|
-| OpenStreetMap | ODbL 1.0 | "© OpenStreetMap contributors" on every map |
+| OpenStreetMap (Geofabrik extracts) | ODbL 1.0 | "© OpenStreetMap contributors" on every map |
 | OpenFreeMap tiles | Free, attribution requested | You → About |
 | Copernicus GLO-30 DEM | Copernicus licence (free, attribution) | You → About |
 | Trenord / ATM GTFS | Per operator open-data terms (to confirm in M2) | You → About |
