@@ -83,10 +83,10 @@ Impact of no App Groups: the Live Activity must be fed by ActivityKit content up
 | Memory | 95–233 MB, no upward trend over 49 min |
 | Battery | 100 → 85 % (iOS reports in 5 % steps), ≈ 18 %/h with the screen kept on |
 | Live Activity | Started (`enabled: true`) |
-| Locked screen | Log ticks kept coming every minute; one 2.5-min gap at 10:46–10:48 (see finding below) |
+| Locked screen | Live Activity seen on the lock screen (Filippo). Voice not checked (sound was off). Log ticks kept coming every minute; one 2.5-min gap at 10:46–10:48 (see finding below) |
 
 Findings to act on in M7 (logged in DECISIONS.md):
-1. **Reroute bursts**: 9–10 reroutes 7–10 s apart at 10:17–10:21 and 10:48–10:50. Either the ride left the route on purpose for a while, or the deviation rule (30 m, accuracy ≤ 25 m) is too strict for Milan streets. M7: wider threshold (≈ 40–50 m), require several consecutive off-route fixes, and back off when a new route is immediately left again.
+1. **Reroute bursts**: 9–10 reroutes 7–10 s apart at 10:17–10:21 and 10:48–10:50. Filippo confirmed he was riding his own way on purpose, so rerouting worked as designed. Still, a rider who ignores the route gets a new one every 7–10 s (and a voice prompt each time). M7: back off when a new route is immediately left again, and require several consecutive off-route fixes.
 2. **Background gap**: no log for 2.5 min while stationary. Most likely iOS pausing location updates when the rider stands still (`pausesLocationUpdatesAutomatically` is on by default; Ferrostar's `CoreLocationProvider` doesn't expose it). M7: own location provider with pausing off during a ride.
 3. **No-route reroute**: one reroute failed silently. M7 must keep the old route and retry, and say so only if it keeps failing.
 4. **Battery** ≈ 18 %/h on a 2019 phone with the screen on all the time. M10 target to set; try dimming / screen-off riding with Live Activity.
