@@ -52,6 +52,30 @@ with tempfile.TemporaryDirectory() as tmp:
             def rnd(c):
                 return [round(c[0], 5), round(c[1], 5)] if isinstance(c[0], float) else [rnd(x) for x in c]
             feats.append({"type": "Feature", "properties": {"c": cls}, "geometry": {"type": m["type"], "coordinates": rnd(m["coordinates"])}})
+# Region-wide context: the pack border, main roads and railways across Lombardy (heavily simplified).
+with tempfile.TemporaryDirectory() as tmp:
+    filt = f"{tmp}/region.pbf"
+    subprocess.run(["osmium", "tags-filter", PBF, "w/highway=motorway,trunk,primary,secondary", "w/railway=rail",
+                    "-o", filt, "--overwrite"], check=True)
+    gj = f"{tmp}/region.geojsonseq"
+    subprocess.run(["osmium", "export", filt, "-f", "geojsonseq", "-o", gj, "--overwrite"], check=True)
+    for line in open(gj):
+        f = json.loads(line.lstrip("\x1e"))
+        if f["geometry"]["type"] != "LineString":
+            continue
+        cls = "rail" if f["properties"].get("railway") == "rail" else "region-road"
+        g = shape(f["geometry"]).simplify(0.0006, preserve_topology=False)
+        if g.is_empty or g.length < 0.002:
+            continue
+        m = mapping(g)
+        feats.append({"type": "Feature", "properties": {"c": cls},
+                      "geometry": {"type": "LineString", "coordinates": [[round(x, 4), round(y, 4)] for x, y in m["coordinates"]]}})
+border = shape(json.load(open("pipeline/out/lombardy/region.geojson"))["features"][0]["geometry"]).simplify(0.002)
+bm = mapping(border.boundary)
+lines = bm["coordinates"] if bm["type"] == "MultiLineString" else [bm["coordinates"]]
+for ln in lines:
+    feats.append({"type": "Feature", "properties": {"c": "border"},
+                  "geometry": {"type": "LineString", "coordinates": [[round(x, 4), round(y, 4)] for x, y in ln]}})
 os.makedirs(os.path.dirname(out), exist_ok=True)
 json.dump({"type": "FeatureCollection", "features": feats}, open(out, "w"), separators=(",", ":"))
 print(len(feats), "features", round(os.path.getsize(out) / 1e6, 2), "MB")

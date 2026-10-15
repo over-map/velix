@@ -190,7 +190,8 @@ enum GoldenReport {
                 let i = along.firstIndex { $0 >= h.distanceAlong } ?? max(0, along.count - 1)
                 let p = o.best.analysis.shape[min(i, o.best.analysis.shape.count - 1)]
                 features.append(["type": "Feature", "properties": ["role": "hazard", "hazard": h.type.rawValue,
-                                                                    "title": h.type.title, "street": h.street ?? "", "detail": h.detail],
+                                                                    "title": h.type.title, "street": h.street ?? "", "detail": h.detail,
+                                                                    "along": Int(h.distanceAlong), "length": Int(h.lengthM)],
                                  "geometry": ["type": "Point", "coordinates": [p.lon, p.lat]]])
             }
         }

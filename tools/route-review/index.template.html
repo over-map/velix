@@ -9,26 +9,26 @@
 :root {
   --canvas: #F7F7EF; --surface: #FFFFFF; --surface2: #F1F1E6; --line: #DEDDCB;
   --ink: #021624; --ink2: #2E4A5A; --ink3: #4F6570;
-  --accent: #DBF227; --accentInk: #021624; --casing: #021624; --routeAlt: #6A808B;
+  --accent: #DBF227; --accentInk: #021624; --casing: #021624; --routeAlt: #6A808B; --routeFastest: #2F4FD8; --hazardInk: #1A0A03;
   --hazard: #E0532A; --avoided: #7A4FD6; --avoidedInk: #5B34B8; --warningSurface: #F3EFC2; --warningInk: #4B4300;
   --mixProtected: #4E8A12; --mixPainted: #0A7F73; --mixQuiet: #A9C7A0; --mixMixed: #B0ADAD; --mixCobbles: #8A5A3C; --mixUnpaved: #E7DFBF;
-  --mapLand: #EFEEE2; --mapPark: #DDE6CF; --mapWater: #BFD7DF; --mapMajor: #FFFFFF; --mapMajorCase: #C9C7B4; --mapMinor: #FFFFFF; --mapCycle: #0A7F73; --mapTram: #8C9196;
+  --mapLand: #EFEEE2; --mapBorder: #4F6570; --mapRail: #6A808B; --mapPark: #DDE6CF; --mapWater: #BFD7DF; --mapMajor: #FFFFFF; --mapMajorCase: #C9C7B4; --mapMinor: #FFFFFF; --mapCycle: #0A7F73; --mapTram: #8C9196;
   --display: "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
   --body: "Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --canvas: #021624; --surface: #0A2E45; --surface2: #123A54; --line: #1F4862;
-  --ink: #EEEDD6; --ink2: #BFC8C2; --ink3: #93A3A6; --routeAlt: #9AA6AA;
+  --ink: #EEEDD6; --ink2: #BFC8C2; --ink3: #93A3A6; --routeAlt: #9AA6AA; --routeFastest: #8EA2FF;
   --hazard: #FF7A4F; --avoided: #B79CFF; --avoidedInk: #CDBBFF; --warningSurface: #33361A; --warningInk: #E6E4A6;
   --mixProtected: #9FC131; --mixPainted: #7FD1C3; --mixQuiet: #4E7A55; --mixMixed: #5B7380; --mixCobbles: #C4925E; --mixUnpaved: #3A3A22;
-  --mapLand: #042940; --mapPark: #0B3A3A; --mapWater: #0D4A63; --mapMajor: #2C5870; --mapMajorCase: #1F4862; --mapMinor: #1A4660; --mapCycle: #7FD1C3; --mapTram: #93A3A6;
+  --mapLand: #042940; --mapBorder: #93A3A6; --mapRail: #5B7380; --mapPark: #0B3A3A; --mapWater: #0D4A63; --mapMajor: #2C5870; --mapMajorCase: #1F4862; --mapMinor: #1A4660; --mapCycle: #7FD1C3; --mapTram: #93A3A6;
   color-scheme: dark } }
 :root[data-theme="dark"] {
   --canvas: #021624; --surface: #0A2E45; --surface2: #123A54; --line: #1F4862;
-  --ink: #EEEDD6; --ink2: #BFC8C2; --ink3: #93A3A6; --routeAlt: #9AA6AA;
+  --ink: #EEEDD6; --ink2: #BFC8C2; --ink3: #93A3A6; --routeAlt: #9AA6AA; --routeFastest: #8EA2FF;
   --hazard: #FF7A4F; --avoided: #B79CFF; --avoidedInk: #CDBBFF; --warningSurface: #33361A; --warningInk: #E6E4A6;
   --mixProtected: #9FC131; --mixPainted: #7FD1C3; --mixQuiet: #4E7A55; --mixMixed: #5B7380; --mixCobbles: #C4925E; --mixUnpaved: #3A3A22;
-  --mapLand: #042940; --mapPark: #0B3A3A; --mapWater: #0D4A63; --mapMajor: #2C5870; --mapMajorCase: #1F4862; --mapMinor: #1A4660; --mapCycle: #7FD1C3; --mapTram: #93A3A6;
+  --mapLand: #042940; --mapBorder: #93A3A6; --mapRail: #5B7380; --mapPark: #0B3A3A; --mapWater: #0D4A63; --mapMajor: #2C5870; --mapMajorCase: #1F4862; --mapMinor: #1A4660; --mapCycle: #7FD1C3; --mapTram: #93A3A6;
   color-scheme: dark }
 html, body { height: 100%; }
 body { margin: 0; background: var(--canvas); color: var(--ink); font: 15px/1.4 var(--body); }
@@ -56,10 +56,16 @@ h1 { font: 700 22px/1.2 var(--display); margin: 0; text-wrap: balance; }
 .mix { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--surface2); }
 .mix i { display: block; height: 100%; }
 .rows { display: flex; flex-direction: column; }
-.row { display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.row { display: grid; grid-template-columns: 20px 1fr auto; gap: 10px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; }
 .row:first-child { border-top: 0; }
 .row b { font-weight: 700; }
 .row small { color: var(--ink3); }
+.hzm { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+.hzm .tile { width: 26px; height: 26px; border-radius: 6px; background: var(--hazard); border: 2px solid var(--casing); display: grid; place-items: center; box-sizing: border-box; }
+.hzm .tile svg { width: 18px; height: 18px; stroke: var(--hazardInk); }
+.hzm .ptr { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--casing); margin-top: -1px; }
+.hzi { width: 20px; height: 20px; border-radius: 5px; background: var(--hazard); border: 2px solid var(--casing); display: grid; place-items: center; box-sizing: border-box; align-self: center; }
+.hzi svg { width: 13px; height: 13px; stroke: var(--hazardInk); }
 .dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--casing); background: var(--hazard); align-self: center; }
 .dash { width: 12px; height: 0; border-top: 3px dashed var(--avoided); align-self: center; }
 .tag { color: var(--avoidedInk); font-weight: 700; }
@@ -91,12 +97,13 @@ h1 { font: 700 22px/1.2 var(--display); margin: 0; text-wrap: balance; }
       <div class="label" style="margin-bottom:6px">Map key</div>
       <div class="keys">
         <span><i class="sw" style="background:var(--accent);box-shadow:0 0 0 2px var(--casing)"></i>Best</span>
-        <span><i class="sw" style="background:var(--routeAlt)"></i>Fastest</span>
+        <span><i class="sw" style="background:var(--routeFastest)"></i>Fastest</span>
         <span><i class="sw" style="background:repeating-linear-gradient(90deg,var(--avoided) 0 5px,transparent 5px 8px)"></i>Avoided</span>
-        <span><i class="dot" style="display:inline-block"></i>Hazard on Best</span>
+        <span><i class="hzi" id="key-hz"></i>Hazard on Best</span><span><i class="sw" style="background:repeating-linear-gradient(45deg,var(--hazard) 0 3px,var(--casing) 3px 6px)"></i>Hazard stretch</span>
         <span><i class="sw" style="background:var(--mapTram)"></i>Tram rails</span>
+        <span><i class="sw" style="background:repeating-linear-gradient(90deg,var(--mapBorder) 0 4px,transparent 4px 7px)"></i>Pack border (Lombardy)</span>
       </div>
-      <p class="meta" style="margin-top:10px">Basemap and routes © OpenStreetMap contributors (ODbL). Grades from GEDTM30 (CC BY 4.0).</p>
+      <p class="meta" style="margin-top:10px">The pack covers all of Lombardy; streets are drawn in detail only near the 10 trips (main roads and railways elsewhere). Basemap and routes © OpenStreetMap contributors (ODbL). Grades from GEDTM30 (CC BY 4.0).</p>
     </section>
   </aside>
   <div id="map" role="region" aria-label="Map of the selected route"></div>
@@ -109,7 +116,8 @@ const SHORT = {city:"City",ebike:"E-b",road:"Road",gravel:"Grv",mtb:"MTB",cargo:
 const MIX = [["protected","--mixProtected","Protected"],["painted","--mixPainted","Painted"],["quiet","--mixQuiet","Quiet"],["mixed","--mixMixed","Mixed"],["cobbles","--mixCobbles","Cobbles"],["unpaved","--mixUnpaved","Unpaved"]];
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-let ROUTES = {}, map, current = null;
+let ROUTES = {}, GLYPHS = {}, map, current = null, markers = [];
+const glyph = t => `<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GLYPHS[t] || ""}</svg>`;
 function savePick(k){ try { localStorage.setItem("velix-golden-pick", k); } catch (e) {} }
 function loadPick(){ try { return localStorage.getItem("velix-golden-pick"); } catch (e) { return null; } }
 
@@ -144,8 +152,8 @@ function detail(k) {
     return;
   }
   const hz = r.f.filter(f => f.properties.role === "hazard");
-  const groups = {};
-  for (const h of hz) { const t = h.properties.title; (groups[t] = groups[t] || []).push(h.properties.street || h.properties.detail); }
+  const groups = {}, kinds = {};
+  for (const h of hz) { const t = h.properties.title; kinds[t] = h.properties.hazard; (groups[t] = groups[t] || []).push(h.properties.street || h.properties.detail); }
   const av = r.f.filter(f => f.properties.role === "avoided");
   el.innerHTML = head +
     `<div style="display:flex;flex-direction:column;gap:10px">
@@ -154,7 +162,7 @@ function detail(k) {
       ${(p.unavoidable||[]).length ? `<div class="meta">Left on Best (no better way found): ${esc(p.unavoidable.join(", "))}</div>` : ""}
       <div class="card"><div class="label">On your route</div><div class="rows">${Object.keys(groups).length ? Object.entries(groups).map(([t, streets]) => {
         const uniq = [...new Set(streets.filter(Boolean))];
-        return `<div class="row"><i class="dot"></i><span><b>${esc(t)}</b><br><small>${esc(uniq.slice(0, 4).join(", "))}${uniq.length > 4 ? "…" : ""}</small></span><small>${streets.length}×</small></div>`; }).join("") : `<div class="row"><span></span><small>No hazards</small><span></span></div>`}</div>
+        return `<div class="row"><i class="hzi">${glyph(kinds[t])}</i><span><b>${esc(t)}</b><br><small>${esc(uniq.slice(0, 4).join(", "))}${uniq.length > 4 ? "…" : ""}</small></span><small>${streets.length}×</small></div>`; }).join("") : `<div class="row"><span></span><small>No hazards</small><span></span></div>`}</div>
       <div class="label" style="margin-top:6px">Avoided</div><div class="rows">${av.length ? av.map(a => `<div class="row"><i class="dash"></i><span><b>${esc(a.properties.name)}</b></span><span class="tag">${esc(a.properties.reason)}</span></div>`).join("") : `<div class="row"><span></span><small>Nothing avoided</small><span></span></div>`}</div></div>
       <div class="meta">Planned in ${p.ms} ms on the Mac simulator · ${p.rounds} exclusion round${p.rounds === 1 ? "" : "s"}</div>
     </div>`;
@@ -167,10 +175,35 @@ function select(k) {
   current = k; savePick(k); detail(k);
   if (map && map.getSource("case")) {
     map.getSource("case").setData({type: "FeatureCollection", features: ROUTES[k].f});
+    placeMarkers(ROUTES[k].f);
     const xs = [], ys = [];
     for (const f of ROUTES[k].f) { const c = f.geometry.type === "Point" ? [f.geometry.coordinates] : f.geometry.coordinates; for (const [x, y] of c) { xs.push(x); ys.push(y); } }
     if (xs.length) map.fitBounds([[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]], {padding: 48, duration: matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 500});
   }
+}
+
+function placeMarkers(features) {
+  markers.forEach(m => m.remove()); markers = [];
+  for (const f of features) {
+    const p = f.properties;
+    if (p.role !== "hazard") continue;
+    const el = document.createElement("div");
+    el.className = "hzm";
+    el.innerHTML = `<div class="tile">${glyph(p.hazard)}</div><div class="ptr"></div>`;
+    el.title = `${p.title}${p.street ? " · " + p.street : ""}${p.detail ? " · " + p.detail : ""}`;
+    el.setAttribute("aria-label", el.title);
+    markers.push(new maplibregl.Marker({element: el, anchor: "bottom", pitchAlignment: "viewport", rotationAlignment: "viewport"}).setLngLat(f.geometry.coordinates).addTo(map));
+  }
+}
+
+function stripe() {
+  // Hazard tube pattern (P3 render.js): coral with ink diagonal stripes.
+  const c = document.createElement("canvas"); c.width = c.height = 16;
+  const g = c.getContext("2d");
+  g.fillStyle = css("--casing"); g.fillRect(0, 0, 16, 16);
+  g.fillStyle = css("--hazard"); g.beginPath(); g.moveTo(0, 0); g.lineTo(8, 0); g.lineTo(0, 8); g.closePath();
+  g.moveTo(16, 0); g.lineTo(16, 8); g.lineTo(8, 16); g.lineTo(0, 16); g.closePath(); g.fill();
+  return g.getImageData(0, 0, 16, 16);
 }
 
 function style() {
@@ -180,6 +213,9 @@ function style() {
 }
 
 function addLayers() {
+  map.addLayer({id: "region-road", type: "line", source: "base", filter: ["==", ["get", "c"], "region-road"], maxzoom: 13, paint: {"line-color": css("--mapMajorCase"), "line-width": 1}});
+  map.addLayer({id: "rail", type: "line", source: "base", filter: ["==", ["get", "c"], "rail"], paint: {"line-color": css("--mapRail"), "line-width": 1, "line-dasharray": [4, 2]}});
+  map.addLayer({id: "border", type: "line", source: "base", filter: ["==", ["get", "c"], "border"], paint: {"line-color": css("--mapBorder"), "line-width": 1.5, "line-dasharray": [3, 2]}});
   map.addLayer({id: "park", type: "fill", source: "base", filter: ["==", ["get", "c"], "park"], paint: {"fill-color": css("--mapPark")}});
   map.addLayer({id: "water", type: "fill", source: "base", filter: ["all", ["==", ["get", "c"], "water"], ["==", ["geometry-type"], "Polygon"]], paint: {"fill-color": css("--mapWater")}});
   map.addLayer({id: "water-line", type: "line", source: "base", filter: ["all", ["==", ["get", "c"], "water"], ["==", ["geometry-type"], "LineString"]], paint: {"line-color": css("--mapWater"), "line-width": 3}});
@@ -190,12 +226,13 @@ function addLayers() {
   map.addLayer({id: "cycle", type: "line", source: "base", filter: ["==", ["get", "c"], "cycle"], paint: {"line-color": css("--mapCycle"), "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.8, 16, 2.5], "line-opacity": 0.8}});
   map.addLayer({id: "tram", type: "line", source: "base", filter: ["==", ["get", "c"], "tram"], paint: {"line-color": css("--mapTram"), "line-width": 1.2, "line-dasharray": [3, 1.5]}});
   const role = r => ["==", ["get", "role"], r];
-  map.addLayer({id: "fastest", type: "line", source: "case", filter: role("fastest"), layout: {"line-cap": "round", "line-join": "round"}, paint: {"line-color": css("--routeAlt"), "line-width": ["interpolate", ["linear"], ["zoom"], 11, 3, 16, 7]}});
+  map.addLayer({id: "fastest", type: "line", source: "case", filter: role("fastest"), layout: {"line-cap": "round", "line-join": "round"}, paint: {"line-color": css("--routeFastest"), "line-width": ["interpolate", ["linear"], ["zoom"], 11, 3, 16, 7]}});
   map.addLayer({id: "closest", type: "line", source: "case", filter: role("closest"), layout: {"line-cap": "round"}, paint: {"line-color": css("--routeAlt"), "line-width": 5, "line-dasharray": [1.5, 1.2]}});
   map.addLayer({id: "avoided", type: "line", source: "case", filter: role("avoided"), paint: {"line-color": css("--avoided"), "line-width": ["interpolate", ["linear"], ["zoom"], 11, 3, 16, 6], "line-dasharray": [1.4, 1]}});
   map.addLayer({id: "best-case", type: "line", source: "case", filter: role("best"), layout: {"line-cap": "round", "line-join": "round"}, paint: {"line-color": css("--casing"), "line-width": ["interpolate", ["linear"], ["zoom"], 11, 6, 16, 12]}});
   map.addLayer({id: "best", type: "line", source: "case", filter: role("best"), layout: {"line-cap": "round", "line-join": "round"}, paint: {"line-color": css("--accent"), "line-width": ["interpolate", ["linear"], ["zoom"], 11, 3.5, 16, 8]}});
-  map.addLayer({id: "hazard", type: "circle", source: "case", filter: role("hazard"), paint: {"circle-color": css("--hazard"), "circle-radius": ["interpolate", ["linear"], ["zoom"], 11, 3, 16, 7], "circle-stroke-color": css("--casing"), "circle-stroke-width": 2}});
+  map.addImage("hz-stripe", stripe(), {pixelRatio: 2});
+  map.addLayer({id: "tube", type: "line", source: "case", filter: role("tube"), layout: {"line-cap": "butt", "line-join": "round"}, paint: {"line-pattern": "hz-stripe", "line-width": ["interpolate", ["linear"], ["zoom"], 11, 5, 16, 11]}});
 }
 
 function makeMap(base) {
@@ -208,16 +245,15 @@ function makeMap(base) {
     map.addSource("case", {type: "geojson", data: {type: "FeatureCollection", features: []}});
     addLayers();
     const popup = new maplibregl.Popup({closeButton: false, closeOnClick: false});
-    map.on("mouseenter", "hazard", e => { map.getCanvas().style.cursor = "pointer"; const p = e.features[0].properties; popup.setLngLat(e.lngLat).setHTML(`<b>${esc(p.title)}</b><br>${esc(p.street || "")} ${esc(p.detail || "")}`).addTo(map); });
-    map.on("mouseleave", "hazard", () => { map.getCanvas().style.cursor = ""; popup.remove(); });
     map.on("mouseenter", "avoided", e => { const p = e.features[0].properties; popup.setLngLat(e.lngLat).setHTML(`<b>${esc(p.name)}</b><br>${esc(p.reason)}`).addTo(map); });
     map.on("mouseleave", "avoided", () => popup.remove());
     if (current) select(current);
   });
 }
 
-Promise.all([fetch("routes.json").then(r => r.json()), fetch("basemap.json").then(r => r.json())]).then(([routes, base]) => {
-  ROUTES = routes;
+Promise.all([fetch("routes.json").then(r => r.json()), fetch("basemap.json").then(r => r.json()), fetch("glyphs.json").then(r => r.json())]).then(([routes, base, glyphs]) => {
+  ROUTES = routes; GLYPHS = glyphs;
+  document.getElementById("key-hz").innerHTML = glyph("cobbles");
   buildMatrix();
   const start = loadPick();
   select(ROUTES[start] ? start : "1-city");

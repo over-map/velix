@@ -176,10 +176,11 @@ struct RoutePlanner: Sendable {
         return (scored.min { $0.0.seconds + penalty($0.1) < $1.0.seconds + penalty($1.1) }!.0, nil)
     }
 
-    /// Seconds of detour a metre of each broken rule is worth (cobbles ≈ 1 s/m: "+5 min · avoids 300 m cobbles").
+    /// Seconds of detour a metre of each broken rule is worth. Cobbles 3 s/m: Filippo takes a longer route to avoid
+    /// them more than for anything else (300 m of cobbles ≈ worth a 15-min detour).
     static func weight(_ rule: Rule) -> Double {
         switch rule {
-        case .noCobbles: 1.0
+        case .noCobbles: 3.0
         case .neverAlongTramRails: 3.0
         case .noStepsOrGaps: 3.0
         case .pavedOnly: 0.7
