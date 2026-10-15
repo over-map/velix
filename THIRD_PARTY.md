@@ -28,6 +28,7 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 | [Colima](https://github.com/abiosoft/colima) | MIT | Local Docker engine |
 | [fontTools](https://github.com/fonttools/fonttools) | MIT | Cutting static font instances |
 | [GDAL](https://gdal.org) image `ghcr.io/osgeo/gdal:ubuntu-small-3.11.4` | MIT | DEM → SRTM tiles |
+| [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) 4.7.1 | BSD-3-Clause | Golden-route review map (`tools/route-review`, not in the app) |
 | [pyosmium](https://osmcode.org/pyosmium/) 4.0.2 | BSD-2-Clause | Reading OSM in the pipeline |
 | [Shapely](https://github.com/shapely/shapely) 2.0.7 | BSD-3-Clause | Hazard geometry |
 | [pyproj](https://github.com/pyproj4/pyproj) 3.7.1 | MIT | Metric projection |
@@ -54,6 +55,6 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 |---|---|---|
 | OpenStreetMap (Geofabrik extracts) | ODbL 1.0 | "© OpenStreetMap contributors" on every map |
 | OpenFreeMap tiles | Free, attribution requested | You → About |
-| Copernicus DEM GLO-30 (AWS Open Data) | Copernicus DEM licence (free, attribution) | "© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved" (You → About, release notes) |
+| GEDTM30 global 30 m terrain model, Ho et al. (2025), OpenGeoHub (doi:10.5281/zenodo.15689805) | CC BY 4.0 | "GEDTM30, OpenGeoHub, CC BY 4.0" (You → About, release notes). Grades in the routing tiles only; the DEM is not shipped |
 | Trenord GTFS "Orario Ferroviario Regionale" (Regione Lombardia open data, dataset 3z4k-mxz9) | CC BY 4.0 | "Trenord" (You → About) |
 | ATM GTFS (Comune di Milano open data, ds929) | CC BY 4.0 | "ATM, via Comune di Milano" (You → About) |
