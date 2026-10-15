@@ -113,6 +113,40 @@ final class SpikeModel {
         }
     }
 
+    // MARK: Route planner (M3)
+
+    /// Plans golden trips 1–3 with City defaults: Best + Fastest + rules, timed (performance budget < 1.5 s).
+    func runPlannerBenchmark() async {
+        guard let provider, let hz = RegionPack.hazardStore, let store = try? HazardStore(path: hz) else {
+            status = "Planner needs tiles and hazards.sqlite"
+            return
+        }
+        isBusy = true
+        defer { isBusy = false }
+        let planner = RoutePlanner(engine: provider, hazards: store)
+        let trips: [(String, LatLon, LatLon)] = [
+            ("Porta Venezia → Politecnico", .init(lat: 45.4746, lon: 9.2050), .init(lat: 45.4781, lon: 9.2272)),
+            ("Duomo → Bicocca", .init(lat: 45.4642, lon: 9.1900), .init(lat: 45.5140, lon: 9.2110)),
+            ("Darsena → Città Studi", .init(lat: 45.4520, lon: 9.1757), .init(lat: 45.4760, lon: 9.2350)),
+        ]
+        for type in [RideType.city, .cargo] {
+            for (name, from, to) in trips {
+                let start = Date()
+                let plan = try? await planner.plan(from: from, to: to, rules: .defaults(for: type))
+                let ms = Date().timeIntervalSince(start) * 1000
+                var fields: [String: Any] = ["trip": name, "type": type.rawValue, "ms": Int(ms)]
+                switch plan {
+                case let .options(o)?: fields["line"] = o.bestLine; fields["rounds"] = o.rounds
+                case let .noRouteMeetsRules(rule, _, _, _)?: fields["blocked"] = rule.title
+                default: fields["result"] = "none"
+                }
+                metrics.log("plan", fields)
+                results.append("\(type.name) · \(name) · \(Int(ms)) ms")
+            }
+        }
+        status = "Planner benchmark done"
+    }
+
     // MARK: Benchmark
 
     /// Each benchmark trip 5×: first call (cold caches) and median of the rest.

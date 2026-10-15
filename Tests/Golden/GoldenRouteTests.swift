@@ -1,4 +1,5 @@
 import Foundation
+import SQLite3
 import Testing
 @testable import Velix
 
@@ -28,9 +29,21 @@ struct GoldenTrip: Sendable, CustomStringConvertible {
 
 enum GoldenPack {
     static let directory: URL? = ProcessInfo.processInfo.environment["VELIX_PACK_DIR"].map { URL(filePath: $0) }
+    /// Needs the tiles and a hazards sidecar of schema ≥ 2 (lighting table, M3); older packs skip the suite.
     static var available: Bool {
-        guard let d = directory else { return false }
-        return FileManager.default.fileExists(atPath: d.appending(path: "valhalla_tiles.tar").path)
+        guard let d = directory, FileManager.default.fileExists(atPath: d.appending(path: "valhalla_tiles.tar").path)
+        else { return false }
+        return hazardsSchema(d.appending(path: "hazards.sqlite")) >= 2
+    }
+
+    private static func hazardsSchema(_ url: URL) -> Int {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else { return 0 }
+        defer { sqlite3_close(db) }
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT value FROM meta WHERE key = 'schema'", -1, &stmt, nil) == SQLITE_OK else { return 0 }
+        defer { sqlite3_finalize(stmt) }
+        return sqlite3_step(stmt) == SQLITE_ROW ? Int(sqlite3_column_int(stmt, 0)) : 0
     }
 
     /// One engine for the whole run (building it maps 360 MB of tiles).
@@ -46,7 +59,7 @@ enum GoldenPack {
     static let outDir: URL? = ProcessInfo.processInfo.environment["VELIX_GOLDEN_OUT"].map { URL(filePath: $0) }
 }
 
-@Suite(.enabled(if: GoldenPack.available, "Set TEST_RUNNER_VELIX_PACK_DIR to an unpacked region pack"), .serialized)
+@Suite(.enabled(if: GoldenPack.available, "Set TEST_RUNNER_VELIX_PACK_DIR to an unpacked region pack (hazards schema ≥ 2)"), .serialized)
 struct GoldenRouteTests {
     static let cases: [(GoldenTrip, RideType)] = GoldenTrip.all.flatMap { t in RideType.allCases.map { (t, $0) } }
 
