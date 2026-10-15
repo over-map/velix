@@ -9,9 +9,9 @@ DOCKER_RUN := docker run --rm -e REGION=$(REGION) -v "$(ROOT):/work" -w /work/pi
 TOOLS := $(DOCKER_RUN) $(TOOLS_IMAGE)
 VALHALLA := $(DOCKER_RUN) $(VALHALLA_IMAGE)
 
-.PHONY: pack tools extract elevation tiles hazards routes transit package validate smoke clean
+.PHONY: pack tools extract elevation prepare tiles hazards routes transit package validate smoke clean
 
-pack: extract elevation tiles hazards routes transit package validate smoke
+pack: extract elevation prepare tiles hazards routes transit package validate smoke
 
 tools:
 	docker build -q -t $(TOOLS_IMAGE) -f Dockerfile.tools .
@@ -21,6 +21,9 @@ extract: tools
 
 elevation: tools
 	$(TOOLS) python stages/elevation.py
+
+prepare: tools
+	$(TOOLS) python stages/prepare_routing.py
 
 tiles:
 	$(VALHALLA) bash stages/tiles.sh

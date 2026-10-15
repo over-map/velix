@@ -24,10 +24,22 @@ final class ValhallaOnDeviceProvider: RoutingProvider, @unchecked Sendable {
             throw RoutingError.tilesMissing(tileExtract.path)
         }
         self.profile = profile
-        var config = try ValhallaConfig(tileExtractTar: tileExtract)
-        // Rule enforcement excludes small boxes around cobbles, rails, steps… (RoutePlanner); allow more of them.
-        config.serviceLimits?.maxExcludePolygonsLength = 60_000
-        valhalla = try Valhalla(config)
+        valhalla = try Valhalla(configPath: try Self.writeConfig(tileExtract: tileExtract).path)
+    }
+
+    /// The default valhalla-mobile config with the pack's tiles, and room for rule exclusions: RoutePlanner boxes out
+    /// every cobbled / tram-rail / step way near a trip (hundreds of small polygons, so a long total perimeter).
+    /// The Valhalla inside valhalla-mobile 0.6.3 has no vertex limit (and rejects the `max_exclude_polygons_vertices` key).
+    static func writeConfig(tileExtract: URL) throws -> URL {
+        let config = try ValhallaConfig(tileExtractTar: tileExtract)
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(config)) as? [String: Any] ?? [:]
+        var limits = json["service_limits"] as? [String: Any] ?? [:]
+        limits["max_exclude_polygons_length"] = 5_000_000
+        json["service_limits"] = limits
+        let url = URL.applicationSupportDirectory.appending(path: "valhalla-velix.json")
+        try FileManager.default.createDirectory(at: .applicationSupportDirectory, withIntermediateDirectories: true)
+        try JSONSerialization.data(withJSONObject: json).write(to: url, options: .atomic)
+        return url
     }
 
     /// Valhalla `route` with a raw JSON request, off the main thread.

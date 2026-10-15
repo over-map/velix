@@ -11,10 +11,13 @@ osm:
   licence: ODbL-1.0
   attribution: "© OpenStreetMap contributors"
 elevation:
-  # Copernicus GLO-30 DEM, AWS Open Data (no key). 1°×1° Cloud Optimized GeoTIFFs.
-  url_template: "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_{ns}{lat:02d}_00_{ew}{lon:03d}_00_DEM/Copernicus_DSM_COG_10_{ns}{lat:02d}_00_{ew}{lon:03d}_00_DEM.tif"
-  licence: Copernicus-DEM
-  attribution: "© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved"
+  # GEDTM30: global 30 m *terrain* model (buildings and trees removed), Cloud Optimized GeoTIFF, values in dm.
+  # Replaces Copernicus GLO-30 (a surface model: rooftops gave flat Milan streets fake 8–15 % grades).
+  source: gedtm30
+  url: "https://s3.opengeohub.org/global/edtm/gedtm_rf_m_30m_s_20060101_20151231_go_epsg.4326.3855_v20250611.tif"
+  scale: 0.1
+  licence: CC-BY-4.0
+  attribution: "GEDTM30, Ho et al. (2025), OpenGeoHub, CC BY 4.0 (doi:10.5281/zenodo.15689805)"
 transit:
   days: 60
   bike_rules: bikes_allowed_rules.yml   # curated, per region; used only where a feed has no trips.bikes_allowed

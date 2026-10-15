@@ -17,29 +17,35 @@ struct RouteEdge: Decodable, Sendable, Equatable {
     let unpaved: Bool
     let maxUpwardGrade: Int
     let maxDownwardGrade: Int
+    /// Average grade over the edge (%, signed). Steadier than max_*_grade, which picks up spikes from the
+    /// surface model (Copernicus GLO-30 includes buildings and trees).
+    let weightedGrade: Double
     let meanElevation: Double?
     let names: [String]
+    /// Valhalla's speed for the edge (km/h): maxspeed if tagged, else a default for the road class.
+    let speed: Int
     let beginShapeIndex: Int
     let endShapeIndex: Int
 
     var meters: Double { lengthKm * 1000 }
+    var grade: Double { abs(weightedGrade) }
     var name: String? { names.first }
 
     enum CodingKeys: String, CodingKey {
         case wayId = "way_id", lengthKm = "length", use, cycleLane = "cycle_lane", roadClass = "road_class", surface,
              unpaved, maxUpwardGrade = "max_upward_grade", maxDownwardGrade = "max_downward_grade",
-             meanElevation = "mean_elevation", names, beginShapeIndex = "begin_shape_index",
+             weightedGrade = "weighted_grade", meanElevation = "mean_elevation", names, speed, beginShapeIndex = "begin_shape_index",
              endShapeIndex = "end_shape_index"
     }
 
     init(wayId: Int64, lengthKm: Double, use: String = "road", cycleLane: String = "none",
          roadClass: String = "residential", surface: String = "paved_smooth", unpaved: Bool = false,
-         maxUpwardGrade: Int = 0, maxDownwardGrade: Int = 0, meanElevation: Double? = nil, names: [String] = [],
-         beginShapeIndex: Int = 0, endShapeIndex: Int = 0) {
+         maxUpwardGrade: Int = 0, maxDownwardGrade: Int = 0, weightedGrade: Double = 0, meanElevation: Double? = nil,
+         names: [String] = [], speed: Int = 50, beginShapeIndex: Int = 0, endShapeIndex: Int = 0) {
         self.wayId = wayId; self.lengthKm = lengthKm; self.use = use; self.cycleLane = cycleLane
         self.roadClass = roadClass; self.surface = surface; self.unpaved = unpaved
-        self.maxUpwardGrade = maxUpwardGrade; self.maxDownwardGrade = maxDownwardGrade
-        self.meanElevation = meanElevation; self.names = names
+        self.maxUpwardGrade = maxUpwardGrade; self.maxDownwardGrade = maxDownwardGrade; self.weightedGrade = weightedGrade
+        self.meanElevation = meanElevation; self.names = names; self.speed = speed
         self.beginShapeIndex = beginShapeIndex; self.endShapeIndex = endShapeIndex
     }
 
@@ -54,8 +60,10 @@ struct RouteEdge: Decodable, Sendable, Equatable {
         unpaved = try c.decodeIfPresent(Bool.self, forKey: .unpaved) ?? false
         maxUpwardGrade = try c.decodeIfPresent(Int.self, forKey: .maxUpwardGrade) ?? 0
         maxDownwardGrade = try c.decodeIfPresent(Int.self, forKey: .maxDownwardGrade) ?? 0
+        weightedGrade = try c.decodeIfPresent(Double.self, forKey: .weightedGrade) ?? 0
         meanElevation = try c.decodeIfPresent(Double.self, forKey: .meanElevation)
         names = try c.decodeIfPresent([String].self, forKey: .names) ?? []
+        speed = try c.decodeIfPresent(Int.self, forKey: .speed) ?? 50
         beginShapeIndex = try c.decodeIfPresent(Int.self, forKey: .beginShapeIndex) ?? 0
         endShapeIndex = try c.decodeIfPresent(Int.self, forKey: .endShapeIndex) ?? 0
     }
@@ -121,6 +129,7 @@ struct RouteAnalysis: Equatable, Sendable {
     var hazards: [RouteHazard] = []
     var climbM: Double = 0
     var maxGrade: Int = 0
+    var profile = ElevationProfile(edges: [])
     /// Metres per way id, to find stretches one route uses and the other doesn't.
     var metersByWay: [Int64: Double] = [:]
     /// Metres on busy roads (mixed traffic, tertiary and up) by street name.

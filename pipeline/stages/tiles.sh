@@ -13,7 +13,7 @@ valhalla_build_config \
   --mjolnir-concurrency "${TILE_THREADS:-$(nproc)}" > valhalla.json
 [ -f timezones.sqlite ] || valhalla_build_timezones > timezones.sqlite
 valhalla_build_admins -c valhalla.json region.osm.pbf country.osm.pbf
-valhalla_build_tiles -c valhalla.json region.osm.pbf
+valhalla_build_tiles -c valhalla.json routing.osm.pbf   # cobbles retagged, see prepare_routing.py
 # Reproducible tar: the extract records file mtimes, so pin them to the OSM extract date.
 STAMP=$(python3 -c "import json;print(json.load(open('sources/osm.json'))['date'])")
 find valhalla_tiles -exec touch -h -d "$STAMP" {} +

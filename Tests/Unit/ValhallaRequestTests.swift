@@ -11,7 +11,7 @@ struct RoutingProfileTests {
         #expect(profile.id == type.rawValue)
         #expect(profile.best.costing == "bicycle")
         #expect(profile.fastest.costingOptions["use_roads"] == .number(1))
-        #expect(profile.best.costingOptions["bicycle_type"] == profile.fastest.costingOptions["bicycle_type"])
+        #expect(profile.best.costingOptions["cycling_speed"] == profile.fastest.costingOptions["cycling_speed"])
     }
 
     @Test func excludePolygonsAreSentAsLonLatRings() throws {

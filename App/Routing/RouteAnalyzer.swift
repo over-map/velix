@@ -29,8 +29,11 @@ enum RouteAnalyzer {
         case "dedicated": return .painted
         default: break
         }
-        return quietClasses.contains(edge.roadClass) ? .quiet : .mixed
+        // Quiet: residential-type streets, or any road at 30 km/h or less (Zona 30, 20 mph zones).
+        return quietClasses.contains(edge.roadClass) || edge.speed <= calmSpeed ? .quiet : .mixed
     }
+
+    static let calmSpeed = 30
 
     static func analyze(shape: [LatLon], edges: [RouteEdge], hazards source: some HazardSource) -> RouteAnalysis {
         var a = RouteAnalysis(shape: shape, edges: edges)
@@ -43,7 +46,7 @@ enum RouteAnalyzer {
         let cobbleWays = Set(lines.compactMap { way, hz in hz.contains { $0.type == .cobbles } ? way : nil })
         let lighting = source.lighting(ofWays: wayIDs)
 
-        var run = 0.0, prevElevation: Double?
+        var run = 0.0
         var seenLineHazard = Set<String>()
         for edge in edges {
             let cat = category(of: edge, cobbleWays: cobbleWays)
@@ -57,16 +60,14 @@ enum RouteAnalyzer {
             } else {
                 run = 0
             }
-            if edge.meters >= 30 { a.maxGrade = max(a.maxGrade, edge.maxUpwardGrade, edge.maxDownwardGrade) }
-            if let e = edge.meanElevation {
-                if let p = prevElevation, e > p { a.climbM += e - p }
-                prevElevation = e
-            }
+
             if let l = lighting[edge.wayId], edge.meters >= 30, (l.path && l.lit != true) || l.lit == false {
                 a.unlitMeters += edge.meters
                 a.unlitEdges.append(edge)
             }
             for h in lines[edge.wayId] ?? [] {
+                // Rails beside a separated track or path are behind a kerb: the hazard is sharing the carriageway.
+                if h.type == .along, cat == .protected { continue }
                 let key = "\(h.id)"
                 guard !seenLineHazard.contains(key) else { continue }
                 seenLineHazard.insert(key)
@@ -104,40 +105,38 @@ enum RouteAnalyzer {
                                              street: edgeName(at: hit.i, edges), detail: h.detail, osm: h.osm))
             }
         }
-        a.hazards += steepStretches(edges, along: along)
+        a.profile = ElevationProfile(edges: edges)
+        a.climbM = a.profile.climb
+        a.maxGrade = Int(a.profile.maxGrade.rounded())
+        a.hazards += steepStretches(a.profile, edges: edges, along: along)
         a.hazards.sort { $0.distanceAlong < $1.distanceAlong }
         return a
     }
 
     /// Steep climbs and descents from Valhalla edge grades (elevation is baked into the pack tiles).
     static let steepGrade = 7
-    static let steepMinLength = 80.0
+    static let steepMinLength = 300.0
 
-    static func steepStretches(_ edges: [RouteEdge], along: [Double]) -> [RouteHazard] {
+    static func steepStretches(_ profile: ElevationProfile, edges: [RouteEdge], along: [Double]) -> [RouteHazard] {
         var out: [RouteHazard] = []
         for kind in [HazardType.climb, .descent] {
-            var start: Double?, length = 0.0, worst = 0, street: String?
-            func flush() {
-                if let s = start, length >= steepMinLength {
-                    let sign = kind == .climb ? "+" : "−"
-                    out.append(RouteHazard(type: kind, distanceAlong: s, lengthM: length, street: street,
-                                           detail: "\(sign)\(worst)% for \(DifferenceLine.distance(length))", osm: ""))
-                }
-                start = nil; length = 0; worst = 0; street = nil
+            for s in profile.stretches(steeperThan: Double(steepGrade) - 0.5, climb: kind == .climb, minLength: steepMinLength) {
+                let sign = kind == .climb ? "+" : "−"
+                out.append(RouteHazard(type: kind, distanceAlong: s.start, lengthM: s.length,
+                                       street: street(atDistance: s.start, edges),
+                                       detail: "\(sign)\(Int(s.worst.rounded()))% for \(DifferenceLine.distance(s.length))", osm: ""))
             }
-            for e in edges {
-                let g = kind == .climb ? e.maxUpwardGrade : e.maxDownwardGrade
-                if g >= steepGrade {
-                    if start == nil { start = along[safe: e.beginShapeIndex] ?? 0; street = e.name }
-                    length += e.meters
-                    worst = max(worst, g)
-                } else {
-                    flush()
-                }
-            }
-            flush()
         }
         return out
+    }
+
+    private static func street(atDistance d: Double, _ edges: [RouteEdge]) -> String? {
+        var x = 0.0
+        for e in edges {
+            x += e.meters
+            if x >= d { return e.name }
+        }
+        return edges.last?.name
     }
 
     static func cumulative(_ shape: [LatLon]) -> [Double] {

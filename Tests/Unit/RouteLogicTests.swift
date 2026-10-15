@@ -48,7 +48,8 @@ func edge(use: String = "road", lane: String = "none", road: String = "residenti
           up: Int = 0, down: Int = 0, name: String? = nil, elevation: Double? = nil) -> (inout RouteEdge) -> Void {
     { e in
         e = RouteEdge(wayId: e.wayId, lengthKm: e.lengthKm, use: use, cycleLane: lane, roadClass: road, unpaved: unpaved,
-                      maxUpwardGrade: up, maxDownwardGrade: down, meanElevation: elevation, names: name.map { [$0] } ?? [],
+                      maxUpwardGrade: up, maxDownwardGrade: down, weightedGrade: Double(up > 0 ? up : -down),
+                      meanElevation: elevation, names: name.map { [$0] } ?? [],
                       beginShapeIndex: e.beginShapeIndex, endShapeIndex: e.endShapeIndex)
     }
 }
@@ -79,8 +80,16 @@ struct RouteAnalyzerTests {
         #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, cycleLane: "dedicated", roadClass: "primary"), cobbleWays: none) == .painted)
         #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, roadClass: "residential"), cobbleWays: none) == .quiet)
         #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, roadClass: "primary"), cobbleWays: none) == .mixed)
+        #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, roadClass: "tertiary", speed: 30), cobbleWays: none) == .quiet)
         #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 7, lengthKm: 0.1), cobbleWays: [7]) == .cobbles)
         #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, use: "cycleway", unpaved: true), cobbleWays: none) == .unpaved)
+    }
+
+    @Test func railsBesideASeparatedTrackAreNotAHazard() {
+        let (shape, edges) = eastwardRoute([(1, edge(use: "cycleway")), (2, edge(road: "secondary"))])
+        let source = FakeHazards(lines: [FakeHazards.line(.along, way: 1, length: 100), FakeHazards.line(.along, way: 2, length: 100)])
+        let a = RouteAnalyzer.analyze(shape: shape, edges: edges, hazards: source)
+        #expect(a.hazards.filter { $0.type == .along }.map(\.osm) == ["w2"])
     }
 
     @Test func findsHazardsOnTheRoute() {
@@ -100,14 +109,32 @@ struct RouteAnalyzerTests {
         #expect(abs(t.distanceAlong - 100) < 2)
     }
 
-    @Test func detectsSteepStretches() {
-        let (shape, edges) = eastwardRoute([(1, edge()), (2, edge(up: 9)), (3, edge(up: 8)), (4, edge(down: 5))])
+    /// Edges with mean elevations climbing `rise` metres per 100 m edge, in the middle of a flat route.
+    private func hill(rise: Double, edges n: Int = 8) -> [(way: Int64, edit: (inout RouteEdge) -> Void)] {
+        let flat = 6
+        return (0 ..< (flat + n + flat)).map { i in
+            let e: Double = 120 + (i < flat ? 0 : Double(min(i - flat + 1, n)) * rise)
+            return (Int64(i + 1), edge(elevation: e))
+        }
+    }
+
+    @Test func detectsSustainedSlopes() {
+        let (shape, edges) = eastwardRoute(hill(rise: 9))
         let a = RouteAnalyzer.analyze(shape: shape, edges: edges, hazards: FakeHazards())
         let climb = try! #require(a.hazards.first { $0.type == .climb })
-        #expect(climb.lengthM == 200)
-        #expect(climb.detail == "+9% for 200 m")
+        #expect(climb.lengthM >= 300)
+        #expect(a.maxGrade >= 8)
         #expect(!a.hazards.contains { $0.type == .descent })
-        #expect(a.maxGrade == 9)
+    }
+
+    @Test func ignoresRooftopSpikes() {
+        // Flat street, one edge sampled on a 15 m roof (surface model): no slope.
+        var specs: [(way: Int64, edit: (inout RouteEdge) -> Void)] = (0 ..< 10).map { (Int64($0 + 1), edge(elevation: 120)) }
+        specs[5] = (6, edge(elevation: 135))
+        let (shape, edges) = eastwardRoute(specs)
+        let a = RouteAnalyzer.analyze(shape: shape, edges: edges, hazards: FakeHazards())
+        #expect(a.maxGrade <= 1)
+        #expect(!a.hazards.contains { $0.type == .climb || $0.type == .descent })
     }
 
     @Test func countsUnlitPaths() {
@@ -155,9 +182,13 @@ struct RuleCheckerTests {
         #expect(RuleChecker.violation(of: .bikeLanesOnly, in: longRun)?.meters == 200)
     }
 
-    @Test func maxGradeCountsSteepEdgesEitherWay() {
-        let a = analysis([(1, edge()), (2, edge(down: 8)), (3, edge())])
-        #expect(RuleChecker.violation(of: .maxGrade6, in: a)?.meters == 100)
+    @Test func maxGradeCountsSustainedSlopesEitherWay() {
+        let down: [(way: Int64, edit: (inout RouteEdge) -> Void)] = (0 ..< 20).map { i in
+            (Int64(i + 1), edge(elevation: 200 - Double(min(max(i - 5, 0), 9)) * 8))
+        }
+        #expect(RuleChecker.violation(of: .maxGrade6, in: analysis(down)) != nil)
+        let flat: [(way: Int64, edit: (inout RouteEdge) -> Void)] = (0 ..< 14).map { (Int64($0 + 1), edge(elevation: 120)) }
+        #expect(RuleChecker.violation(of: .maxGrade6, in: analysis(flat)) == nil)
     }
 }
 
@@ -221,6 +252,23 @@ struct DifferenceLineTests {
         #expect(DifferenceLine.distance(296) == "300 m")
         #expect(DifferenceLine.distance(3600) == "3.6 km")
         #expect(DifferenceLine.distance(2000) == "2 km")
+    }
+}
+
+struct ProfileAdjustmentTests {
+    private func avoid(_ p: RideProfile) -> Double? {
+        if case let .number(v) = p.best.costingOptions["avoid_bad_surfaces"] { v } else { nil }
+    }
+
+    @Test func rulesSetHowHardBadSurfacesAreAvoided() throws {
+        let city = try RideProfile.load(.city)
+        #expect(avoid(city.adjusted(for: .defaults(for: .city))) == 0.8)
+        var noCobbleRule = RuleSet.defaults(for: .city)
+        noCobbleRule.enabled.remove(.noCobbles)
+        #expect(avoid(city.adjusted(for: noCobbleRule)) == 0.3)
+        #expect(avoid(try RideProfile.load(.road).adjusted(for: .defaults(for: .road))) == 1.0)
+        #expect(avoid(try RideProfile.load(.gravel).adjusted(for: .defaults(for: .gravel))) == 0.0)
+        #expect(avoid(try RideProfile.load(.cargo).adjusted(for: .defaults(for: .cargo))) == 1.0)
     }
 }
 
