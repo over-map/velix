@@ -1,0 +1,7 @@
+{
+  "colors" : [
+    { "idiom" : "universal", "color" : { "color-space" : "srgb", "components" : { "red" : "0.357", "green" : "0.204", "blue" : "0.722", "alpha" : "1.000" } } },
+    { "idiom" : "universal", "appearances" : [ { "appearance" : "luminosity", "value" : "dark" } ], "color" : { "color-space" : "srgb", "components" : { "red" : "0.804", "green" : "0.733", "blue" : "1.000", "alpha" : "1.000" } } }
+  ],
+  "info" : { "author" : "velix-tokengen", "version" : 1 }
+}

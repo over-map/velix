@@ -45,7 +45,7 @@ struct SpikeView: View {
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("M1 spike").font(Bootstrap.Font.body).bold()
+            Text("M1 spike").velixType(.bodyBold)
             Text(model.status).font(.footnote)
             ForEach(model.results, id: \.self) { Text($0).font(.caption2) }
             Picker("Location", selection: $model.locationSource) {
