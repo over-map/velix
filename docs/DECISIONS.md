@@ -4,6 +4,13 @@ Product decisions live in `BRIEF.md` §8 and `../design/HANDOFF.md` §3. Log her
 
 | Date | Decision | Reason | Who |
 |---|---|---|---|
+| 2026-10-16 | Live Activity views live in `Shared/` and the extension compiles `App/DesignSystem` (without `Components/`), the asset catalog and the fonts | The lock screen and Dynamic Island use the same tokens, type and icons as the app, and the gallery and snapshot tests render the exact views the extension shows | Claude |
+| 2026-10-16 | `RideActivityAttributes.ContentState` carries preformatted strings (maneuver, distance, street, arrival, minutes, km, optional hazard) | The extension only lays them out; formatting and units stay in the app (M7 fills it) | Claude |
+| 2026-10-16 | Dynamic Island text uses the dark-mode `ink` (#EEEDD6) instead of P2's pure white | No white token; the island forces the dark scheme, so every island colour is a token (canvas, accent, hazard, ink, ink2) | Claude |
+| 2026-10-16 | Metro and roundabout glyphs in `tools/glyphs-extra`, paths copied from P2's icon section | P2 draws them inline but the handoff didn't export them | Claude |
+| 2026-10-16 | Slight / sharp left are the right-hand Lucide arrows mirrored | Lucide has no slight-left / sharp-left arrows; P2 shows the right-hand set only | Claude |
+| 2026-10-16 | Elevation shadows are cast by the shape behind a component, not by the component's content | A shadow on the content also shadowed every chip, button and line of text inside cards | Claude |
+| 2026-10-16 | Onboarding ride-type card grows past P2's 340 pt preview height | The list rows keep the 44 pt minimum target; the real step fills the screen (M10) | Claude |
 | 2026-10-16 | Token overrides in `tools/TokenGen/overrides.json` (design/ stays read-only): `routeAlt` cobalt #2F4FD8 / #8EA2FF; new `toggleThumb` #FFFFFF | Cobalt alternative line: Filippo, 15 Oct. P2's toggle thumb is white in both modes, but no token holds it | Claude |
 | 2026-10-16 | Component type styles (labels 15/20, row title 16/20, row subtitle 14/19, section label 11 · 0.06 em, button 18/22, card title 17/20) defined in `ComponentType.swift` from the token families | P2 components use sizes that are not in the token type scale | Claude |
 | 2026-10-16 | Riding Dynamic Type cap = xLarge (≈ 115 %, HANDOFF); token file says xxLarge | HANDOFF is the more specific source; riding numbers ≥ 30 pt don't scale | Claude |

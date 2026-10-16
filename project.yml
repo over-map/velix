@@ -87,10 +87,22 @@ targets:
     sources:
       - path: LiveActivity
       - path: Shared
+      # Tokens, type, icons and fonts for the Live Activity (P2 LiveActivity); components stay in the app.
+      - path: App/DesignSystem
+        excludes:
+          - "Components/**"
+      - path: App/Resources/Assets.xcassets
+      - path: App/Resources/Fonts
     info:
       path: LiveActivity/Info.plist
       properties:
         CFBundleDisplayName: Velix
+        UIAppFonts:
+          - AtkinsonHyperlegible-Regular.ttf
+          - AtkinsonHyperlegible-Bold.ttf
+          - FamiljenGrotesk-Medium.ttf
+          - FamiljenGrotesk-SemiBold.ttf
+          - FamiljenGrotesk-Bold.ttf
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

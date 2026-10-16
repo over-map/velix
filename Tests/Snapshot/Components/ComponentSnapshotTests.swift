@@ -25,6 +25,23 @@ final class ComponentSnapshotTests: XCTestCase {
     func testAvoidedTag() { check("AvoidedTag") }
     func testPrimaryButton() { check("PrimaryButton") }
     func testTabBar() { check("TabBar") }
+    func testTransitSuggestionRow() { check("TransitSuggestionRow") }
+    func testTransitCard() { check("TransitCard") }
+    func testManeuverBanner() { check("ManeuverBanner") }
+    func testRoadTypePill() { check("RoadTypePill") }
+    func testMapControlStack() { check("MapControlStack") }
+    func testNextHazardCard() { check("NextHazardCard") }
+    func testEtaBar() { check("EtaBar") }
+    func testOnTrainCard() { check("OnTrainCard") }
+    func testLiveActivity() { check("LiveActivity") }
+    func testRideSummary() { check("RideSummary") }
+    func testRouteListCard() { check("RouteListCard") }
+    func testFilterChips() { check("FilterChips") }
+    func testRuleToggleRow() { check("RuleToggleRow") }
+    func testRideRow() { check("RideRow") }
+    func testConnectionRow() { check("ConnectionRow") }
+    func testOfflineRegionRow() { check("OfflineRegionRow") }
+    func testOnboardingStep() { check("OnboardingStep") }
 
     /// Every catalog component has a test above.
     func testCatalogCovered() {

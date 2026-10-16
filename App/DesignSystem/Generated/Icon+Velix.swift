@@ -85,6 +85,8 @@ enum VelixGlyph: String, CaseIterable, Sendable {
     case rideTypeMtb = "glyph-ride-type-mtb"
     case rideTypeRoad = "glyph-ride-type-road"
     case train = "glyph-train"
+    case metro = "glyph-metro"
+    case roundabout = "glyph-roundabout"
 }
 
 extension Image {
