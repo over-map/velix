@@ -1,4 +1,11 @@
-# Velix region-pack tools: GDAL (elevation), osmium (OSM), Python stages.
+# Velix region-pack tools: GDAL (elevation), osmium (OSM), tippecanoe (overlay tiles), Python stages.
+FROM ubuntu:24.04 AS tippecanoe
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential libsqlite3-dev zlib1g-dev curl ca-certificates \
+ && curl -fsSL https://github.com/felt/tippecanoe/archive/refs/tags/2.79.0.tar.gz | tar xz -C /tmp \
+ && make -C /tmp/tippecanoe-2.79.0 -j"$(nproc)" tippecanoe tile-join \
+ && cp /tmp/tippecanoe-2.79.0/tippecanoe /tmp/tippecanoe-2.79.0/tile-join /usr/local/bin/
+
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.11.4@sha256:4b94b5e76e8b5616a4d5dc38e6e20def10ab70c3487eeb923d90547372e70a03
 
 RUN apt-get update \
@@ -8,6 +15,8 @@ RUN apt-get update \
 RUN python3 -m venv /opt/venv \
  && /opt/venv/bin/pip install --no-cache-dir \
       osmium==4.0.2 shapely==2.0.7 pyproj==3.7.1 PyYAML==6.0.2 jsonschema==4.23.0
+
+COPY --from=tippecanoe /usr/local/bin/tippecanoe /usr/local/bin/tile-join /usr/local/bin/
 
 ENV PATH=/opt/venv/bin:$PATH PYTHONDONTWRITEBYTECODE=1
 WORKDIR /work

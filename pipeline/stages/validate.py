@@ -7,6 +7,9 @@ import jsonschema
 from common import PIPELINE, load_config, log, out_dir, sha256
 
 
+ROLES = {"routing_tiles", "hazards", "routes", "transit", "basemap", "overlays"}
+
+
 def main() -> int:
     cfg = load_config()
     pack = out_dir(cfg) / "pack"
@@ -26,8 +29,8 @@ def main() -> int:
         errors.append("download_bytes is not the sum of file sizes")
     if manifest["download_bytes"] > manifest["budget_bytes"]:
         errors.append(f"over budget: {manifest['download_bytes'] / 1e6:.1f} MB > {manifest['budget_bytes'] / 1e6:.0f} MB")
-    if {f["role"] for f in manifest["files"]} != {"routing_tiles", "hazards", "routes", "transit"}:
-        errors.append("pack must contain routing_tiles, hazards, routes and transit")
+    if {f["role"] for f in manifest["files"]} != ROLES:
+        errors.append("pack must contain " + ", ".join(sorted(ROLES)))
     for e in errors:
         log(f"FAIL {e}")
     if not errors:

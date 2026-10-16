@@ -32,12 +32,15 @@ jobs:
         id: month
         run: echo "key=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
 
-      - name: Cache downloads (OSM extract, DEM, GTFS)
+      - name: Cache downloads (OSM extract, DEM, GTFS, planetiler inputs)
         uses: actions/cache@v4
         with:
           path: pipeline/cache
           key: pack-cache-${{ env.REGION }}-${{ steps.month.outputs.key }}
           restore-keys: pack-cache-${{ env.REGION }}-
+
+      - name: Pipeline unit tests
+        run: make -C pipeline test
 
       - name: Build pack
         run: make -C pipeline pack REGION=$REGION

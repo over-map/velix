@@ -21,7 +21,7 @@ private struct FolderDownloader: PackDownloading {
 private func makeRelease(version: String, files: [String: Data], in folder: URL, corrupt: String? = nil) throws {
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     let roles = ["valhalla_tiles.tar": "routing_tiles", "hazards.sqlite": "hazards", "routes.sqlite": "routes",
-                 "transit.sqlite": "transit"]
+                 "transit.sqlite": "transit", "basemap.pmtiles": "basemap", "overlays.pmtiles": "overlays"]
     var entries: [[String: Any]] = []
     for (name, data) in files.sorted(by: { $0.key < $1.key }) {
         var xz = try RegionPackInstaller.compressXZ(data)
@@ -50,6 +50,8 @@ private func samplePack(_ tag: String) -> [String: Data] {
         "hazards.sqlite": Data("hazards-\(tag)".utf8),
         "routes.sqlite": Data("routes-\(tag)".utf8),
         "transit.sqlite": Data("transit-\(tag)".utf8),
+        "basemap.pmtiles": Data(String(repeating: "basemap-\(tag) ", count: 2000).utf8),
+        "overlays.pmtiles": Data("overlays-\(tag)".utf8),
     ]
 }
 
@@ -90,6 +92,8 @@ struct RegionPackInstallerTests {
         let current = try #require(RegionPackInstaller.current(root: tmp.appending(path: "RegionPack")))
         #expect(current.directory == installed.directory)
         #expect(try Data(contentsOf: current.file(.routingTiles)) == samplePack("a")["valhalla_tiles.tar"])
+        #expect(try Data(contentsOf: current.file(.basemap)) == samplePack("a")["basemap.pmtiles"])
+        #expect(try Data(contentsOf: current.file(.overlays)) == samplePack("a")["overlays.pmtiles"])
         #expect(!FileManager.default.fileExists(atPath: installed.directory.appending(path: "hazards.sqlite.xz").path))
     }
 

@@ -37,6 +37,11 @@ transit:
 valhalla:
   image: ghcr.io/valhalla/valhalla@sha256:511c095b8caf393dccceb8b519ec96b6f85a0166b2288ba014a8a748acc5a63c
   version: "3.9.0"
+basemap:
+  # OpenMapTiles-schema vector tiles for the map (P3 cartography), built offline with planetiler.
+  image: ghcr.io/onthegomap/planetiler@sha256:cf32202dbc001a9ab4bc11534b642b13de3798179817da8558e567a3d13dd403
+  version: "0.10.2"
+  maxzoom: 14
 pack:
-  budget_mb: 220            # download size (Filippo, 14 Oct 2026)
+  budget_mb: 300            # download size (Filippo: 220 on 14 Oct 2026, 300 with the offline basemap on 16 Oct)
   xz_preset: 9

@@ -4,6 +4,13 @@ Product decisions live in `BRIEF.md` §8 and `../design/HANDOFF.md` §3. Log her
 
 | Date | Decision | Reason | Who |
 |---|---|---|---|
+| 2026-10-16 | Offline basemap in the pack: OpenMapTiles schema, built by planetiler 0.10.2 from our Lombardy extract, z0–14, PMTiles | Filippo: offline map, P3 fidelity (building heights for 3D, landcover and POI classes). VersaTiles Shortbread was considered: no building heights, P3 would need remapping | Filippo |
+| 2026-10-16 | Pack download budget 220 → 300 MB | Full basemap is 151 MB (xz); pack ≈ 275 MB. Alternatives were trimming POIs / rural z14, or a second map download | Filippo |
+| 2026-10-16 | Basemap tiles stored uncompressed in the PMTiles, compressed by the pack's xz | 151 MB download instead of 203 MB with per-tile gzip; on the phone ≈ 285 MB, read directly by MapLibre | Claude |
+| 2026-10-16 | House numbers kept; Italian/English-only names not used | `--languages=it,en` saved < 1 %; house numbers are 4 MB and P3 shows them from z17.6 | Claude |
+| 2026-10-16 | Overlay tiles (`overlays.pmtiles`, 4 MB): `velix_cycling` (protected / painted + side), `velix_routes` (EuroVelo), `velix_transit` (metro with family/alt, train, tunnel), `velix_stations` (lines served), from OSM route relations with tippecanoe | OpenMapTiles has no painted lanes or metro colours; `transit.sqlite` has no line shapes. Cycle tags reuse hazards.py so the map and the comfort mix agree | Claude |
+| 2026-10-16 | Metro families: `VX.metroFamily` ported exactly (tests pinned to the JS outputs), alt assignment per OSM `network` | Brescia's metro must not be Milan's second red line | Claude |
+| 2026-10-16 | Map labels: Atkinson Hyperlegible Regular/Bold SDF glyphs bundled in the app (Latin ranges, 288 KB) | P3: self-hosted SDF glyphs, Atkinson only | Claude |
 | 2026-10-16 | Live Activity views live in `Shared/` and the extension compiles `App/DesignSystem` (without `Components/`), the asset catalog and the fonts | The lock screen and Dynamic Island use the same tokens, type and icons as the app, and the gallery and snapshot tests render the exact views the extension shows | Claude |
 | 2026-10-16 | `RideActivityAttributes.ContentState` carries preformatted strings (maneuver, distance, street, arrival, minutes, km, optional hazard) | The extension only lays them out; formatting and units stay in the app (M7 fills it) | Claude |
 | 2026-10-16 | Dynamic Island text uses the dark-mode `ink` (#EEEDD6) instead of P2's pure white | No white token; the island forces the dark scheme, so every island colour is a token (canvas, accent, hazard, ink, ink2) | Claude |

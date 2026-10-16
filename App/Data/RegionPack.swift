@@ -29,6 +29,19 @@ enum RegionPack {
         return FileManager.default.fileExists(atPath: side.path) ? side : nil
     }
 
+    /// Map tiles (M5): `basemap.pmtiles` and `overlays.pmtiles`, installed or side-loaded into Documents.
+    static var basemap: URL? { mapFile(.basemap, sideloaded: "basemap.pmtiles") }
+    static var overlays: URL? { mapFile(.overlays, sideloaded: "overlays.pmtiles") }
+
+    private static func mapFile(_ role: RegionPackManifest.File.Role, sideloaded name: String) -> URL? {
+        let side = URL.documentsDirectory.appending(path: name)
+        if preferSideloaded, FileManager.default.fileExists(atPath: side.path) { return side }
+        if let installed = try? RegionPackInstaller.current()?.file(role), FileManager.default.fileExists(atPath: installed.path) {
+            return installed
+        }
+        return FileManager.default.fileExists(atPath: side.path) ? side : nil
+    }
+
     static var tileExtract: URL? {
         if preferSideloaded, FileManager.default.fileExists(atPath: sideloadedTileExtract.path) { return sideloadedTileExtract }
         if let installed = try? RegionPackInstaller.current()?.file(.routingTiles),
