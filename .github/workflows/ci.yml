@@ -22,12 +22,14 @@ jobs:
           xcrun simctl list runtimes
 
       - name: Design system guards
-        # TokenGen tests; generated tokens and icons match their sources; no SF Symbols; no colour literals outside Generated/.
+        # TokenGen tests; generated tokens, icons and map styles match their sources; styles validate; no SF Symbols; no colour literals outside Generated/.
         run: |
           swift test --package-path tools
           swift run --package-path tools TokenGen design/velix-tokens.json App/DesignSystem/Generated App/Resources/Assets.xcassets --check
           python3 tools/icongen.py
           git diff --exit-code -- App/DesignSystem/Generated App/Resources/Assets.xcassets/VelixIcons || { echo "Icons out of date: run python3 tools/icongen.py"; exit 1; }
+          node tools/stylegen/stylegen.mjs --check
+          npx --yes -p @maplibre/maplibre-gl-style-spec@26.4.4 gl-style-validate App/Resources/MapStyle/*.json
           if grep -rn "systemName:" App LiveActivity Shared --include='*.swift'; then echo "SF Symbols are not allowed (CLAUDE.md)"; exit 1; fi
           if grep -rnE 'Color\(red:|Color\(hex|"#[0-9A-Fa-f]{6}"' App LiveActivity Shared --include='*.swift' | grep -v '/Generated/'; then echo "Colour literal outside Generated/"; exit 1; fi
 
@@ -77,7 +79,7 @@ jobs:
           path: build/pack
           key: pack-${{ steps.pack.outputs.tag }}
 
-      - name: Download region pack (golden route tests)
+      - name: Download region pack (golden route and map tests)
         if: steps.pack.outputs.tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
@@ -85,6 +87,8 @@ jobs:
           mkdir -p build/pack
           if [ ! -f build/pack/valhalla_tiles.tar ]; then
             gh release download "${{ steps.pack.outputs.tag }}" -D build/pack -p 'valhalla_tiles.tar.xz' -p 'hazards.sqlite.xz' --clobber
+            # Map tiles: packs from 2026.10 build 3 on (map goldens skip without them).
+            gh release download "${{ steps.pack.outputs.tag }}" -D build/pack -p 'basemap.pmtiles.xz' -p 'overlays.pmtiles.xz' --clobber || true
             xz -d -T0 build/pack/*.xz
           fi
           ls -lh build/pack

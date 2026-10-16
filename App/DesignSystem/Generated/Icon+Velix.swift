@@ -86,6 +86,18 @@ enum VelixGlyph: String, CaseIterable, Sendable {
     case rideTypeRoad = "glyph-ride-type-road"
     case train = "glyph-train"
     case metro = "glyph-metro"
+    case poiBike = "glyph-poi-bike"
+    case poiCulture = "glyph-poi-culture"
+    case poiEdu = "glyph-poi-edu"
+    case poiFood = "glyph-poi-food"
+    case poiGeneric = "glyph-poi-generic"
+    case poiGreen = "glyph-poi-green"
+    case poiHealth = "glyph-poi-health"
+    case poiLodging = "glyph-poi-lodging"
+    case poiRepair = "glyph-poi-repair"
+    case poiShop = "glyph-poi-shop"
+    case poiWater = "glyph-poi-water"
+    case poiWorship = "glyph-poi-worship"
     case roundabout = "glyph-roundabout"
 }
 

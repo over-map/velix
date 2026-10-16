@@ -1,0 +1,37 @@
+<!doctype html><meta charset="utf-8">
+<!-- One P3 map frame rendered by design/p3v3/render.js at a chosen size (?frame=route|loreto|monza&z=&style=&mode=&bike&transit).
+     Also prints the frame centre and, for the route frame, P3's sample route as lon/lat (App/Features/MapPreview/p3-sample-route.json). -->
+<style>html,body{margin:0;background:#fff} canvas{display:block}</style>
+<style>@font-face{font-family:"Atkinson Hyperlegible";font-weight:400;src:url(/App/Resources/Fonts/AtkinsonHyperlegible-Regular.ttf)}
+@font-face{font-family:"Atkinson Hyperlegible";font-weight:700;src:url(/App/Resources/Fonts/AtkinsonHyperlegible-Bold.ttf)}</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script><script src="/design/p3v3/palettes.js"></script><script src="/design/p3v3/render.js"></script>
+<canvas id="c"></canvas><pre id="info"></pre>
+<script>
+(async () => { try {
+  const q = new URLSearchParams(location.search);
+  await document.fonts.load('700 12px "Atkinson Hyperlegible"'); await document.fonts.load('400 12px "Atkinson Hyperlegible"');
+  const area = q.get('frame') === 'monza' ? 'monza' : 'milan';
+  const files = area === 'monza' ? ['monza', 'dem-monza'] : ['milan', 'dem-milan'];
+  const [raw, dem, rt] = await Promise.all([...files, 'routes-raw'].map(f => fetch(`/design/data/${f}.json`).then(r => r.json())));
+  const D = VX.prep(raw, area), N = VX.buildNav(D, rt), A = { D, N, dem: VX.prepDem(dem) };
+  const inv = (x, y) => { const p0 = D.toL(9.2, 45.5), p1 = D.toL(9.21, 45.49); const kx = (p1[0] - p0[0]) / 0.01, ky = (p1[1] - p0[1]) / -0.01;
+    return [9.2 + (x - p0[0]) / kx, 45.5 + (y - p0[1]) / ky]; };
+  const frame = q.get('frame') || 'route';
+  let c;
+  if (frame === 'route') { const a = VX.along(N.best, VX.polyLen(N.best) * 0.5); c = [a[0], a[1]]; }
+  else if (frame === 'loreto') c = D.toL(9.2160, 45.4840);
+  else c = D.toL(9.2760, 45.6010);
+  const F = { w: +(q.get('w') || 393), h: +(q.get('h') || 852), style: q.get('style') || 'standard', mode: q.get('mode') || 'day',
+    z: +(q.get('z') || 15), c, bike: q.has('bike'), transit: q.has('transit'), route: frame === 'route', chrome: false };
+  VX.render(document.getElementById('c'), F, A);
+  const ll = (r) => { const o = []; for (let i = 0; i < r.length; i += 2) { const p = inv(r[i], r[i + 1]); o.push([+p[0].toFixed(6), +p[1].toFixed(6)]); } return o; };
+  const pt = (x, y) => inv(x, y).map((v) => +v.toFixed(6));
+  const sample = { best: ll(N.best), alt: N.alt ? ll(N.alt) : null,
+    avoided: N.avoided ? { line: ll(N.avoided.r), tag: pt(N.avoided.tag[0], N.avoided.tag[1]), text: N.avoided.text } : null,
+    tubes: (N.tubes || []).map(ll), hazards: (N.hazards || []).map((h) => ({ type: h.k, at: pt(h.x, h.y) })),
+    start: pt(N.start[0], N.start[1]), end: N.end ? pt(N.end[0], N.end[1]) : null, endName: N.endName,
+    loc: N.loc ? pt(N.loc[0], N.loc[1]) : null, heading: N.heading };
+  document.getElementById('info').textContent = JSON.stringify({ center: inv(c[0], c[1]), sample });
+  document.title = 'done';
+ } catch (e) { document.getElementById('info').textContent = 'ERR ' + e.stack; } })();
+</script>

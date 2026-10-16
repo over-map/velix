@@ -7,6 +7,8 @@ struct VelixApp: App {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-design-gallery") {
                 DesignGalleryView()
+            } else if ProcessInfo.processInfo.arguments.contains("-map-preview") {
+                MapPreviewView()
             } else if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
                 SpikeView()
             } else {

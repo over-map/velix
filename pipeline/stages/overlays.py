@@ -6,7 +6,7 @@ small vector layers, built from the same OSM extract as routing:
   velix_cycling   kind = protected | painted, side = both | left | right    (z11–14)
   velix_routes    EuroVelo (route=bicycle, network=icn), ref                (z8–14)
   velix_transit   mode = metro | train, ref, family, alt, tunnel             (z8–14)
-  velix_stations  mode = metro | train, name, lines ("M1,M3")               (z11–14)
+  velix_stations  mode = metro | train, name, lines ("M1,M3"), tiles ("M1.red.0,M3.yellow.0")   (z11–14)
 
 Cycle-lane tags follow hazards.py (one definition of "protected" / "painted" for the map and the comfort mix).
 Metro families: metro_colors.py (P3 mapRules). Tiles: tippecanoe, written straight to PMTiles."""
@@ -58,7 +58,7 @@ class Relations(osmium.SimpleHandler):
     def __init__(self):
         super().__init__()
         self.ways: dict[int, list[dict]] = defaultdict(list)   # way id → [{mode, ref, colour}]
-        self.stops: dict[int, set[str]] = defaultdict(set)      # node id → metro refs
+        self.stops: dict[int, set[tuple[str, str]]] = defaultdict(set)   # node id → {(network, metro ref)}
         self.metro_lines: dict[str, dict[str, str | None]] = defaultdict(dict)   # network → {ref: colour}
 
     def relation(self, r):
@@ -82,7 +82,7 @@ class Relations(osmium.SimpleHandler):
             if m.type == "w" and m.role in {"", "forward", "backward", "main"}:
                 self.ways[m.ref].append(info)
             elif m.type == "n" and info["mode"] == "metro" and m.role.startswith(("stop", "platform")):
-                self.stops[m.ref].add(info["ref"])
+                self.stops[m.ref].add((info["network"], info["ref"]))
 
 
 class Geometry(osmium.SimpleHandler):
@@ -144,8 +144,10 @@ def feature(geom, props):
     return {"type": "Feature", "geometry": geom, "properties": props}
 
 
-def attach_lines(stations: list[dict], stops: dict[int, tuple[float, float]], refs: dict[int, set[str]]) -> None:
-    """Metro stations get the lines whose stop members lie within 250 m."""
+def attach_lines(stations: list[dict], stops: dict[int, tuple[float, float]], refs: dict[int, set[tuple[str, str]]],
+                 families: dict[tuple[str, str], tuple[str, bool]]) -> None:
+    """Metro stations get the lines whose stop members lie within 250 m: `lines` ("M1,M3") and `tiles`
+    ("M1.red.0,M3.yellow.0": ref, family, alt) for the station tiles."""
     pts = [(lon, lat, refs[nid]) for nid, (lon, lat) in stops.items()]
     for s in stations:
         if s["properties"]["mode"] != "metro":
@@ -155,7 +157,10 @@ def attach_lines(stations: list[dict], stops: dict[int, tuple[float, float]], re
         for lon, lat, r in pts:
             if abs(lat - lat0) < 0.0023 and abs(lon - lon0) < 0.0033:
                 lines |= r
-        s["properties"]["lines"] = ",".join(sorted(lines))
+        ordered = sorted(lines, key=lambda nr: nr[1])
+        s["properties"]["lines"] = ",".join(r for _, r in ordered)
+        s["properties"]["tiles"] = ",".join(
+            f"{r}.{families.get((n, r), ('grey', False))[0]}.{int(families.get((n, r), ('grey', False))[1])}" for n, r in ordered)
 
 
 def dedupe_stations(stations: list[dict]) -> list[dict]:
@@ -187,7 +192,7 @@ def main():
     geo = Geometry(rel, families)
     geo.apply_file(pbf, locations=True, idx="flex_mem")
     geo.layers["velix_stations"] = dedupe_stations(geo.layers["velix_stations"])
-    attach_lines(geo.layers["velix_stations"], geo.stop_points, rel.stops)
+    attach_lines(geo.layers["velix_stations"], geo.stop_points, rel.stops, families)
     work = out / "overlays"
     work.mkdir(exist_ok=True)
     args = ["tippecanoe", "-o", str(out / "overlays.pmtiles"), "--force", "-Z8", "-z14",

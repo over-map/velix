@@ -9,7 +9,10 @@ struct MapStyleSheet: View {
     @Binding var transitLines: Bool
 
     /// City / Road / Cargo → Standard | Satellite; Gravel / MTB / E-bike → Outdoor | Satellite (BRIEF §8).
-    var styles: [Style] {
+    var styles: [Style] { Self.styles(for: rideType) }
+
+    /// Styles offered per ride type (P2 MapStyleSheet, BUILD_PLAN M5).
+    nonisolated static func styles(for rideType: RideType) -> [Style] {
         switch rideType {
         case .city, .road, .cargo: [.standard, .satellite]
         case .gravel, .mtb, .ebike: [.outdoor, .satellite]
