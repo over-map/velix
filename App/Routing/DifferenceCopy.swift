@@ -6,7 +6,7 @@ import Foundation
 ///   "+7 min · avoids 3.6 km on busy Viale Fulvio Testi"
 ///   "+9 min · bike lanes all the way, no steps, no cobbles"
 ///   Single card: "Fastest is only 30 s quicker, with rails along Corso Buenos Aires. So there's one route."
-enum DifferenceLine {
+enum DifferenceCopy {
     /// Fastest must be at least this much quicker to get its own card.
     static let singleCardThreshold = 0.05
 
@@ -23,13 +23,13 @@ enum DifferenceLine {
         var text: String {
             switch self {
             case let .railsAlong(street): street.map { "rails along \($0)" } ?? "rails along the lane"
-            case let .cobbles(m): "\(DifferenceLine.distance(m)) cobbles"
-            case let .busy(name, m): m >= 1000 ? "\(DifferenceLine.distance(m)) on busy \(name)" : "busy \(name)"
+            case let .cobbles(m): "\(DifferenceCopy.distance(m)) cobbles"
+            case let .busy(name, m): m >= 1000 ? "\(DifferenceCopy.distance(m)) on busy \(name)" : "busy \(name)"
             case let .steps(n): n == 1 ? "1 flight of steps" : "\(n) flights of steps"
-            case let .unpaved(m): "\(DifferenceLine.distance(m)) unpaved"
+            case let .unpaved(m): "\(DifferenceCopy.distance(m)) unpaved"
             case let .climb(m): "\(Int(m.rounded())) m of climbing"
-            case let .moreOffRoad(m): "\(DifferenceLine.distance(m)) more off-road"
-            case let .parkPath(m): "\(DifferenceLine.distance(m)) of park path"
+            case let .moreOffRoad(m): "\(DifferenceCopy.distance(m)) more off-road"
+            case let .parkPath(m): "\(DifferenceCopy.distance(m)) of park path"
             }
         }
     }

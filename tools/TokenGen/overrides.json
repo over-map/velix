@@ -5,6 +5,12 @@
       "light": "#2F4FD8",
       "dark": "#8EA2FF",
       "reason": "Filippo, 15 Oct 2026: grey alternatives blended with the basemap; cobalt, same width and casing as Best"
+    },
+    "toggleThumb": {
+      "light": "#FFFFFF",
+      "dark": "#FFFFFF",
+      "use": "Switch thumb (P2 MapStyleSheet / RuleToggleRow): white in both themes",
+      "reason": "P2 draws the switch thumb #FFFFFF in light and dark; not in the token file"
     }
   },
   "font": {

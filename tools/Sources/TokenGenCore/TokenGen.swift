@@ -252,9 +252,9 @@ public enum TokenGen {
     static func merge(_ base: [String: Any], _ over: [String: Any]) -> [String: Any] {
         var out = base
         for (k, v) in over where !k.hasPrefix("_") && k != "reason" {
-            if let vd = v as? [String: Any], let bd = base[k] as? [String: Any] {
-                out[k] = merge(bd, vd)
-            } else if !(v is [String: Any]) {
+            if let vd = v as? [String: Any] {
+                out[k] = merge((base[k] as? [String: Any]) ?? [:], vd)  // new keys (e.g. a new colour) are added
+            } else {
                 out[k] = v
             }
         }

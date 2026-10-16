@@ -192,7 +192,7 @@ struct RuleCheckerTests {
     }
 }
 
-struct DifferenceLineTests {
+struct DifferenceCopyTests {
     private func analysis(cobbles: Double = 0, busy: [String: Double] = [:], lanes: Double = 0, length: Double = 5000,
                           along: [(String, Double)] = [], unpaved: Double = 0, paths: Double = 0) -> RouteAnalysis {
         var a = RouteAnalysis()
@@ -208,50 +208,50 @@ struct DifferenceLineTests {
     @Test func matchesTheDesignExample() {
         let best = analysis()
         let fastest = analysis(cobbles: 300, busy: ["Corso Buenos Aires": 800])
-        let line = DifferenceLine.line(best: best, bestSeconds: 23 * 60, fastest: fastest, fastestSeconds: 18 * 60,
+        let line = DifferenceCopy.line(best: best, bestSeconds: 23 * 60, fastest: fastest, fastestSeconds: 18 * 60,
                                        rules: .defaults(for: .city))
         #expect(line == "+5 min · avoids 300 m cobbles and busy Corso Buenos Aires")
-        let fast = DifferenceLine.fastestLine(best: best, bestSeconds: 23 * 60, fastest: fastest, fastestSeconds: 18 * 60,
+        let fast = DifferenceCopy.fastestLine(best: best, bestSeconds: 23 * 60, fastest: fastest, fastestSeconds: 18 * 60,
                                               rideType: .city)
         #expect(fast == "5 min quicker · 300 m cobbles on Via Morgagni, busy Corso Buenos Aires")
     }
 
     @Test func longBusyRoadsGiveTheDistance() {
-        let line = DifferenceLine.line(best: analysis(), bestSeconds: 52 * 60,
+        let line = DifferenceCopy.line(best: analysis(), bestSeconds: 52 * 60,
                                        fastest: analysis(busy: ["Viale Fulvio Testi": 3600]), fastestSeconds: 45 * 60,
                                        rules: .defaults(for: .city))
         #expect(line == "+7 min · avoids 3.6 km on busy Viale Fulvio Testi")
     }
 
     @Test func allLanesSaysSo() {
-        let line = DifferenceLine.line(best: analysis(lanes: 4800), bestSeconds: 30 * 60, fastest: analysis(cobbles: 300),
+        let line = DifferenceCopy.line(best: analysis(lanes: 4800), bestSeconds: 30 * 60, fastest: analysis(cobbles: 300),
                                        fastestSeconds: 21 * 60, rules: .defaults(for: .cargo))
         #expect(line == "+9 min · bike lanes all the way, no steps, no cobbles")
     }
 
     @Test func gravelTalksAboutWhatItGains() {
-        let line = DifferenceLine.line(best: analysis(unpaved: 2100, paths: 900), bestSeconds: 40 * 60,
+        let line = DifferenceCopy.line(best: analysis(unpaved: 2100, paths: 900), bestSeconds: 40 * 60,
                                        fastest: analysis(), fastestSeconds: 34 * 60, rules: .defaults(for: .gravel))
         #expect(line == "+6 min · 2.1 km more off-road and 900 m of park path")
     }
 
     @Test func singleCardFollowsTheDesign() {
-        #expect(DifferenceLine.showsSingleCard(bestSeconds: 780, fastestSeconds: 750, sameRoute: false))
-        #expect(!DifferenceLine.showsSingleCard(bestSeconds: 780, fastestSeconds: 700, sameRoute: false))
-        let line = DifferenceLine.singleCardLine(best: analysis(), bestSeconds: 780,
+        #expect(DifferenceCopy.showsSingleCard(bestSeconds: 780, fastestSeconds: 750, sameRoute: false))
+        #expect(!DifferenceCopy.showsSingleCard(bestSeconds: 780, fastestSeconds: 700, sameRoute: false))
+        let line = DifferenceCopy.singleCardLine(best: analysis(), bestSeconds: 780,
                                                  fastest: analysis(along: [("Corso Buenos Aires", 200)]),
                                                  fastestSeconds: 750, rideType: .city)
         #expect(line == "Fastest is only 30 s quicker, with rails along Corso Buenos Aires. So there’s one route.")
     }
 
     @Test func litLine() {
-        #expect(DifferenceLine.litLine(unlitPathsAvoided: 2, extraSeconds: 110) == "Lit streets only: avoids 2 dark park paths, +2 min")
+        #expect(DifferenceCopy.litLine(unlitPathsAvoided: 2, extraSeconds: 110) == "Lit streets only: avoids 2 dark park paths, +2 min")
     }
 
     @Test func distances() {
-        #expect(DifferenceLine.distance(296) == "300 m")
-        #expect(DifferenceLine.distance(3600) == "3.6 km")
-        #expect(DifferenceLine.distance(2000) == "2 km")
+        #expect(DifferenceCopy.distance(296) == "300 m")
+        #expect(DifferenceCopy.distance(3600) == "3.6 km")
+        #expect(DifferenceCopy.distance(2000) == "2 km")
     }
 }
 

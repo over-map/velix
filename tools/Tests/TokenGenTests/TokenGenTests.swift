@@ -37,6 +37,12 @@ struct TokenGenTests {
         #expect(alt.contains("\"blue\" : \"1.000\""))  // 0xFF in dark
     }
 
+    @Test func overridesCanAddATokenTheDesignLacks() throws {
+        let overrides = Data(##"{"color": {"toggleThumb": {"light": "#FFFFFF", "dark": "#FFFFFF", "reason": "P2"}}}"##.utf8)
+        let out = try TokenGen.generate(tokens: tokens, overrides: overrides)
+        #expect(out.assets["VelixColors/velixToggleThumb.colorset/Contents.json"] != nil)
+    }
+
     @Test func fontsMapToBundledPostScriptNames() throws {
         let swift = try TokenGen.generate(tokens: tokens, overrides: nil).swift["Font+Velix.swift"]!
         #expect(swift.contains("postScriptName: \"AtkinsonHyperlegible-Regular\", size: 17, lineHeight: 24"))

@@ -58,6 +58,8 @@ extension Color {
         static let surface = Color("velixSurface", bundle: .main)
         /// Inset fills, pressed, chips
         static let surface2 = Color("velixSurface2", bundle: .main)
+        /// Switch thumb (P2 MapStyleSheet / RuleToggleRow): white in both themes
+        static let toggleThumb = Color("velixToggleThumb", bundle: .main)
         /// Metro colour family blue. 2nd line of this family in a city uses alt
         static let transitMetroBlue = Color("velixTransitMetroBlue", bundle: .main)
         /// Second line of the family
