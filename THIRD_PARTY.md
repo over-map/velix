@@ -46,7 +46,7 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 
 | Asset | Licence |
 |---|---|
-| [Lucide](https://lucide.dev) icons (`design/assets/lucide/`) | ISC |
+| [Lucide](https://lucide.dev) icons (`design/assets/lucide/`, and `tools/icons-extra/` from lucide-static 0.460.0) | ISC |
 | Velix custom glyphs and app icon (`design/assets/`) | Apache-2.0 (this project) |
 
 ## Map and routing data

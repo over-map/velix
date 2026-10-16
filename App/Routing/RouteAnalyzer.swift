@@ -124,7 +124,7 @@ enum RouteAnalyzer {
                 let sign = kind == .climb ? "+" : "−"
                 out.append(RouteHazard(type: kind, distanceAlong: s.start, lengthM: s.length,
                                        street: street(atDistance: s.start, edges),
-                                       detail: "\(sign)\(Int(s.worst.rounded()))% for \(DifferenceLine.distance(s.length))", osm: ""))
+                                       detail: "\(sign)\(Int(s.worst.rounded()))% for \(DifferenceCopy.distance(s.length))", osm: ""))
             }
         }
         return out

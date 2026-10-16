@@ -21,6 +21,16 @@ jobs:
           xcodebuild -version
           xcrun simctl list runtimes
 
+      - name: Design system guards
+        # TokenGen tests; generated tokens and icons match their sources; no SF Symbols; no colour literals outside Generated/.
+        run: |
+          swift test --package-path tools
+          swift run --package-path tools TokenGen design/velix-tokens.json App/DesignSystem/Generated App/Resources/Assets.xcassets --check
+          python3 tools/icongen.py
+          git diff --exit-code -- App/DesignSystem/Generated App/Resources/Assets.xcassets/VelixIcons || { echo "Icons out of date: run python3 tools/icongen.py"; exit 1; }
+          if grep -rn "systemName:" App LiveActivity Shared --include='*.swift'; then echo "SF Symbols are not allowed (CLAUDE.md)"; exit 1; fi
+          if grep -rnE 'Color\(red:|Color\(hex|"#[0-9A-Fa-f]{6}"' App LiveActivity Shared --include='*.swift' | grep -v '/Generated/'; then echo "Colour literal outside Generated/"; exit 1; fi
+
       - name: Install XcodeGen
         run: brew install xcodegen
 

@@ -94,7 +94,7 @@ struct GoldenRouteTests {
             #expect(o.fastestAnalysis.lengthM > 0)
             if let fastest = o.fastest {
                 #expect(fastest.seconds <= o.best.seconds + 1, "Fastest must not be slower than Best")
-                #expect(!DifferenceLine.showsSingleCard(bestSeconds: o.best.seconds, fastestSeconds: fastest.seconds, sameRoute: false))
+                #expect(!DifferenceCopy.showsSingleCard(bestSeconds: o.best.seconds, fastestSeconds: fastest.seconds, sameRoute: false))
                 #expect(o.bestLine.hasPrefix("+"), "difference line: \(o.bestLine)")
             } else {
                 #expect(o.bestName == "Best and fastest")

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="24" viewBox="0 0 64 24"><rect x=".75" y=".75" width="62.5" height="22.5" rx="5.25" fill="#042940" stroke="#D6D58E" stroke-width="1.5"></rect><g transform="translate(5 5) scale(.5833)" fill="none" stroke="#EFEEE2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="18.5" cy="17.5" r="3.5"></circle>
+  <circle cx="5.5" cy="17.5" r="3.5"></circle>
+  <circle cx="15" cy="5" r="1"></circle>
+  <path d="M12 17.5V14l-3-3 4-3 2 3h2"></path></g><text x="23" y="16.2" fill="#EFEEE2" font-family="Atkinson Hyperlegible, sans-serif" font-weight="700" font-size="12">EV 5</text></svg>

@@ -130,19 +130,19 @@ struct RoutePlanner: Sendable {
 
         let fastestOption = fastest ?? best
         let same = fastest == nil || sameRoute(best.analysis, fastestOption.analysis)
-        let single = DifferenceLine.showsSingleCard(bestSeconds: best.seconds, fastestSeconds: fastestOption.seconds,
+        let single = DifferenceCopy.showsSingleCard(bestSeconds: best.seconds, fastestSeconds: fastestOption.seconds,
                                                     sameRoute: same)
         let bestLine = single
-            ? DifferenceLine.singleCardLine(best: best.analysis, bestSeconds: best.seconds, fastest: fastestOption.analysis,
+            ? DifferenceCopy.singleCardLine(best: best.analysis, bestSeconds: best.seconds, fastest: fastestOption.analysis,
                                             fastestSeconds: fastestOption.seconds, rideType: rules.rideType)
-            : DifferenceLine.line(best: best.analysis, bestSeconds: best.seconds, fastest: fastestOption.analysis,
+            : DifferenceCopy.line(best: best.analysis, bestSeconds: best.seconds, fastest: fastestOption.analysis,
                                   fastestSeconds: fastestOption.seconds, rules: rules)
         let fastestLine = single ? nil
-            : DifferenceLine.fastestLine(best: best.analysis, bestSeconds: best.seconds, fastest: fastestOption.analysis,
+            : DifferenceCopy.fastestLine(best: best.analysis, bestSeconds: best.seconds, fastest: fastestOption.analysis,
                                          fastestSeconds: fastestOption.seconds, rideType: rules.rideType)
         var litLine: String?
         if rules.litStreetsOnly, firstBest.analysis.unlitPaths > best.analysis.unlitPaths {
-            litLine = DifferenceLine.litLine(unlitPathsAvoided: firstBest.analysis.unlitPaths - best.analysis.unlitPaths,
+            litLine = DifferenceCopy.litLine(unlitPathsAvoided: firstBest.analysis.unlitPaths - best.analysis.unlitPaths,
                                              extraSeconds: best.seconds - firstBest.seconds)
         }
         return .options(RouteOptions(
@@ -269,7 +269,7 @@ struct RoutePlanner: Sendable {
         return byName.filter { $0.value.meters >= 100 }
             .map { name, acc in
                 let tag = acc.reason == "Cobbles" || acc.reason == "Mixed traffic" || acc.reason == "Unpaved"
-                    ? "\(acc.reason) \(DifferenceLine.distance(acc.meters))" : acc.reason
+                    ? "\(acc.reason) \(DifferenceCopy.distance(acc.meters))" : acc.reason
                 return AvoidedRoad(name: name, meters: acc.meters, reason: tag, shape: acc.shape)
             }
             .sorted { $0.meters > $1.meters }

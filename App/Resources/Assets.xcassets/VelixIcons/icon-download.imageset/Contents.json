@@ -1,0 +1,16 @@
+{
+  "images": [
+    {
+      "filename": "icon-download.svg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "velix-icongen",
+    "version": 1
+  },
+  "properties": {
+    "preserves-vector-representation": true,
+    "template-rendering-intent": "template"
+  }
+}

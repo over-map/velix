@@ -1,0 +1,19 @@
+{
+  "_note": "Overrides of design/velix-tokens.json (the design folder stays read-only). Every entry needs a reason and a docs/DECISIONS.md row.",
+  "color": {
+    "routeAlt": {
+      "light": "#2F4FD8",
+      "dark": "#8EA2FF",
+      "reason": "Filippo, 15 Oct 2026: grey alternatives blended with the basemap; cobalt, same width and casing as Best"
+    },
+    "toggleThumb": {
+      "light": "#FFFFFF",
+      "dark": "#FFFFFF",
+      "use": "Switch thumb (P2 MapStyleSheet / RuleToggleRow): white in both themes",
+      "reason": "P2 draws the switch thumb #FFFFFF in light and dark; not in the token file"
+    }
+  },
+  "font": {
+    "_riding": "HANDOFF (higher precedence than the token file) caps riding screens at 115 % Dynamic Type; the token file says xxLarge (+35 %)"
+  }
+}
