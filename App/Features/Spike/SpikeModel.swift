@@ -276,7 +276,7 @@ final class SpikeModel {
         do {
             activity = try Activity.request(
                 attributes: RideActivityAttributes(),
-                content: .init(state: .init(), staleDate: nil)
+                content: .init(state: .sample, staleDate: nil)
             )
             metrics.log("live_activity", ["started": true, "enabled": enabled])
         } catch {

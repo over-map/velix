@@ -85,7 +85,7 @@ docs/                    BRIEF, BUILD_PLAN, DECISIONS, TEST_TRIPS
 - Region pack: `make -C pipeline pack` (Docker; see `pipeline/README.md`). Published monthly by `.github/workflows/region-pack.yml`
 - M1 spike tiles: `./pipeline/spike/build_milan_tiles.sh`, then side-load as in `pipeline/spike/README.md`. Unattended device runs: `xcrun devicectl device process launch --device <id> io.github.over-map.velix -m1-benchmark` (or `-m1-simride`); log at `Documents/m1-metrics.jsonl`
 - Regenerate tokens: `swift run --package-path tools TokenGen design/velix-tokens.json App/DesignSystem/Generated App/Resources/Assets.xcassets` (add `--check` to only verify; CI does). Deviations from the token file go in `tools/TokenGen/overrides.json` with a reason, never in `design/`
-- Regenerate icons: `python3 tools/icongen.py` (Lucide + `tools/icons-extra` + glyphs → `Assets.xcassets/VelixIcons` and `Icon+Velix.swift`)
+- Regenerate icons: `python3 tools/icongen.py` (Lucide + `tools/icons-extra` + glyphs + `tools/glyphs-extra` → `Assets.xcassets/VelixIcons` and `Icon+Velix.swift`)
 - Component gallery (debug): launch with `-design-gallery` (simulator: `xcrun simctl launch booted io.github.over-map.velix -design-gallery`). States live in `App/Features/Gallery/ComponentCatalog.swift`; the snapshot tests read the same list
 - Re-record snapshots: delete the PNGs under `Tests/Snapshot/**/__Snapshots__/` and run the Test command twice (the first run records and fails)
 - Simulate a ride: `xcrun simctl location booted start --speed=5 <lat,lon> <lat,lon> …` (or the GPX files in `Tests/Fixtures/gpx/`)

@@ -9,8 +9,10 @@ ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "App/Resources/Assets.xcassets/VelixIcons"
 SWIFT = ROOT / "App/DesignSystem/Generated/Icon+Velix.swift"
 # icons-extra: Lucide icons the design pages use but the handoff didn't export (lucide-static 0.460.0, the version
-# the design pages load; ISC). Status-bar decorations (battery, signal, wifi, camera, flashlight) are left out.
-SOURCES = [("icon", ROOT / "design/assets/lucide"), ("icon", ROOT / "tools/icons-extra"), ("glyph", ROOT / "design/assets/glyphs")]
+# the design pages load; ISC). glyphs-extra: Velix glyphs P2 draws inline but the handoff didn't export (metro,
+# roundabout; paths copied from P2). Status-bar decorations (battery, signal, wifi, camera, flashlight) are left out.
+SOURCES = [("icon", ROOT / "design/assets/lucide"), ("icon", ROOT / "tools/icons-extra"), ("glyph", ROOT / "design/assets/glyphs"),
+           ("glyph", ROOT / "tools/glyphs-extra")]
 
 
 def camel(name: str) -> str:

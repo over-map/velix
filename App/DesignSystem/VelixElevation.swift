@@ -24,8 +24,13 @@ private struct VelixElevationModifier<S: InsettableShape>: ViewModifier {
             .overlay {
                 if let border = spec?.border { shape.strokeBorder(border, lineWidth: 1) }
             }
-            .shadow(color: Color.velix.paletteAbyss.opacity(spec?.shadow?.opacity ?? 0),
-                    radius: (spec?.shadow?.blur ?? 0) / 2, y: spec?.shadow?.y ?? 0)
+            // The shadow comes from the shape behind the content, so text, chips and buttons inside don't cast their own.
+            .background {
+                if let shadow = spec?.shadow {
+                    shape.fill(Color.velix.surface)
+                        .shadow(color: Color.velix.paletteAbyss.opacity(shadow.opacity), radius: shadow.blur / 2, y: shadow.y)
+                }
+            }
     }
 }
 

@@ -8,20 +8,23 @@ struct VelixLiveActivityBundle: WidgetBundle {
     }
 }
 
-/// Placeholder until M7 (Live Activity + Dynamic Island from P5).
+/// Ride Live Activity: lock screen + Dynamic Island (P2 LiveActivity; views in Shared/RideActivityViews.swift).
+/// The app starts and updates it in M7.
 struct RideLiveActivity: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: RideActivityAttributes.self) { _ in
-            Text("Velix")
-        } dynamicIsland: { _ in
+        ActivityConfiguration(for: RideActivityAttributes.self) { context in
+            LiveActivityLockScreen(state: context.state)
+                .activityBackgroundTint(context.state.lockScreenBackground)
+                .activitySystemActionForegroundColor(Color.velix.ink)
+        } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.center) { Text("Velix") }
+                DynamicIslandExpandedRegion(.bottom) { LiveActivityExpanded(state: context.state) }
             } compactLeading: {
-                EmptyView()
+                LiveActivityCompactLeading(state: context.state)
             } compactTrailing: {
-                EmptyView()
+                LiveActivityCompactTrailing(state: context.state)
             } minimal: {
-                EmptyView()
+                LiveActivityMinimal(state: context.state)
             }
         }
     }
