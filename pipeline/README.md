@@ -21,6 +21,8 @@ These files are the GitHub Release assets. The app downloads them one by one and
 | `hazards.sqlite.xz` | `hazards` table + `hazards_rtree`: tram, along, cobbles, steps, gap, dismount, lane (with heading), door; `ways` table: lighting and paths per way id (schema 2, see `stages/hazards.py`) |
 | `routes.sqlite.xz` | OSM cycle-route relations (`route=bicycle|mtb`), merged geometry as polyline6, EuroVelo number |
 | `transit.sqlite.xz` | Trenord rail + ATM metro GTFS subset for 60 days, and `bike_rules` from `config/bikes_allowed_rules.yml` |
+| `basemap.pmtiles.xz` | OpenMapTiles-schema vector tiles z0–14 for the map (planetiler), tiles uncompressed inside the PMTiles so xz compresses across them |
+| `overlays.pmtiles.xz` | Velix overlay tiles: `velix_cycling`, `velix_routes`, `velix_transit`, `velix_stations` (see `stages/overlays.py`) |
 
 The budget is **220 MB to download** (Filippo, 14 Oct 2026); `validate` fails the build above it.
 
@@ -35,6 +37,8 @@ The budget is **220 MB to download** (Filippo, 14 Oct 2026); `validate` fails th
 | `hazards.py` | tools | pyosmium + shapely, two passes over the extract |
 | `routes.py` | tools | cycle-route relations |
 | `transit.py` | tools | GTFS download, filter, 60-day window. A feed that ends inside the window repeats its last week (`projected`) |
+| basemap (Makefile) + `basemap_meta.py` | planetiler 0.10.2 + tools | OpenMapTiles profile on the extract; downloads water polygons, Natural Earth and lake centerlines into `cache/planetiler`; records sources and per-layer sizes |
+| `overlays.py` | tools | pyosmium (cycle tags shared with `hazards.py`, route relations) + `metro_colors.py` (P3 families) → tippecanoe → PMTiles |
 | `package.py` | tools | xz -9 (single-threaded: identical output on any machine) + manifest |
 | `validate.py` | tools | JSON Schema, sizes, sha256, budget |
 | `smoke_routes.sh` + `smoke.py` | Valhalla + tools | 6 Milan/Bergamo routes with the City profile, hazard counts and spot checks, EuroVelo 5, Centrale → Monza trains, M1 stops |

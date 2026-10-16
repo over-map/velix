@@ -54,6 +54,17 @@ def main() -> int:
     check(lit >= 10_000, f"lit ways: {lit} (≥ 10000)")
     check(hz.execute("SELECT value FROM meta WHERE key='schema'").fetchone()[0] == "2", "hazards schema 2")
 
+    bm = json.loads((out / "basemap.counts.json").read_text())
+    check(bm["tiles"] >= 8_000, f"basemap tiles: {bm['tiles']} (≥ 8000)")
+    for layer in ("transportation", "building", "landcover", "water", "poi", "transportation_name", "place"):
+        check(bm["layer_mb"].get(layer, 0) > 0.5, f"basemap layer {layer}: {bm['layer_mb'].get(layer, 0)} MB")
+    ov = json.loads((out / "overlays.counts.json").read_text())
+    check(ov["velix_cycling"] >= 20_000, f"cycle infrastructure ways: {ov['velix_cycling']} (≥ 20000)")
+    check(ov["velix_stations"] >= 300, f"stations: {ov['velix_stations']} (≥ 300)")
+    milan = {k.split("/")[1]: v["family"] for k, v in ov["metro_lines"].items() if k.startswith("STIBM/")}
+    check(milan == {"M1": "red", "M2": "green", "M3": "yellow", "M4": "blue", "M5": "purple"},
+          f"Milan metro families: {milan}")
+
     rt = sqlite3.connect(out / "routes.sqlite")
     ev = [r[0] for r in rt.execute("SELECT DISTINCT eurovelo FROM routes WHERE eurovelo IS NOT NULL")]
     check(5 in ev, f"EuroVelo 5 present (found EV {sorted(ev)})")

@@ -34,12 +34,15 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 | [pyproj](https://github.com/pyproj4/pyproj) 3.7.1 | MIT | Metric projection |
 | [PyYAML](https://github.com/yaml/pyyaml) 6.0.2 | MIT | Config |
 | [jsonschema](https://github.com/python-jsonschema/jsonschema) 4.23.0 | MIT | Manifest validation |
+| [planetiler](https://github.com/onthegomap/planetiler) 0.10.2 (OpenMapTiles profile) | Apache-2.0 (profile BSD-3-Clause) | Building the basemap tiles |
+| [tippecanoe](https://github.com/felt/tippecanoe) 2.79.0 | BSD-2-Clause | Building the overlay tiles |
+| [node-fontnik](https://github.com/mapbox/node-fontnik) 0.7.7 | BSD-3-Clause | Map label glyphs (SDF PBF) from the bundled fonts |
 
 ## Fonts (bundled in `App/Resources/Fonts/`)
 
 | Font | Files | Licence |
 |---|---|---|
-| Atkinson Hyperlegible, © 2020 Braille Institute of America | Regular, Bold (from google/fonts) | SIL OFL 1.1 (`OFL-AtkinsonHyperlegible.txt`) |
+| Atkinson Hyperlegible, © 2020 Braille Institute of America | Regular, Bold (from google/fonts); also as map glyphs in `App/Resources/MapStyle/glyphs/` (SDF PBF built from the same files) | SIL OFL 1.1 (`OFL-AtkinsonHyperlegible.txt`) |
 | Familjen Grotesk, © 2021 The Familjen Grotesk Project Authors | Medium, SemiBold, Bold: static instances cut from the google/fonts variable font v2.002 with fontTools `varLib.instancer` (no Reserved Font Name declared) | SIL OFL 1.1 (`OFL-FamiljenGrotesk.txt`) |
 
 ## Icons and artwork
@@ -54,7 +57,10 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 | Data | Licence | Attribution |
 |---|---|---|
 | OpenStreetMap (Geofabrik extracts) | ODbL 1.0 | "© OpenStreetMap contributors" on every map |
-| OpenFreeMap tiles | Free, attribution requested | You → About |
+| OpenMapTiles schema; basemap tiles built from OSM with planetiler (in the pack) | CC BY 4.0 (schema/tiles), ODbL (data) | "© OpenMapTiles © OpenStreetMap contributors" on the map |
+| OSM water polygons and lake centerlines (osmdata.openstreetmap.de, osm-lakelines) | ODbL 1.0 | "© OpenStreetMap contributors" |
+| Natural Earth vector | Public domain | "Made with Natural Earth" (You → About) |
+| OpenFreeMap tiles (debug spike screen only, until M7) | Free, attribution requested | Spike screen |
 | GEDTM30 global 30 m terrain model, Ho et al. (2025), OpenGeoHub (doi:10.5281/zenodo.15689805) | CC BY 4.0 | "GEDTM30, OpenGeoHub, CC BY 4.0" (You → About, release notes). Grades in the routing tiles only; the DEM is not shipped |
 | Trenord GTFS "Orario Ferroviario Regionale" (Regione Lombardia open data, dataset 3z4k-mxz9) | CC BY 4.0 | "Trenord" (You → About) |
 | ATM GTFS (Comune di Milano open data, ds929) | CC BY 4.0 | "ATM, via Comune di Milano" (You → About) |

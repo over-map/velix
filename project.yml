@@ -39,6 +39,12 @@ targets:
     platform: iOS
     sources:
       - path: App
+        excludes:
+          - "Resources/MapStyle/**"
+      # Map styles and glyphs keep their folder structure (glyphs/<fontstack>/<range>.pbf).
+      - path: App/Resources/MapStyle
+        type: folder
+        buildPhase: resources
       - path: Shared
     dependencies:
       - target: VelixLiveActivity

@@ -5,6 +5,8 @@ struct RegionPackManifest: Codable, Equatable, Sendable {
     struct File: Codable, Equatable, Sendable {
         enum Role: String, Codable, Sendable {
             case routingTiles = "routing_tiles", hazards, routes, transit
+            /// OpenMapTiles vector tiles (PMTiles, uncompressed tiles) and the Velix overlay tiles (M5).
+            case basemap, overlays
         }
 
         let name: String
