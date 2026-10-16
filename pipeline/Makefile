@@ -45,12 +45,12 @@ transit: tools
 
 # OpenMapTiles basemap. Tiles are stored uncompressed: the pack's xz then compresses across tiles (151 MB instead of
 # 203 MB with per-tile gzip, measured 16 Oct 2026); MapLibre reads uncompressed PMTiles tiles directly.
+# Planetiler's temp files stay inside the container (it runs as root: the host couldn't delete them on Linux).
 basemap: tools
 	docker run --rm -v "$(ROOT)/pipeline/out:/out" -v "$(ROOT)/pipeline/cache:/cache" $(PLANETILER_IMAGE) \
 	  --osm-path=/out/$(REGION)/region.osm.pbf --download --download-dir=/cache/planetiler \
-	  --tmpdir=/out/$(REGION)/planetiler-tmp --bounds=$(REGION_BOUNDS) --maxzoom=$(BASEMAP_ZOOM) \
+	  --tmpdir=/tmp/planetiler --bounds=$(REGION_BOUNDS) --maxzoom=$(BASEMAP_ZOOM) \
 	  --tile-compression=none --output-layerstats --output=/out/$(REGION)/basemap.pmtiles --force
-	rm -rf $(OUT)/planetiler-tmp
 	$(TOOLS) python stages/basemap_meta.py
 
 overlays: tools
