@@ -1,0 +1,26 @@
+{
+  "id": "gravel",
+  "note": "Cross bike on paths and tracks; rough surfaces welcome.",
+  "best": {
+    "costing": "bicycle",
+    "costing_options": {
+      "bicycle_type": "Cross",
+      "cycling_speed": 18,
+      "use_roads": 0.1,
+      "use_hills": 0.5,
+      "avoid_bad_surfaces": 0.0,
+      "use_living_streets": 0.6
+    }
+  },
+  "fastest": {
+    "costing": "bicycle",
+    "costing_options": {
+      "bicycle_type": "Cross",
+      "cycling_speed": 18,
+      "use_roads": 1.0,
+      "use_hills": 0.5,
+      "avoid_bad_surfaces": 0.0,
+      "use_living_streets": 0.5
+    }
+  }
+}

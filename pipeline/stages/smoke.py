@@ -50,6 +50,10 @@ def main() -> int:
           "tram rails near Porta Venezia")
     check(near(hz, "hazards", 45.4720, 9.1870, 150, "t.type = 'cobbles'") > 0, "cobbles in Brera (Via Fiori Chiari)")
 
+    lit = hz.execute("SELECT count(*) FROM ways WHERE lit = 1").fetchone()[0]
+    check(lit >= 10_000, f"lit ways: {lit} (≥ 10000)")
+    check(hz.execute("SELECT value FROM meta WHERE key='schema'").fetchone()[0] == "2", "hazards schema 2")
+
     rt = sqlite3.connect(out / "routes.sqlite")
     ev = [r[0] for r in rt.execute("SELECT DISTINCT eurovelo FROM routes WHERE eurovelo IS NOT NULL")]
     check(5 in ev, f"EuroVelo 5 present (found EV {sorted(ev)})")

@@ -1,0 +1,26 @@
+{
+  "id": "mtb",
+  "note": "Mountain bike; strongest preference for paths and tracks.",
+  "best": {
+    "costing": "bicycle",
+    "costing_options": {
+      "bicycle_type": "Mountain",
+      "cycling_speed": 15,
+      "use_roads": 0.05,
+      "use_hills": 0.6,
+      "avoid_bad_surfaces": 0.0,
+      "use_living_streets": 0.6
+    }
+  },
+  "fastest": {
+    "costing": "bicycle",
+    "costing_options": {
+      "bicycle_type": "Mountain",
+      "cycling_speed": 15,
+      "use_roads": 1.0,
+      "use_hills": 0.5,
+      "avoid_bad_surfaces": 0.0,
+      "use_living_streets": 0.5
+    }
+  }
+}

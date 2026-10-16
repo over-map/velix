@@ -17,7 +17,20 @@ enum RegionPack {
         URL(string: "https://github.com/over-map/velix/releases/download/\(tag)/manifest.json")!
     }
 
+    /// Debug: `-use-sideloaded` prefers files side-loaded into Documents over the installed pack (testing a new build).
+    static var preferSideloaded: Bool { ProcessInfo.processInfo.arguments.contains("-use-sideloaded") }
+
+    static var hazardStore: URL? {
+        let side = URL.documentsDirectory.appending(path: "hazards.sqlite")
+        if preferSideloaded, FileManager.default.fileExists(atPath: side.path) { return side }
+        if let installed = try? RegionPackInstaller.current()?.file(.hazards), FileManager.default.fileExists(atPath: installed.path) {
+            return installed
+        }
+        return FileManager.default.fileExists(atPath: side.path) ? side : nil
+    }
+
     static var tileExtract: URL? {
+        if preferSideloaded, FileManager.default.fileExists(atPath: sideloadedTileExtract.path) { return sideloadedTileExtract }
         if let installed = try? RegionPackInstaller.current()?.file(.routingTiles),
            FileManager.default.fileExists(atPath: installed.path) {
             return installed

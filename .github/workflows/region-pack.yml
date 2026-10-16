@@ -61,8 +61,71 @@ jobs:
           path: pipeline/out/${{ env.REGION }}/pack/
           retention-days: 7
 
+  golden:
+    needs: build
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download pack artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pack-lombardy
+          path: build/pack
+
+      - name: Unpack tiles and hazards
+        run: |
+          xz -d -T0 build/pack/valhalla_tiles.tar.xz build/pack/hazards.sqlite.xz
+          ls -lh build/pack
+
+      - name: Generate project
+        run: brew install xcodegen && xcodegen generate
+
+      - name: Pick simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)["devices"]
+          ios = sorted((k for k in d if "iOS" in k), key=lambda k: [int(x) for x in k.split("iOS-")[1].split("-")], reverse=True)
+          pick = next((x["udid"] for k in ios if "iOS-18" in k for x in d[k] if x["name"] == "iPhone 16"), None)
+          pick = pick or next(x["udid"] for k in ios for x in d[k] if x["name"].startswith("iPhone"))
+          print(pick)')
+          echo "DEST=platform=iOS Simulator,id=$UDID" >> "$GITHUB_ENV"
+
+      - name: Golden route tests on the new pack
+        env:
+          TEST_RUNNER_VELIX_PACK_DIR: ${{ github.workspace }}/build/pack
+          TEST_RUNNER_VELIX_GOLDEN_OUT: ${{ github.workspace }}/build/golden
+        run: >
+          xcodebuild -scheme Velix -destination "$DEST"
+          -derivedDataPath build/DerivedData -skipMacroValidation -skipPackagePluginValidation -onlyUsePackageVersionsFromResolvedFile
+          CODE_SIGNING_ALLOWED=NO test -only-testing:VelixGoldenTests
+
+      - name: Upload golden routes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-routes-pack
+          path: build/golden/
+          if-no-files-found: ignore
+
+  publish:
+    needs: [build, golden]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish)
+    runs-on: ubuntu-latest
+    env:
+      REGION: lombardy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download pack artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pack-lombardy
+          path: pipeline/out/lombardy/pack
+
       - name: Publish release
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

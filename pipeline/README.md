@@ -3,7 +3,7 @@
 Builds the Velix offline region pack (Lombardy) from open data. It runs in Docker, so local and CI builds match.
 
 ```bash
-make -C pipeline pack            # every stage: extract → elevation → tiles → hazards → routes → transit → package → validate → smoke
+make -C pipeline pack            # every stage: extract → elevation → prepare → tiles → hazards → routes → transit → package → validate → smoke
 make -C pipeline hazards         # one stage at a time (stages read the previous stages' outputs in pipeline/out/<region>/)
 make -C pipeline clean           # remove pipeline/out/<region>/ (downloads stay in pipeline/cache/)
 ```
@@ -17,8 +17,8 @@ These files are the GitHub Release assets. The app downloads them one by one and
 | Asset | Content |
 |---|---|
 | `manifest.json` | version, bbox, Valhalla version, sizes and sha256 per file (packed and unpacked), sources and licences. Schema: `schema/manifest.schema.json` |
-| `valhalla_tiles.tar.xz` | Valhalla 3.9.0 routing tiles. Grades come from Copernicus GLO-30; the country and region come from the admin build |
-| `hazards.sqlite.xz` | `hazards` table + `hazards_rtree`: tram, along, cobbles, steps, gap, dismount, lane, door (see `stages/hazards.py`) |
+| `valhalla_tiles.tar.xz` | Valhalla 3.9.0 routing tiles. Grades come from GEDTM30; cobbles are a bad surface for routing; the country and region come from the admin build |
+| `hazards.sqlite.xz` | `hazards` table + `hazards_rtree`: tram, along, cobbles, steps, gap, dismount, lane (with heading), door; `ways` table: lighting and paths per way id (schema 2, see `stages/hazards.py`) |
 | `routes.sqlite.xz` | OSM cycle-route relations (`route=bicycle|mtb`), merged geometry as polyline6, EuroVelo number |
 | `transit.sqlite.xz` | Trenord rail + ATM metro GTFS subset for 60 days, and `bike_rules` from `config/bikes_allowed_rules.yml` |
 
@@ -29,7 +29,8 @@ The budget is **220 MB to download** (Filippo, 14 Oct 2026); `validate` fails th
 | Stage | Image | What it does |
 |---|---|---|
 | `extract.sh` | tools | Geofabrik nord-ovest (md5-checked) → Lombardy polygon (relation 44879) → `region.osm.pbf`. Also builds `country.osm.pbf` (`country_admin.py`) |
-| `elevation.py` | tools | Copernicus GLO-30 COGs (AWS Open Data) → 1″ SRTM `.hgt`, used only at build time |
+| `elevation.py` | tools | GEDTM30 terrain model (COG over HTTP, CC BY 4.0) → 1″ SRTM `.hgt`, used only at build time |
+| `prepare_routing.py` | tools | Routing copy of the extract: cobbled ways retagged `surface=dirt` so Valhalla's bicycle costing can avoid them |
 | `tiles.sh` | Valhalla 3.9.0 | admins, timezones, tiles with elevation, tar extract |
 | `hazards.py` | tools | pyosmium + shapely, two passes over the extract |
 | `routes.py` | tools | cycle-route relations |

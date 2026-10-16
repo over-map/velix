@@ -32,6 +32,7 @@ struct SpikeView: View {
             let args = ProcessInfo.processInfo.arguments
             if args.contains("-m2-install-pack") { await model.installLatestPack() }
             if args.contains("-m1-benchmark") { await model.runBenchmark() }
+            if args.contains("-m3-plan") { await model.runPlannerBenchmark() }
             if args.contains("-m1-simride") {
                 model.locationSource = .simulated
                 await model.startRide(to: SpikeTrip.politecnico, name: "Politecnico")

@@ -125,6 +125,18 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: io.github.over-map.velix.snapshottests
 
+  VelixGoldenTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/Golden
+    dependencies:
+      - target: Velix
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.over-map.velix.goldentests
+
 schemes:
   Velix:
     build:
@@ -136,5 +148,6 @@ schemes:
       targets:
         - VelixTests
         - VelixSnapshotTests
+        - VelixGoldenTests
     run:
       config: Debug

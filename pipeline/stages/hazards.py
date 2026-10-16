@@ -10,6 +10,8 @@ Types (names match the hazard glyphs in design/assets/glyphs/hazard-*.svg):
   lane     a cycle lane/track/cycleway ends and the road carries on (rider joins traffic); has a travel heading,
            and on one-way ways only the downstream end counts
   door     painted cycle lane next to parallel on-street parking (door zone)
+Table `ways` (schema 2): lighting for cycle-usable ways (lit tagged, or any path/footway/cycleway as a possible
+"dark park path"), joined to Valhalla edges by OSM way id for the Lit streets only rule.
 Steep descents/climbs are not here: they come from Valhalla's per-edge grades on the phone (elevation is baked into the tiles).
 """
 import math
@@ -35,6 +37,8 @@ BARRIERS = {"bollard", "gate", "cycle_barrier", "lift_gate", "kissing_gate", "st
             "chain", "turnstile", "full-height_turnstile", "motorcycle_barrier", "sliding_gate"}
 NO_BIKE = {"no", "dismount", "use_sidepath"}
 LANE_VALUES = {"lane", "track", "opposite_lane", "opposite_track", "shared_busway"}
+LIT = {"yes": 1, "24/7": 1, "automatic": 1, "limited": 1, "sunset-sunrise": 1, "interval": 1, "dusk-dawn": 1,
+       "no": 0, "disused": 0}
 PARALLEL_PARKING = {"parallel", "lane", "street_side", "on_street", "half_on_kerb", "on_kerb"}
 
 
@@ -105,6 +109,7 @@ class Collect(osmium.SimpleHandler):
         # (way, node, lon, lat, heading): where riding along a cycle lane/track you reach its end, heading = travel direction
         self.infra_ends: list[tuple[int, int, float, float, float]] = []
         self.features: list[dict] = []
+        self.ways: list[tuple[int, int | None, int]] = []  # (way id, lit 1/0/None, is path)
 
     def node(self, n):
         t = n.tags
@@ -135,6 +140,10 @@ class Collect(osmium.SimpleHandler):
             return
         if not cycle_usable(t):
             return
+        lit = LIT.get(t.get("lit", ""))
+        is_path = hw in PATHS
+        if lit is not None or is_path:
+            self.ways.append((w.id, lit, int(is_path)))
         tags = {k: t.get(k) for k in ("highway", "surface", "bicycle", "maxwidth", "width", "name") if t.get(k)}
         for nd in w.nodes:
             if nd.ref in self.barrier_nodes:
@@ -276,7 +285,7 @@ def lane_end_hazards(c: Collect, pbf: str) -> list[dict]:
     return out
 
 
-def write_sqlite(path, features, meta):
+def write_sqlite(path, features, meta, ways=()):
     if path.exists():
         path.unlink()
     db = sqlite3.connect(path)
@@ -295,7 +304,13 @@ def write_sqlite(path, features, meta):
             heading REAL                 -- travel direction it applies to (0 = north), NULL = any direction
         );
         CREATE VIRTUAL TABLE hazards_rtree USING rtree(id, min_lon, max_lon, min_lat, max_lat);
+        CREATE TABLE ways (
+            way_id INTEGER PRIMARY KEY,  -- OSM way id = Valhalla edge way_id
+            lit INTEGER,                 -- 1 lit, 0 unlit, NULL not tagged
+            path INTEGER NOT NULL        -- 1 = path/footway/cycleway/track (park-path candidate)
+        ) WITHOUT ROWID;
     """)
+    db.executemany("INSERT OR REPLACE INTO ways VALUES (?,?,?)", sorted(ways))
     features.sort(key=lambda f: (f["type"], f["osm"], f["coords"][0], f.get("heading") or -1))
     for i, f in enumerate(features, start=1):
         co = f["coords"]
@@ -328,7 +343,8 @@ def main():
     for f in features:
         counts[f["type"]] += 1
     log("counts: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
-    write_sqlite(out / "hazards.sqlite", features, {"schema": "1", "region": cfg["region"]["id"]})
+    write_sqlite(out / "hazards.sqlite", features, {"schema": "2", "region": cfg["region"]["id"]}, c.ways)
+    log(f"ways with lighting/path info: {len(c.ways)} ({sum(1 for _, l, _ in c.ways if l == 1)} lit)")
     write_json(out / "hazards.counts.json", dict(sorted(counts.items())))
 
 

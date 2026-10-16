@@ -9,24 +9,45 @@ protocol RoutingProvider: CustomRouteProvider, Sendable {
     var profile: RoutingProfile { get }
 }
 
-/// A ride-type profile: the Valhalla costing and its options.
-/// M1 ships only `city` as a spike; M3 defines all six ride types with golden tests.
+/// One Valhalla costing: the model and its options.
 struct RoutingProfile: Sendable, Decodable, Equatable {
-    let id: String
     let costing: String
     let costingOptions: [String: JSONValue]
 
     enum CodingKeys: String, CodingKey {
-        case id
         case costing
         case costingOptions = "costing_options"
     }
+}
 
-    static func load(_ id: String, bundle: Bundle = .main) throws -> RoutingProfile {
-        guard let url = bundle.url(forResource: id, withExtension: "json", subdirectory: "RoutingProfiles")
-            ?? bundle.url(forResource: id, withExtension: "json")
-        else { throw RoutingError.profileMissing(id) }
-        return try JSONDecoder().decode(RoutingProfile.self, from: Data(contentsOf: url))
+/// A ride type's costings (`RoutingProfiles/<id>.json`): Best = the ride type's own costing, Fastest = permissive.
+struct RideProfile: Sendable, Decodable, Equatable {
+    let id: String
+    let best: RoutingProfile
+    let fastest: RoutingProfile
+
+    /// Rules that Valhalla's costing can express directly. Cobbles reach Valhalla as a bad surface (the pack retags
+    /// them), so "No cobbles" sets how hard bad surfaces are avoided; "Paved roads only" makes road bikes refuse them.
+    func adjusted(for rules: RuleSet) -> RideProfile {
+        var options = best.costingOptions
+        let current: Double = if case let .number(v) = options["avoid_bad_surfaces"] { v } else { 0.25 }
+        if rules.enabled.contains(.pavedOnly) {
+            options["avoid_bad_surfaces"] = .number(1.0)
+        } else if rules.enabled.contains(.noCobbles) {
+            options["avoid_bad_surfaces"] = .number(max(current, 0.8))
+        } else if rules.rideType != .road {
+            options["avoid_bad_surfaces"] = .number(min(current, 0.3))
+        } else {
+            options["avoid_bad_surfaces"] = .number(0.5)
+        }
+        return RideProfile(id: id, best: RoutingProfile(costing: best.costing, costingOptions: options), fastest: fastest)
+    }
+
+    static func load(_ type: RideType, bundle: Bundle = .main) throws -> RideProfile {
+        guard let url = bundle.url(forResource: type.rawValue, withExtension: "json", subdirectory: "RoutingProfiles")
+            ?? bundle.url(forResource: type.rawValue, withExtension: "json")
+        else { throw RoutingError.profileMissing(type.rawValue) }
+        return try JSONDecoder().decode(RideProfile.self, from: Data(contentsOf: url))
     }
 }
 

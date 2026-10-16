@@ -52,12 +52,50 @@ jobs:
           -derivedDataPath build/DerivedData -skipMacroValidation -skipPackagePluginValidation -onlyUsePackageVersionsFromResolvedFile
           CODE_SIGNING_ALLOWED=NO build
 
+      - name: Latest region pack tag
+        id: pack
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh release list --exclude-drafts --exclude-pre-releases --limit 30 --json tagName --jq '[.[].tagName | select(startswith("pack-lombardy-"))][0] // ""')
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Cache region pack
+        if: steps.pack.outputs.tag != ''
+        uses: actions/cache@v4
+        with:
+          path: build/pack
+          key: pack-${{ steps.pack.outputs.tag }}
+
+      - name: Download region pack (golden route tests)
+        if: steps.pack.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p build/pack
+          if [ ! -f build/pack/valhalla_tiles.tar ]; then
+            gh release download "${{ steps.pack.outputs.tag }}" -D build/pack -p 'valhalla_tiles.tar.xz' -p 'hazards.sqlite.xz' --clobber
+            xz -d -T0 build/pack/*.xz
+          fi
+          ls -lh build/pack
+
       - name: Test
+        env:
+          TEST_RUNNER_VELIX_PACK_DIR: ${{ github.workspace }}/build/pack
+          TEST_RUNNER_VELIX_GOLDEN_OUT: ${{ github.workspace }}/build/golden
         run: >
           xcodebuild -scheme Velix -destination "$DEST"
           -derivedDataPath build/DerivedData -skipMacroValidation -skipPackagePluginValidation -onlyUsePackageVersionsFromResolvedFile
           -resultBundlePath build/Velix.xcresult
           CODE_SIGNING_ALLOWED=NO test
+
+      - name: Upload golden routes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-routes
+          path: build/golden/
+          if-no-files-found: ignore
 
       - name: Upload test results
         if: failure()
