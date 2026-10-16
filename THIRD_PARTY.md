@@ -37,6 +37,8 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 | [planetiler](https://github.com/onthegomap/planetiler) 0.10.2 (OpenMapTiles profile) | Apache-2.0 (profile BSD-3-Clause) | Building the basemap tiles |
 | [tippecanoe](https://github.com/felt/tippecanoe) 2.79.0 | BSD-2-Clause | Building the overlay tiles |
 | [node-fontnik](https://github.com/mapbox/node-fontnik) 0.7.7 | BSD-3-Clause | Map label glyphs (SDF PBF) from the bundled fonts |
+| [@maplibre/maplibre-gl-style-spec](https://github.com/maplibre/maplibre-style-spec) 26.4.4 (`gl-style-validate`) | BSD-3-Clause | Validating the generated map styles (CI) |
+| [d3](https://d3js.org) 7.9.0 (cdnjs, P3 frame harness only) | ISC | `tools/p3-frames` runs the design's renderer, which uses d3 for contours |
 
 ## Fonts (bundled in `App/Resources/Fonts/`)
 
