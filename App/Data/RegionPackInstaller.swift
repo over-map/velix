@@ -4,13 +4,14 @@ import Foundation
 
 /// Downloads a file. The live implementation is URLSession; tests serve local files.
 protocol PackDownloading: Sendable {
-    func download(_ url: URL, to destination: URL, progress: @Sendable (Int64) -> Void) async throws
+    /// `progress` is called with the bytes received so far; it may be kept for the length of the download.
+    func download(_ url: URL, to destination: URL, progress: @escaping @Sendable (Int64) -> Void) async throws
 }
 
 /// URLSession downloads with byte progress and resume: an interrupted download leaves `<destination>.resume`
 /// (URLSession resume data) and the next attempt continues from there ("resumes, never restarts", P7 S0g).
 struct URLSessionPackDownloader: PackDownloading {
-    func download(_ url: URL, to destination: URL, progress: @Sendable (Int64) -> Void) async throws {
+    func download(_ url: URL, to destination: URL, progress: @escaping @Sendable (Int64) -> Void) async throws {
         let resumeFile = URL(fileURLWithPath: destination.path + ".resume")
         let delegate = DownloadDelegate()
         let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
@@ -24,18 +25,18 @@ struct URLSessionPackDownloader: PackDownloading {
         try? FileManager.default.removeItem(at: resumeFile)
         let temp: URL
         do {
-            temp = try await withoutActuallyEscaping(progress) { progress in
-                try await withTaskCancellationHandler {
-                    try await delegate.run(task, progress: progress)
-                } onCancel: {
-                    task.cancel(byProducingResumeData: { _ in })
-                }
+            // `progress` is escaping: the session's delegate keeps it until the session is invalidated, after this
+            // returns (withoutActuallyEscaping trapped on the device, 18 Oct).
+            temp = try await withTaskCancellationHandler {
+                try await delegate.run(task, progress: progress)
+            } onCancel: {
+                task.cancel(byProducingResumeData: { _ in })
             }
         } catch {
             if let data = (error as? URLError)?.downloadTaskResumeData { try? data.write(to: resumeFile) }
             throw error
         }
-        guard let http = task.response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+        if let http = task.response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
             throw URLError(.badServerResponse)
         }
         try? FileManager.default.removeItem(at: destination)
