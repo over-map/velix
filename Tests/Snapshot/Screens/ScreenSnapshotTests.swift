@@ -18,7 +18,7 @@ final class ScreenSnapshotTests: XCTestCase {
     private func app(onboarded: Bool = true, home: Bool = true, work: Bool = true, recents: Bool = true,
                      access: LocationService.Access = .allowed, here: LatLon? = LatLon(lat: 45.4746, lon: 9.2050),
                      cannotFind: Bool = false, pack: PackService.State = .ready(.sideloaded), expensive: Bool = false,
-                     rideType: RideType = .city) -> AppModel {
+                     rideType: RideType = .city, weather: WeatherWarnings = NoWeatherWarnings()) -> AppModel {
         let dir = FileManager.default.temporaryDirectory.appending(path: "velix-snap-\(UUID().uuidString)")
         let store = AppStore(url: dir.appending(path: "state.json"))
         var s = AppState()
@@ -33,7 +33,8 @@ final class ScreenSnapshotTests: XCTestCase {
         let packService = PackService(installer: RegionPackInstaller(root: dir.appending(path: "RegionPack")), catalog: { nil })
         packService.setForTesting(pack, expensive: expensive)
         let prefs = MapStylePreference(defaults: UserDefaults(suiteName: "velix-snap-\(UUID().uuidString)")!)
-        return AppModel(store: store, location: location, pack: packService, search: NoSearch(), mapPreference: prefs)
+        return AppModel(store: store, location: location, pack: packService, search: NoSearch(), weather: weather,
+                        mapPreference: prefs)
     }
 
     private func check(_ view: some View, named name: String, file: StaticString = #filePath, testName: String = #function,
@@ -67,10 +68,11 @@ final class ScreenSnapshotTests: XCTestCase {
     // MARK: S1 Ride
 
     func testS1Ride() async {
-        let weather = app()
+        // The weather comes from the source (RootView refreshes it on appear), not set directly: no race with that task.
+        let weather = app(weather: Warning())
         weather.warning = AppSamples.storm
         check(RootView(app: weather), named: "S1a-weather")
-        let panned = app()
+        let panned = app(weather: Warning())
         panned.warning = AppSamples.storm
         panned.warningDismissed = true
         check(RootView(app: panned, following: false), named: "S1b-panned")
