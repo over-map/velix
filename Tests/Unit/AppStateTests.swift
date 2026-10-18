@@ -54,6 +54,18 @@ struct AppStateTests {
         #expect(city.active == [.bikeLanesOnly, .litStreetsOnly])
     }
 
+    @Test func oneWaysAreIgnoredUnlessRespected() throws {
+        var s = AppState()
+        let city = try RideProfile.load(.city)
+        let free = city.adjusted(for: s.ruleSet(for: .city))
+        #expect(free.best.costingOptions["ignore_oneways"] == .bool(true))
+        #expect(free.fastest.costingOptions["ignore_oneways"] == .bool(true))
+        s.respectOneways = true
+        let strict = city.adjusted(for: s.ruleSet(for: .city))
+        #expect(strict.best.costingOptions["ignore_oneways"] == nil)
+        #expect(strict.fastest.costingOptions["ignore_oneways"] == nil)
+    }
+
     @Test func photonResultsParse() throws {
         let url = try #require(Bundle(for: Token.self).url(forResource: "photon-centr", withExtension: "json"))
         let places = try PhotonSearch.parse(Data(contentsOf: url))

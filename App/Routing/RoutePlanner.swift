@@ -73,6 +73,42 @@ struct RoutePlanner: Sendable {
     var minPenaltyWorthARound = 60.0
 
     func plan(from origin: LatLon, to destination: LatLon, heading: Double? = nil, rules: RuleSet) async throws -> RoutePlan {
+        let free = try await planOnce(from: origin, to: destination, heading: heading, rules: rules)
+        guard !rules.respectOneways, needsOnewayCheck(free, rules: rules) else { return free }
+        // One-ways ridden both ways (default) can lead Best into rule-breaking stretches the rounds don't clear:
+        // plan once more following one-ways and keep the better (never worse than before the setting existed).
+        var strictRules = rules
+        strictRules.respectOneways = true
+        let strict = try await planOnce(from: origin, to: destination, heading: heading, rules: strictRules)
+        return better(free, strict, rules: rules)
+    }
+
+    /// The free plan still breaks a rule enough to matter, or found nothing.
+    private func needsOnewayCheck(_ plan: RoutePlan, rules: RuleSet) -> Bool {
+        switch plan {
+        case let .options(o):
+            let v = RuleChecker.violations(of: rules.active, in: o.best.analysis)
+            return rules.rideType == .cargo ? !RuleChecker.hardViolations(v, rideType: .cargo).isEmpty
+                : penalty(RuleChecker.hardViolations(v, rideType: rules.rideType)) > minPenaltyWorthARound
+        case .noRouteMeetsRules, .noRoute:
+            return true
+        }
+    }
+
+    private func better(_ a: RoutePlan, _ b: RoutePlan, rules: RuleSet) -> RoutePlan {
+        switch (a, b) {
+        case let (.options(x), .options(y)):
+            let sx = x.best.seconds + penalty(RuleChecker.violations(of: rules.active, in: x.best.analysis))
+            let sy = y.best.seconds + penalty(RuleChecker.violations(of: rules.active, in: y.best.analysis))
+            return sy < sx ? b : a
+        case (.options, _): return a
+        case (_, .options): return b
+        case (.noRouteMeetsRules, _): return a
+        default: return b
+        }
+    }
+
+    private func planOnce(from origin: LatLon, to destination: LatLon, heading: Double?, rules: RuleSet) async throws -> RoutePlan {
         let started = Date()
         let profile = try RideProfile.load(rules.rideType).adjusted(for: rules)
         let fastest = try await compute(profile.fastest, from: origin, to: destination, heading: heading, exclusions: [])

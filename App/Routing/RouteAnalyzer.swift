@@ -68,7 +68,8 @@ enum RouteAnalyzer {
             for h in lines[edge.wayId] ?? [] {
                 // Rails beside a separated track or path are behind a kerb: the hazard is sharing the carriageway.
                 if h.type == .along, cat == .protected { continue }
-                let key = "\(h.id)"
+                // One per way and type: the sidecar has a record per tram track (two tracks → two "along" records).
+                let key = "\(h.type.rawValue)-\(h.osm)"
                 guard !seenLineHazard.contains(key) else { continue }
                 seenLineHazard.insert(key)
                 a.hazards.append(RouteHazard(type: h.type, distanceAlong: along[safe: edge.beginShapeIndex] ?? 0,

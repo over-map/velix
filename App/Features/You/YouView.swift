@@ -13,6 +13,7 @@ struct YouView: View {
                 Text("You").velixType(.display).foregroundStyle(Color.velix.ink).accessibilityAddTraits(.isHeader)
                 rules
                 tonight
+                routing
                 rides
                 connections
                 offlineMap
@@ -93,6 +94,15 @@ struct YouView: View {
             RuleToggleRow(title: "Lit streets only", subtitle: "Avoids dark park paths and unlit roads", icon: .lamp,
                           isOn: $app.litStreetsOnly, divider: false)
                 .accessibilityLabel("Lit streets only, for the next ride")
+        }
+    }
+
+    // MARK: Routing (not in P7: Filippo, 18 Oct)
+
+    private var routing: some View {
+        group("Routing", footnote: "Off: routes may use one-way streets in both directions, as many allow bikes both ways. Follow the signs.") {
+            RuleToggleRow(title: "Respect one-way streets", subtitle: "Applies to every ride type", icon: .route,
+                          isOn: $app.state.respectOneways, divider: false)
         }
     }
 

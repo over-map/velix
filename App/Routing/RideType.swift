@@ -67,6 +67,9 @@ struct RuleSet: Equatable, Sendable {
     var enabled: Set<Rule>
     /// Session only: switches off when the ride ends (HANDOFF decision 12, confirmed by Filippo 11 Oct).
     var litStreetsOnly = false
+    /// Off by default: one-way streets are routed both ways (many Milan streets allow contraflow cycling and OSM
+    /// often lacks oneway:bicycle=no). On: follow one-way restrictions (You → Routing).
+    var respectOneways = false
 
     static func defaults(for type: RideType) -> RuleSet {
         RuleSet(rideType: type, enabled: Set(type.ruleDefaults.filter(\.1).map(\.0)))

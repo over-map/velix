@@ -4,6 +4,9 @@ Product decisions live in `BRIEF.md` §8 and `../design/HANDOFF.md` §3. Log her
 
 | Date | Decision | Reason | Who |
 |---|---|---|---|
+| 2026-10-18 | One-way streets are routed both ways by default (Valhalla `ignore_oneways`, Best and Fastest); You → Routing → "Respect one-way streets" turns it off | Filippo: contraflow cycling is legal on many Milan streets but OSM often lacks `oneway:bicycle=no`; Via Soave → Piazza Santo Stefano detoured 4.3 km with 122 m cobbles, now 3.4 km with 18 m. Risk: it also allows riding against one-way traffic on bigger roads; the copy tells riders to follow the signs | Filippo |
+| 2026-10-18 | Fix: line hazards counted once per way and type (the sidecar has one "along" record per tram track, so rails-along metres were doubled since M3) | Found on Filippo's Via Soave trip; rails-along penalties were twice too strong | Claude |
+| 2026-10-18 | When the one-way-free plan still breaks a rule (or finds nothing), the planner also plans with one-ways respected and keeps the better by time + rule penalty | Without it San Siro → Duomo (Road, Cargo) regressed into park unpaved and rails along Via Quintino Sella; this keeps every golden trip at least as good as before | Claude |
 | 2026-10-18 | Start rides the planned route as is: Ferrostar's `Route` is parsed from the option's Valhalla response (no second plan); the engine keeps the option's costing for reroutes | Tap 2 must ride exactly what the card promised | Claude |
 | 2026-10-18 | Riding uses Ferrostar's stock navigation view on the Velix map style until M7 builds the P5 screen; Live Activity gets real ContentState (maneuver, distance, street, arrival, remaining) | The commute works end to end now; P5 UI is M7's scope | Claude |
 | 2026-10-18 | S8 adds an "About and data" sheet (version, pack, attributions from the pack manifest + OSM/OpenMapTiles/Photon) not drawn in P7 | ODbL and CC BY require visible attribution | Claude |

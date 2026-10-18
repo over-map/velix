@@ -40,7 +40,14 @@ struct RideProfile: Sendable, Decodable, Equatable {
         } else {
             options["avoid_bad_surfaces"] = .number(0.5)
         }
-        return RideProfile(id: id, best: RoutingProfile(costing: best.costing, costingOptions: options), fastest: fastest)
+        // One-way streets (Filippo, 18 Oct): ridden both ways by default; "Respect one-way streets" in You turns it off.
+        var fastestOptions = fastest.costingOptions
+        if !rules.respectOneways {
+            options["ignore_oneways"] = .bool(true)
+            fastestOptions["ignore_oneways"] = .bool(true)
+        }
+        return RideProfile(id: id, best: RoutingProfile(costing: best.costing, costingOptions: options),
+                           fastest: RoutingProfile(costing: fastest.costing, costingOptions: fastestOptions))
     }
 
     static func load(_ type: RideType, bundle: Bundle = .main) throws -> RideProfile {
