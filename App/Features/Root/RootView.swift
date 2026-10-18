@@ -39,7 +39,7 @@ struct RootView: View {
                 switch tab {
                 case .ride: RideView(app: app, sheet: $sheet, bottomCovered: showDownload, following: following)
                 case .routes: PlaceholderTab(title: "Routes", message: "Cycle routes from the region pack arrive with M9.")
-                case .you: PlaceholderTab(title: "You", message: "Rules, rides and connections arrive with M6b.")
+                case .you: YouView(app: app)
                 }
             }
             // The tab bar sits on the screen bottom (its own padding covers the home indicator); content stops above it.
@@ -53,6 +53,19 @@ struct RootView: View {
             }
             if let sheet { RideSheetHost(app: app, sheet: $sheet, kind: sheet, openYou: { self.sheet = nil; tab = .you }) }
             if showDownload { DownloadSheet(pack: app.pack) { showDownload = false } }
+            if let place = app.destination {
+                RouteOptionsView(app: app, model: RouteOptionsModel(destination: place),
+                                 onClose: { app.destination = nil },
+                                 onStart: { app.start($0, to: place) },
+                                 onEditRules: { app.destination = nil; tab = .you })
+                    .id(place.id + app.state.rideType.rawValue)
+                    .transition(.move(edge: .bottom))
+            }
+        }
+        .fullScreenCover(isPresented: Binding(get: { app.ride != nil }, set: { if !$0 { app.ride?.end() } })) {
+            if let ride = app.ride {
+                RidingView(session: ride, styleURL: (try? VelixMapStyle.url(MapStyleKind(app.mapStyle), .day)) ?? URL(fileURLWithPath: "/"))
+            }
         }
     }
 }
