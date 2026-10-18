@@ -2,7 +2,7 @@ import SwiftUI
 
 /// StartButton / PrimaryButton (P2 §08): 56 pt, radius 16, Familjen Grotesk 700 18.
 struct PrimaryButton: View {
-    enum Kind { case primary, secondary, danger }
+    enum Kind { case primary, secondary, danger, ink }
 
     let title: String
     var icon: VelixIcon?
@@ -11,6 +11,8 @@ struct PrimaryButton: View {
     /// Shown under a disabled button, e.g. "Milan map downloading · 64%. First route after download."
     var disabledNote: String?
     var fullWidth = true
+    /// 2 pt casing around the accent button (P4 Start, P7 onboarding).
+    var casing = false
     var action: () -> Void = {}
 
     var body: some View {
@@ -24,6 +26,9 @@ struct PrimaryButton: View {
                 .frame(maxWidth: fullWidth ? .infinity : nil, minHeight: kind == .danger ? CGFloat.velix.touch.riding : 56)
                 .foregroundStyle(foreground)
                 .background(background, in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.card))
+                .overlay {
+                    if casing, isEnabled { RoundedRectangle(cornerRadius: CGFloat.velix.radius.card).strokeBorder(Color.velix.casing, lineWidth: 2) }
+                }
             }
             .buttonStyle(VelixPressStyle())
             .disabled(!isEnabled)
@@ -39,6 +44,7 @@ struct PrimaryButton: View {
         case .primary: return Color.velix.accentInk
         case .secondary: return Color.velix.ink
         case .danger: return Color.velix.dangerInk
+        case .ink: return Color.velix.surface
         }
     }
 
@@ -48,6 +54,7 @@ struct PrimaryButton: View {
         case .primary: return Color.velix.accent
         case .secondary: return Color.velix.surface2
         case .danger: return Color.velix.danger
+        case .ink: return Color.velix.ink
         }
     }
 }

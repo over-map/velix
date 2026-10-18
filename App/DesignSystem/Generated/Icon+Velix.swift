@@ -63,6 +63,7 @@ enum VelixIcon: String, CaseIterable, Sendable {
     case undo2 = "icon-undo-2"
     case userRound = "icon-user-round"
     case volume1 = "icon-volume-1"
+    case wifi = "icon-wifi"
 }
 
 /// Velix glyphs: ride types, hazards, train, EuroVelo badge (same grid and stroke).

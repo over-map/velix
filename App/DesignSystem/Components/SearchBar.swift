@@ -9,11 +9,11 @@ struct SearchBar: View {
     var onTap: () -> Void = {}
 
     var body: some View {
-        HStack(spacing: CGFloat.velix.xs) {
+        HStack(spacing: homeSet && workSet ? CGFloat.velix.xs : 6) {
             Button(action: onTap) {
                 HStack(spacing: CGFloat.velix.xs) {
                     VelixIconView(.search, size: 20).foregroundStyle(Color.velix.ink)
-                    Text("Where to?").velixType(.body).foregroundStyle(Color.velix.ink2)
+                    Text("Where to?").velixType(.body).foregroundStyle(Color.velix.ink2).lineLimit(1).minimumScaleFactor(0.85)
                     Spacer(minLength: 0)
                 }
                 .frame(maxHeight: .infinity)
@@ -34,9 +34,9 @@ struct SearchBar: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 VelixIconView(set ? icon : .plus, size: 18)
-                Text(set ? title : setTitle).velixType(.label)
+                Text(set ? title : setTitle).velixType(.label).lineLimit(1).fixedSize()
             }
-            .padding(.horizontal, CGFloat.velix.s)
+            .padding(.horizontal, set ? CGFloat.velix.s : 9)
             .frame(height: CGFloat.velix.touch.min)
             .foregroundStyle(Color.velix.ink)
             .background(set ? Color.velix.surface2 : .clear, in: RoundedRectangle(cornerRadius: 12))

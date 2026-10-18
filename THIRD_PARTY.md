@@ -62,6 +62,7 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 | OpenMapTiles schema; basemap tiles built from OSM with planetiler (in the pack) | CC BY 4.0 (schema/tiles), ODbL (data) | "© OpenMapTiles © OpenStreetMap contributors" on the map |
 | OSM water polygons and lake centerlines (osmdata.openstreetmap.de, osm-lakelines) | ODbL 1.0 | "© OpenStreetMap contributors" |
 | Natural Earth vector | Public domain | "Made with Natural Earth" (You → About) |
+| Photon geocoder (komoot, photon.komoot.io; OpenStreetMap data) | Service: fair use; data ODbL 1.0 | "Search by Photon · © OpenStreetMap contributors" (You → About) |
 | OpenFreeMap tiles (debug spike screen only, until M7) | Free, attribution requested | Spike screen |
 | GEDTM30 global 30 m terrain model, Ho et al. (2025), OpenGeoHub (doi:10.5281/zenodo.15689805) | CC BY 4.0 | "GEDTM30, OpenGeoHub, CC BY 4.0" (You → About, release notes). Grades in the routing tiles only; the DEM is not shipped |
 | Trenord GTFS "Orario Ferroviario Regionale" (Regione Lombardia open data, dataset 3z4k-mxz9) | CC BY 4.0 | "Trenord" (You → About) |

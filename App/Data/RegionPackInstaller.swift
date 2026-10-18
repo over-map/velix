@@ -7,14 +7,76 @@ protocol PackDownloading: Sendable {
     func download(_ url: URL, to destination: URL, progress: @Sendable (Int64) -> Void) async throws
 }
 
+/// URLSession downloads with byte progress and resume: an interrupted download leaves `<destination>.resume`
+/// (URLSession resume data) and the next attempt continues from there ("resumes, never restarts", P7 S0g).
 struct URLSessionPackDownloader: PackDownloading {
     func download(_ url: URL, to destination: URL, progress: @Sendable (Int64) -> Void) async throws {
-        let (temp, response) = try await URLSession.shared.download(from: url)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+        let resumeFile = URL(fileURLWithPath: destination.path + ".resume")
+        let delegate = DownloadDelegate()
+        let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+        defer { session.finishTasksAndInvalidate() }
+        let task: URLSessionDownloadTask
+        if let data = try? Data(contentsOf: resumeFile) {
+            task = session.downloadTask(withResumeData: data)
+        } else {
+            task = session.downloadTask(with: url)
+        }
+        try? FileManager.default.removeItem(at: resumeFile)
+        let temp: URL
+        do {
+            temp = try await withoutActuallyEscaping(progress) { progress in
+                try await withTaskCancellationHandler {
+                    try await delegate.run(task, progress: progress)
+                } onCancel: {
+                    task.cancel(byProducingResumeData: { _ in })
+                }
+            }
+        } catch {
+            if let data = (error as? URLError)?.downloadTaskResumeData { try? data.write(to: resumeFile) }
+            throw error
+        }
+        guard let http = task.response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw URLError(.badServerResponse)
         }
+        try? FileManager.default.removeItem(at: destination)
         try FileManager.default.moveItem(at: temp, to: destination)
-        progress(Int64((try? destination.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0))
+    }
+}
+
+/// Bridges one download task's delegate callbacks to async/await.
+private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<URL, Error>?
+    private var onProgress: (@Sendable (Int64) -> Void)?
+    private var file: URL?
+
+    func run(_ task: URLSessionDownloadTask, progress: @escaping @Sendable (Int64) -> Void) async throws -> URL {
+        try await withCheckedThrowingContinuation { c in
+            lock.withLock { continuation = c; onProgress = progress }
+            task.resume()
+        }
+    }
+
+    func urlSession(_ s: URLSession, downloadTask: URLSessionDownloadTask, didWriteData _: Int64, totalBytesWritten: Int64,
+                    totalBytesExpectedToWrite _: Int64) {
+        let p = lock.withLock { onProgress }
+        p?(totalBytesWritten)
+    }
+
+    func urlSession(_ s: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        // The system deletes `location` when this returns: move it somewhere we own first.
+        let keep = FileManager.default.temporaryDirectory.appending(path: "velix-dl-\(UUID().uuidString)")
+        do { try FileManager.default.moveItem(at: location, to: keep); lock.withLock { file = keep } } catch {}
+    }
+
+    func urlSession(_ s: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        let (c, f) = lock.withLock { () -> (CheckedContinuation<URL, Error>?, URL?) in
+            defer { continuation = nil }
+            return (continuation, file)
+        }
+        if let error { c?.resume(throwing: error) } else if let f { c?.resume(returning: f) } else {
+            c?.resume(throwing: URLError(.cannotCreateFile))
+        }
     }
 }
 
@@ -30,8 +92,9 @@ struct InstalledRegionPack: Equatable, Sendable {
 }
 
 /// Installs a region pack: download each asset → check sha256 → unpack xz → check unpacked sha256,
-/// all in a staging folder; then switch `current` to the new version and remove the old one.
-/// A failure at any step leaves the installed pack untouched.
+/// all in `staging/<version>/`; then switch `current` to the new version and remove the old one.
+/// A failure at any step leaves the installed pack untouched. Finished files stay in staging and an interrupted
+/// download keeps its resume data, so the next attempt picks up where this one stopped.
 struct RegionPackInstaller: Sendable {
     let root: URL
     let downloader: PackDownloading
@@ -47,44 +110,61 @@ struct RegionPackInstaller: Sendable {
         async throws -> InstalledRegionPack
     {
         let fm = FileManager.default
-        let staging = root.appending(path: "staging").appending(path: UUID().uuidString, directoryHint: .isDirectory)
-        try fm.createDirectory(at: staging, withIntermediateDirectories: true)
-        do {
-            let manifestFile = staging.appending(path: "manifest.json")
-            try await downloader.download(manifestURL, to: manifestFile) { _ in }
-            let manifest = try RegionPackManifest.decode(Data(contentsOf: manifestFile))
-            let base = manifestURL.deletingLastPathComponent()
-            let total = Double(max(manifest.downloadBytes, 1))
-            var done: Int64 = 0
-            for file in manifest.files {
-                let asset = staging.appending(path: file.asset)
-                let before = done
-                try await downloader.download(base.appending(path: file.asset), to: asset) { bytes in
-                    progress(Double(before + bytes) / total)
-                }
-                done += file.bytes
-                try Self.verify(asset, bytes: file.bytes, sha256: file.sha256, label: file.asset)
-                let unpacked = staging.appending(path: file.name)
-                try Self.decompressXZ(asset, to: unpacked)
-                try fm.removeItem(at: asset)
-                try Self.verify(unpacked, bytes: file.unpackedBytes, sha256: file.unpackedSha256, label: file.name)
-            }
-            let versions = root.appending(path: "versions", directoryHint: .isDirectory)
-            try fm.createDirectory(at: versions, withIntermediateDirectories: true)
-            let target = versions.appending(path: manifest.version, directoryHint: .isDirectory)
-            let previous = Self.current(root: root)
-            if fm.fileExists(atPath: target.path) { try fm.removeItem(at: target) }
-            try fm.moveItem(at: staging, to: target)
-            try Self.writeCurrent(manifest.version, root: root)
-            if let previous, previous.directory.standardizedFileURL != target.standardizedFileURL {
-                try? fm.removeItem(at: previous.directory)
-            }
-            progress(1)
-            return InstalledRegionPack(directory: target, manifest: manifest)
-        } catch {
-            try? fm.removeItem(at: staging)
-            throw error
+        let stagingRoot = root.appending(path: "staging", directoryHint: .isDirectory)
+        try fm.createDirectory(at: stagingRoot, withIntermediateDirectories: true)
+        let manifestFile = stagingRoot.appending(path: "manifest-\(UUID().uuidString).json")
+        defer { try? fm.removeItem(at: manifestFile) }
+        try await downloader.download(manifestURL, to: manifestFile) { _ in }
+        let manifest = try RegionPackManifest.decode(Data(contentsOf: manifestFile))
+        // Staging for this version only: leftovers of other versions can't be resumed.
+        for old in (try? fm.contentsOfDirectory(at: stagingRoot, includingPropertiesForKeys: nil)) ?? []
+        where old.lastPathComponent != manifest.version && !old.lastPathComponent.hasPrefix("manifest-") {
+            try? fm.removeItem(at: old)
         }
+        let staging = stagingRoot.appending(path: manifest.version, directoryHint: .isDirectory)
+        try fm.createDirectory(at: staging, withIntermediateDirectories: true)
+        let stagedManifest = staging.appending(path: "manifest.json")
+        try? fm.removeItem(at: stagedManifest)
+        try fm.copyItem(at: manifestFile, to: stagedManifest)
+
+        let base = manifestURL.deletingLastPathComponent()
+        let total = Double(max(manifest.downloadBytes, 1))
+        var done: Int64 = 0
+        for file in manifest.files {
+            let unpacked = staging.appending(path: file.name)
+            if (try? Self.verify(unpacked, bytes: file.unpackedBytes, sha256: file.unpackedSha256, label: file.name)) != nil {
+                done += file.bytes                       // finished by an earlier attempt
+                progress(Double(done) / total)
+                continue
+            }
+            let asset = staging.appending(path: file.asset)
+            let before = done
+            try await downloader.download(base.appending(path: file.asset), to: asset) { bytes in
+                progress(Double(before + bytes) / total)
+            }
+            done += file.bytes
+            do {
+                try Self.verify(asset, bytes: file.bytes, sha256: file.sha256, label: file.asset)
+            } catch {
+                try? fm.removeItem(at: asset)            // corrupt: never resume from it
+                throw error
+            }
+            try Self.decompressXZ(asset, to: unpacked)
+            try fm.removeItem(at: asset)
+            try Self.verify(unpacked, bytes: file.unpackedBytes, sha256: file.unpackedSha256, label: file.name)
+        }
+        let versions = root.appending(path: "versions", directoryHint: .isDirectory)
+        try fm.createDirectory(at: versions, withIntermediateDirectories: true)
+        let target = versions.appending(path: manifest.version, directoryHint: .isDirectory)
+        let previous = Self.current(root: root)
+        if fm.fileExists(atPath: target.path) { try fm.removeItem(at: target) }
+        try fm.moveItem(at: staging, to: target)
+        try Self.writeCurrent(manifest.version, root: root)
+        if let previous, previous.directory.standardizedFileURL != target.standardizedFileURL {
+            try? fm.removeItem(at: previous.directory)
+        }
+        progress(1)
+        return InstalledRegionPack(directory: target, manifest: manifest)
     }
 
     /// The installed pack `current` points to, if any.

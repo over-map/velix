@@ -18,6 +18,13 @@ struct VelixMap: UIViewRepresentable {
     var route: MapRouteModel?
     var camera: MapCamera
     var showsAttribution = true
+    /// The rider (P3 puck) when there is no route puck.
+    var userLocation: LatLon?
+    var userHeading: Double?
+    /// Space covered by sheets and bars, so the camera centres in what's left.
+    var insets = UIEdgeInsets.zero
+    /// The rider moved the map (S1b: the Recenter button appears).
+    var onUserPan: () -> Void = {}
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -38,7 +45,7 @@ struct VelixMap: UIViewRepresentable {
         let old = c.state
         c.state = self
         if old?.style != style || old?.mode != mode { c.loadStyle(on: map) } else { c.applyStyleState(on: map) }
-        if old?.camera != camera { c.applyCamera(on: map, animated: true) }
+        if old?.camera != camera || old?.insets != insets { c.applyCamera(on: map, animated: old != nil) }
     }
 
     @MainActor
@@ -54,6 +61,7 @@ struct VelixMap: UIViewRepresentable {
 
         func applyCamera(on map: MLNMapView, animated: Bool) {
             guard let c = state?.camera else { return }
+            map.contentInset = state?.insets ?? .zero
             map.setCenter(CLLocationCoordinate2D(latitude: c.center.lat, longitude: c.center.lon), zoomLevel: c.zoom,
                           direction: c.bearing, animated: animated)
             let cam = map.camera
@@ -66,6 +74,13 @@ struct VelixMap: UIViewRepresentable {
                 loaded = true
                 applyStyleState(on: mapView)
             }
+        }
+
+        nonisolated func mapView(_ mapView: MLNMapView, regionWillChangeWith reason: MLNCameraChangeReason, animated: Bool) {
+            let byGesture = !reason.intersection([.gesturePan, .gesturePinch, .gestureRotate, .gestureZoomIn, .gestureZoomOut,
+                                                  .gestureOneFingerZoom, .gestureTilt]).isEmpty
+            guard byGesture else { return }
+            MainActor.assumeIsolated { state?.onUserPan() }
         }
 
         nonisolated func mapView(_ mapView: MLNMapView, didFailToLoadImage imageName: String) -> UIImage? {
@@ -86,7 +101,9 @@ struct VelixMap: UIViewRepresentable {
             let r = s.route
             setShape("velix-route", r?.routeGeoJSON(), in: style)
             setShape("velix-hazards", r?.hazardsGeoJSON(), in: style)
-            setShape("velix-markers", r?.markersGeoJSON(), in: style)
+            var markers = r ?? MapRouteModel(best: [])
+            if markers.puck == nil, let user = s.userLocation { markers.puck = user; markers.heading = s.userHeading ?? 0 }
+            setShape("velix-markers", markers.markersGeoJSON(), in: style)
         }
 
         private func setShape(_ id: String, _ data: Data?, in style: MLNStyle) {

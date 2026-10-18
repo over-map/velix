@@ -6,15 +6,21 @@ struct RideTypePicker: View {
     var variant: Variant = .sheet
     @Binding var selected: RideType
     var onContinue: () -> Void = {}
+    /// S1g: close button and "Edit rules in You ›" (nil hides them).
+    var onClose: (() -> Void)?
+    var onEditRules: (() -> Void)?
 
     var body: some View {
         VelixSheet {
             switch variant {
             case .sheet:
-                Text("Ride type").velixType(.title2).foregroundStyle(Color.velix.ink).accessibilityAddTraits(.isHeader)
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                    ForEach(RideType.allCases, id: \.self) { tile($0) }
+                HStack {
+                    Text("Ride type").velixType(.title2).foregroundStyle(Color.velix.ink).accessibilityAddTraits(.isHeader)
+                    Spacer()
+                    if let onClose { SheetCloseButton(action: onClose) }
                 }
+                RideTypeGrid(selected: $selected)
+                if let onEditRules { ChevronRow(title: "Edit rules in You", action: onEditRules) }
             case .onboarding:
                 Text("How do you usually ride?").velixType(.title1).foregroundStyle(Color.velix.ink).accessibilityAddTraits(.isHeader)
                 Text("You can switch on the map before any trip.").velixType(.callout).foregroundStyle(Color.velix.ink2)
@@ -24,29 +30,6 @@ struct RideTypePicker: View {
                 PrimaryButton(title: "Continue", action: onContinue)
             }
         }
-    }
-
-    private func tile(_ type: RideType) -> some View {
-        let isSelected = type == selected
-        return Button { selected = type } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                VelixIconView(type.glyph, size: 28)
-                Text(type.name).velixType(.cardTitle)
-                Text(type.bestName).velixType(.footnote).foregroundStyle(Color.velix.ink2)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(CGFloat.velix.s)
-            .foregroundStyle(Color.velix.ink)
-            .background(isSelected ? Color.velix.surface : .clear, in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.card))
-            .overlay(RoundedRectangle(cornerRadius: CGFloat.velix.radius.card)
-                .strokeBorder(isSelected ? Color.velix.ink : Color.velix.line, lineWidth: isSelected ? 2 : 1))
-            .overlay(alignment: .topTrailing) {
-                if isSelected { VelixIconView(.circleCheck, size: 22).foregroundStyle(Color.velix.ink).padding(10) }
-            }
-        }
-        .buttonStyle(VelixPressStyle())
-        .accessibilityLabel("\(type.name), \(type.bestName)")
-        .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : .isButton)
     }
 
     private func row(_ type: RideType, first: Bool) -> some View {
@@ -84,4 +67,40 @@ struct RideTypePicker: View {
         .padding()
     }
     .background(Color.velix.canvas)
+}
+
+/// The six ride-type tiles (S1g sheet, S0d onboarding).
+struct RideTypeGrid: View {
+    @Binding var selected: RideType
+    var minHeight: CGFloat = 0
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+            ForEach(RideType.allCases, id: \.self) { tile($0) }
+        }
+    }
+
+    private func tile(_ type: RideType) -> some View {
+        let isSelected = type == selected
+        return Button { selected = type } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                VelixIconView(type.glyph, size: 28)
+                Text(type.name).velixType(.cardTitle)
+                Text(type.bestName).velixType(.footnote).foregroundStyle(Color.velix.ink2)
+            }
+            .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .topLeading)
+            .padding(CGFloat.velix.s)
+            .foregroundStyle(Color.velix.ink)
+            .background(isSelected ? Color.velix.surface : .clear, in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.card))
+            .overlay(RoundedRectangle(cornerRadius: CGFloat.velix.radius.card)
+                .strokeBorder(isSelected ? Color.velix.ink : Color.velix.line, lineWidth: isSelected ? 2 : 1))
+            .overlay(alignment: .topTrailing) {
+                if isSelected { VelixIconView(.circleCheck, size: 22).foregroundStyle(Color.velix.ink).padding(10) }
+            }
+        }
+        .buttonStyle(VelixPressStyle())
+        .accessibilityLabel("\(type.name), \(type.bestName)")
+        .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : .isButton)
+    }
+
 }
