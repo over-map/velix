@@ -100,9 +100,11 @@ struct YouView: View {
     // MARK: Routing (not in P7: Filippo, 18 Oct)
 
     private var routing: some View {
-        group("Routing", footnote: "Off: routes may use one-way streets in both directions, as many allow bikes both ways. Follow the signs.") {
-            RuleToggleRow(title: "Respect one-way streets", subtitle: "Applies to every ride type", icon: .route,
-                          isOn: $app.state.respectOneways, divider: false)
+        group("Routing", footnote: "These apply to every ride type. Follow the signs on the street.") {
+            RuleToggleRow(title: "Respect one-way streets", subtitle: "Off: one-way streets may be used both ways",
+                          icon: .route, isOn: $app.state.respectOneways, divider: false)
+            RuleToggleRow(title: "Allow walking stretches", subtitle: "Short passages where you push the bike",
+                          icon: .footprints, isOn: $app.state.allowWalking)
         }
     }
 

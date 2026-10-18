@@ -140,6 +140,8 @@ struct RouteAnalysis: Equatable, Sendable {
     var unlitPaths: Int = 0
     var unlitMeters: Double = 0
     var unlitEdges: [RouteEdge] = []
+    /// Edges walked, not ridden (walk stretches).
+    var walkEdges: [RouteEdge] = []
     /// Metres on paths (cycleway, path, footway, track) — park paths for the scenic types.
     var pathMeters: Double = 0
 

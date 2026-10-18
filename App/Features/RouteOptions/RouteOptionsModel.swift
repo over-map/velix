@@ -127,6 +127,7 @@ final class RouteOptionsModel {
         case .maxGrade6: "Every way to \(destination) climbs more than 6%."
         case .bikeLanesOnly: "Every way to \(destination) leaves the bike lanes."
         case .litStreetsOnly: "Every way to \(destination) uses unlit paths."
+        case .noWalking: "Every way to \(destination) has a stretch where you push the bike."
         }
         return (why, "**\(rule.title)** is on for \(rideType.name).")
     }

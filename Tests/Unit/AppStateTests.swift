@@ -66,6 +66,15 @@ struct AppStateTests {
         #expect(strict.fastest.costingOptions["ignore_oneways"] == nil)
     }
 
+    @Test func walkingIsAllowedUnlessTurnedOff() {
+        var s = AppState()
+        #expect(s.allowWalking)
+        #expect(!s.ruleSet(for: .city).active.contains(.noWalking))
+        s.allowWalking = false
+        #expect(s.ruleSet(for: .road).active.contains(.noWalking))
+        #expect(s.ruleSet(for: .city, litStreetsOnly: true).active.last == .litStreetsOnly)
+    }
+
     @Test func photonResultsParse() throws {
         let url = try #require(Bundle(for: Token.self).url(forResource: "photon-centr", withExtension: "json"))
         let places = try PhotonSearch.parse(Data(contentsOf: url))

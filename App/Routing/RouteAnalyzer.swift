@@ -5,6 +5,12 @@ protocol HazardSource: Sendable {
     func lineHazards(onWays ways: some Collection<Int64>) -> [HazardRecord]
     func pointHazards(in box: (Double, Double, Double, Double)) -> [HazardRecord]
     func lighting(ofWays ways: some Collection<Int64>) -> [Int64: (lit: Bool?, path: Bool)]
+    /// Walk stretches among these ways (packs from 2026.10 build 4 on; empty before).
+    func walkWays(among ways: some Collection<Int64>) -> Set<Int64>
+}
+
+extension HazardSource {
+    func walkWays(among ways: some Collection<Int64>) -> Set<Int64> { [] }
 }
 
 extension HazardStore: HazardSource {}
@@ -45,6 +51,8 @@ enum RouteAnalyzer {
         let lines = Dictionary(grouping: source.lineHazards(onWays: wayIDs), by: { $0.wayId ?? -1 })
         let cobbleWays = Set(lines.compactMap { way, hz in hz.contains { $0.type == .cobbles } ? way : nil })
         let lighting = source.lighting(ofWays: wayIDs)
+        let walk = source.walkWays(among: wayIDs)
+        a.walkEdges = edges.filter { walk.contains($0.wayId) }
 
         var run = 0.0
         var seenLineHazard = Set<String>()

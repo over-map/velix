@@ -47,6 +47,8 @@ enum RideType: String, CaseIterable, Codable, Sendable {
 
 enum Rule: String, CaseIterable, Codable, Sendable {
     case noCobbles, neverAlongTramRails, bikeLanesOnly, noStepsOrGaps, pavedOnly, maxGrade6, litStreetsOnly
+    /// Not a ride-type rule: active when You → Routing → "Allow walking stretches" is off.
+    case noWalking
 
     var title: String {
         switch self {
@@ -57,6 +59,7 @@ enum Rule: String, CaseIterable, Codable, Sendable {
         case .pavedOnly: "Paved roads only"
         case .maxGrade6: "Max grade 6%"
         case .litStreetsOnly: "Lit streets only"
+        case .noWalking: "No walking stretches"
         }
     }
 }
@@ -70,6 +73,8 @@ struct RuleSet: Equatable, Sendable {
     /// Off by default: one-way streets are routed both ways (many Milan streets allow contraflow cycling and OSM
     /// often lacks oneway:bicycle=no). On: follow one-way restrictions (You → Routing).
     var respectOneways = false
+    /// On by default: short passages for pedestrians only are walked (bicycle=dismount in the tiles). Off: excluded.
+    var allowWalking = true
 
     static func defaults(for type: RideType) -> RuleSet {
         RuleSet(rideType: type, enabled: Set(type.ruleDefaults.filter(\.1).map(\.0)))
@@ -77,6 +82,7 @@ struct RuleSet: Equatable, Sendable {
 
     /// Rules to enforce, in the order used to name the blocking rule (design order, lit streets last).
     var active: [Rule] {
-        rideType.ruleDefaults.map(\.0).filter(enabled.contains) + (litStreetsOnly ? [.litStreetsOnly] : [])
+        rideType.ruleDefaults.map(\.0).filter(enabled.contains) + (allowWalking ? [] : [.noWalking])
+            + (litStreetsOnly ? [.litStreetsOnly] : [])
     }
 }

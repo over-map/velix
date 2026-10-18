@@ -7,6 +7,7 @@ struct FakeHazards: HazardSource {
     var lines: [HazardRecord] = []
     var points: [HazardRecord] = []
     var lit: [Int64: (lit: Bool?, path: Bool)] = [:]
+    var walk: Set<Int64> = []
 
     func lineHazards(onWays ways: some Collection<Int64>) -> [HazardRecord] {
         let set = Set(ways)
@@ -19,6 +20,10 @@ struct FakeHazards: HazardSource {
 
     func lighting(ofWays ways: some Collection<Int64>) -> [Int64: (lit: Bool?, path: Bool)] {
         lit.filter { Set(ways).contains($0.key) }
+    }
+
+    func walkWays(among ways: some Collection<Int64>) -> Set<Int64> {
+        walk.intersection(ways)
     }
 
     static func line(_ type: HazardType, way: Int64, length: Double) -> HazardRecord {
@@ -147,10 +152,22 @@ struct RouteAnalyzerTests {
 }
 
 struct RuleCheckerTests {
-    private func analysis(_ specs: [(way: Int64, edit: (inout RouteEdge) -> Void)], cobbles: [Int64] = []) -> RouteAnalysis {
+    private func analysis(_ specs: [(way: Int64, edit: (inout RouteEdge) -> Void)], cobbles: [Int64] = [],
+                          walk: Set<Int64> = []) -> RouteAnalysis {
         let (shape, edges) = eastwardRoute(specs)
         return RouteAnalyzer.analyze(shape: shape, edges: edges,
-                                     hazards: FakeHazards(lines: cobbles.map { FakeHazards.line(.cobbles, way: $0, length: 100) }))
+                                     hazards: FakeHazards(lines: cobbles.map { FakeHazards.line(.cobbles, way: $0, length: 100) },
+                                                          walk: walk))
+    }
+
+    @Test func walkingStretchesBreakNoWalkingAndGetExcluded() throws {
+        let a = analysis([(1, edge()), (2, edge(use: "footway")), (3, edge())], walk: [2])
+        #expect(a.walkEdges.map(\.wayId) == [2])
+        let v = try #require(RuleChecker.violation(of: .noWalking, in: a))
+        #expect(v.meters == 100)
+        #expect(!v.exclusions.isEmpty)
+        #expect(RuleChecker.hardViolations([v], rideType: .city) == [v])
+        #expect(RuleChecker.violation(of: .noWalking, in: analysis([(1, edge()), (2, edge())])) == nil)
     }
 
     @Test func cobblesMidRouteBreakTheRuleAndGetExcluded() throws {

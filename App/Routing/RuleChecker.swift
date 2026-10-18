@@ -32,7 +32,7 @@ enum RuleChecker {
         case .neverAlongTramRails: return 30
         case .pavedOnly: return 200
         case .litStreetsOnly: return 100
-        case .noStepsOrGaps, .maxGrade6, .bikeLanesOnly: return 0
+        case .noStepsOrGaps, .maxGrade6, .bikeLanesOnly, .noWalking: return 0
         }
     }
 
@@ -117,6 +117,10 @@ enum RuleChecker {
             let long = runs.filter { $0.reduce(0) { $0 + $1.meters } > maxMixedRun }.flatMap { $0 }.filter(inside)
             return long.isEmpty ? nil : RuleViolation(rule: rule, meters: long.reduce(0) { $0 + $1.meters },
                                                       exclusions: boxes(long, padding: 3))
+        case .noWalking:
+            let bad = a.walkEdges.filter(inside)
+            let m = bad.reduce(0) { $0 + $1.meters }
+            return m > 0 ? RuleViolation(rule: rule, meters: m, exclusions: boxes(bad, padding: 3)) : nil
         case .litStreetsOnly:
             // Unlit paths and roads tagged unlit, from the sidecar `ways` table (RouteAnalyzer).
             return a.unlitMeters > 0

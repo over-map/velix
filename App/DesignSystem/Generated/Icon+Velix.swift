@@ -53,6 +53,7 @@ enum VelixIcon: String, CaseIterable, Sendable {
     case cornerUpLeft = "icon-corner-up-left"
     case cornerUpRight = "icon-corner-up-right"
     case externalLink = "icon-external-link"
+    case footprints = "icon-footprints"
     case mapPin = "icon-map-pin"
     case merge = "icon-merge"
     case navigation2 = "icon-navigation-2"

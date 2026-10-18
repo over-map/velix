@@ -223,6 +223,7 @@ struct RoutePlanner: Sendable {
         case .maxGrade6: 2.0
         case .bikeLanesOnly: 0.5
         case .litStreetsOnly: 0.7
+        case .noWalking: 3.0
         }
     }
 
@@ -238,12 +239,13 @@ struct RoutePlanner: Sendable {
     // MARK: Valhalla
 
     func compute(_ costing: RoutingProfile, from origin: LatLon, to destination: LatLon, heading: Double?,
-                 exclusions: [[[Double]]]) async throws -> RouteOption? {
+                 exclusions: [[[Double]]], vias: [LatLon] = []) async throws -> RouteOption? {
         var start = UserLocation(clCoordinateLocation2D: .init(latitude: origin.lat, longitude: origin.lon))
         if let heading { start.courseOverGround = CourseOverGround(degrees: UInt16(heading) % 360, accuracy: 30) }
         let request = try ValhallaOnDeviceProvider.requestJSON(
             from: start,
-            waypoints: [Waypoint(coordinate: GeographicCoordinate(lat: destination.lat, lng: destination.lon), kind: .break)],
+            waypoints: vias.map { Waypoint(coordinate: GeographicCoordinate(lat: $0.lat, lng: $0.lon), kind: .via) }
+                + [Waypoint(coordinate: GeographicCoordinate(lat: destination.lat, lng: destination.lon), kind: .break)],
             profile: costing, excludePolygons: exclusions)
         var t = Date()
         var timings: [String: Double] = ["requestKB": Double(request.utf8.count) / 1024]

@@ -18,6 +18,7 @@ import math
 import sqlite3
 from collections import defaultdict
 
+import json
 import osmium
 import shapely
 from pyproj import Transformer
@@ -285,7 +286,7 @@ def lane_end_hazards(c: Collect, pbf: str) -> list[dict]:
     return out
 
 
-def write_sqlite(path, features, meta, ways=()):
+def write_sqlite(path, features, meta, ways=(), walk_ways=()):
     if path.exists():
         path.unlink()
     db = sqlite3.connect(path)
@@ -309,8 +310,12 @@ def write_sqlite(path, features, meta, ways=()):
             lit INTEGER,                 -- 1 lit, 0 unlit, NULL not tagged
             path INTEGER NOT NULL        -- 1 = path/footway/cycleway/track (park-path candidate)
         ) WITHOUT ROWID;
+        CREATE TABLE walk_ways (
+            way_id INTEGER PRIMARY KEY   -- walked, not ridden (bicycle=dismount in the routing tiles, prepare_routing.py)
+        ) WITHOUT ROWID;
     """)
     db.executemany("INSERT OR REPLACE INTO ways VALUES (?,?,?)", sorted(ways))
+    db.executemany("INSERT OR IGNORE INTO walk_ways VALUES (?)", [(w,) for w in sorted(walk_ways)])
     features.sort(key=lambda f: (f["type"], f["osm"], f["coords"][0], f.get("heading") or -1))
     for i, f in enumerate(features, start=1):
         co = f["coords"]
@@ -343,7 +348,10 @@ def main():
     for f in features:
         counts[f["type"]] += 1
     log("counts: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
-    write_sqlite(out / "hazards.sqlite", features, {"schema": "2", "region": cfg["region"]["id"]}, c.ways)
+    walk_file = out / "walk_ways.json"
+    walk = json.loads(walk_file.read_text()) if walk_file.exists() else []
+    write_sqlite(out / "hazards.sqlite", features, {"schema": "2", "region": cfg["region"]["id"]}, c.ways, walk)
+    log(f"walk stretches: {len(walk)}")
     log(f"ways with lighting/path info: {len(c.ways)} ({sum(1 for _, l, _ in c.ways if l == 1)} lit)")
     write_json(out / "hazards.counts.json", dict(sorted(counts.items())))
 
