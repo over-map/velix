@@ -9,6 +9,8 @@ struct NoticeBanner: View {
     var icon: VelixIconView
     var tone: Tone = .warning
     var onDismiss: (() -> Void)?
+    /// An underlined action under the message (S1f "Open Settings").
+    var link: (title: String, action: () -> Void)?
 
     var body: some View {
         HStack(alignment: .top, spacing: CGFloat.velix.s) {
@@ -16,6 +18,12 @@ struct NoticeBanner: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).velixType(.rowTitle)
                 Text(message).velixType(.rowSubtitle).fixedSize(horizontal: false, vertical: true)
+                if let link {
+                    Button(action: link.action) { Text(link.title).underline().velixType(.label) }
+                        .buttonStyle(.plain)
+                        .frame(minHeight: 32)
+                        .accessibilityAddTraits(.isLink)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if let onDismiss {
@@ -30,7 +38,7 @@ struct NoticeBanner: View {
         .background(tone == .warning ? Color.velix.warningSurface : Color.velix.surface,
                     in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.card))
         .velixElevation(tone == .info ? VelixElevations.e1 : VelixElevations.e0)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: link == nil ? .combine : .contain)
     }
 }
 

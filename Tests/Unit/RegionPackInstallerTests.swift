@@ -8,13 +8,22 @@ import Testing
 private struct FolderDownloader: PackDownloading {
     let folder: URL
     var failing: Set<String> = []
+    var log: DownloadLog?
 
     func download(_ url: URL, to destination: URL, progress: @Sendable (Int64) -> Void) async throws {
+        log?.add(url.lastPathComponent)
         if failing.contains(url.lastPathComponent) { throw URLError(.networkConnectionLost) }
         let source = folder.appending(path: url.lastPathComponent)
         try FileManager.default.copyItem(at: source, to: destination)
         progress(Int64((try? source.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0))
     }
+}
+
+final class DownloadLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var names: [String] = []
+    func add(_ n: String) { lock.withLock { names.append(n) } }
+    var all: [String] { lock.withLock { names } }
 }
 
 /// Builds a release folder: manifest.json + one .xz per file, like pipeline/stages/package.py.
@@ -58,9 +67,9 @@ private func samplePack(_ tag: String) -> [String: Data] {
 struct RegionPackInstallerTests {
     let tmp = FileManager.default.temporaryDirectory.appending(path: "velix-pack-tests-\(UUID().uuidString)")
 
-    private func installer(release: URL, failing: Set<String> = []) -> RegionPackInstaller {
+    private func installer(release: URL, failing: Set<String> = [], log: DownloadLog? = nil) -> RegionPackInstaller {
         RegionPackInstaller(root: tmp.appending(path: "RegionPack"),
-                            downloader: FolderDownloader(folder: release, failing: failing))
+                            downloader: FolderDownloader(folder: release, failing: failing, log: log))
     }
 
     @Test func xzRoundTripsThroughCompressionFramework() throws {
@@ -112,15 +121,22 @@ struct RegionPackInstallerTests {
         #expect(try Data(contentsOf: current.file(.hazards)) == samplePack("a")["hazards.sqlite"])
     }
 
-    @Test func failedDownloadLeavesNoStagingBehind() async throws {
+    @Test func failedDownloadResumesWithoutDownloadingFinishedFilesAgain() async throws {
         let release = tmp.appending(path: "release-net")
         try makeRelease(version: "2026.10", files: samplePack("a"), in: release)
+        let manifest = release.appending(path: "manifest.json")
         await #expect(throws: URLError.self) {
-            try await installer(release: release, failing: ["transit.sqlite.xz"])
-                .install(manifest: release.appending(path: "manifest.json"))
+            try await installer(release: release, failing: ["transit.sqlite.xz"]).install(manifest: manifest)
         }
         let root = tmp.appending(path: "RegionPack")
         #expect(RegionPackInstaller.current(root: root) == nil)
+        // Second attempt: only the files not finished before are fetched.
+        let log = DownloadLog()
+        let installed = try await installer(release: release, log: log).install(manifest: manifest)
+        #expect(installed.manifest.version == "2026.10")
+        let assets = log.all.filter { $0.hasSuffix(".xz") }
+        #expect(!assets.contains("hazards.sqlite.xz"))
+        #expect(assets.contains("transit.sqlite.xz"))
         let leftovers = (try? FileManager.default.contentsOfDirectory(atPath: root.appending(path: "staging").path)) ?? []
         #expect(leftovers.isEmpty)
     }

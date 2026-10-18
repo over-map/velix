@@ -13,6 +13,24 @@ struct MetroBadge: View, Hashable {
             .accessibilityLabel("Metro \(name)")
     }
     static let m1 = MetroBadge(name: "M1", color: Color.velix.transitMetroRed, ink: Color.velix.transitMetroRedInk)
+
+    /// A badge in a metro colour family (P3 mapRules).
+    static func family(_ family: String, name: String) -> MetroBadge {
+        switch family {
+        case "red": MetroBadge(name: name, color: Color.velix.transitMetroRed, ink: Color.velix.transitMetroRedInk)
+        case "orange": MetroBadge(name: name, color: Color.velix.transitMetroOrange, ink: Color.velix.transitMetroOrangeInk)
+        case "yellow": MetroBadge(name: name, color: Color.velix.transitMetroYellow, ink: Color.velix.transitMetroYellowInk)
+        case "olive": MetroBadge(name: name, color: Color.velix.transitMetroOlive, ink: Color.velix.transitMetroOliveInk)
+        case "green": MetroBadge(name: name, color: Color.velix.transitMetroGreen, ink: Color.velix.transitMetroGreenInk)
+        case "cyan": MetroBadge(name: name, color: Color.velix.transitMetroCyan, ink: Color.velix.transitMetroCyanInk)
+        case "lightblue": MetroBadge(name: name, color: Color.velix.transitMetroLightblue, ink: Color.velix.transitMetroLightblueInk)
+        case "blue": MetroBadge(name: name, color: Color.velix.transitMetroBlue, ink: Color.velix.transitMetroBlueInk)
+        case "purple": MetroBadge(name: name, color: Color.velix.transitMetroPurple, ink: Color.velix.transitMetroPurpleInk)
+        case "pink": MetroBadge(name: name, color: Color.velix.transitMetroPink, ink: Color.velix.transitMetroPinkInk)
+        case "brown": MetroBadge(name: name, color: Color.velix.transitMetroBrown, ink: Color.velix.transitMetroBrownInk)
+        default: MetroBadge(name: name, color: Color.velix.transitMetroGrey, ink: Color.velix.transitMetroGreyInk)
+        }
+    }
 }
 
 /// Mode of a transit-trip leg or suggestion.

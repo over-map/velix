@@ -13,3 +13,37 @@ struct VelixSheet<Content: View>: View {
         .velixElevation(VelixElevations.e3, in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.sheet))
     }
 }
+
+/// Sheet close button (P4 S1g–i, S3): 36 pt circle on surface-2, 44 pt hit area.
+struct SheetCloseButton: View {
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            VelixIconView(.x, size: 18).foregroundStyle(Color.velix.ink)
+                .frame(width: 36, height: 36)
+                .background(Color.velix.surface2, in: Circle())
+                .frame(width: CGFloat.velix.touch.min, height: CGFloat.velix.touch.min)
+        }
+        .buttonStyle(VelixPressStyle())
+        .accessibilityLabel("Close")
+    }
+}
+
+/// A full-width row with a chevron ("Edit rules in You ›", "Why this route ›").
+struct ChevronRow: View {
+    let title: String
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text(title).velixType(.label)
+                Spacer()
+                VelixIconView(.chevronRight, size: 18)
+            }
+            .foregroundStyle(Color.velix.ink)
+            .frame(minHeight: CGFloat.velix.touch.min)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}

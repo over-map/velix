@@ -7,6 +7,8 @@ struct MapStyleSheet: View {
     @Binding var style: Style
     @Binding var bikeLanes: Bool
     @Binding var transitLines: Bool
+    /// S1h/i: close button and "Your choice is remembered for City." (nil hides them).
+    var onClose: (() -> Void)?
 
     /// City / Road / Cargo → Standard | Satellite; Gravel / MTB / E-bike → Outdoor | Satellite (BRIEF §8).
     var styles: [Style] { Self.styles(for: rideType) }
@@ -21,15 +23,22 @@ struct MapStyleSheet: View {
 
     var body: some View {
         VelixSheet {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Map").velixType(.title2).foregroundStyle(Color.velix.ink).accessibilityAddTraits(.isHeader)
-                Text("Styles for \(rideType.name)").velixType(VelixType.body.sized(14, lineHeight: 19)).foregroundStyle(Color.velix.ink2)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Map").velixType(.title2).foregroundStyle(Color.velix.ink).accessibilityAddTraits(.isHeader)
+                    Text("Styles for \(rideType.name)").velixType(VelixType.body.sized(14, lineHeight: 19)).foregroundStyle(Color.velix.ink2)
+                }
+                Spacer()
+                if let onClose { SheetCloseButton(action: onClose) }
             }
             HStack(spacing: CGFloat.velix.s) { ForEach(styles, id: \.self) { styleTile($0) } }
             SectionLabel("Overlays")
             VStack(spacing: 0) {
                 overlayRow(icon: VelixIconView(.bike, size: 22), title: "Bike lanes", isOn: $bikeLanes, first: true)
                 overlayRow(icon: VelixIconView(.train, size: 22), title: "Train & metro lines", isOn: $transitLines, first: false)
+            }
+            if onClose != nil {
+                Text("Your choice is remembered for \(rideType.name).").velixType(.footnote).foregroundStyle(Color.velix.ink3)
             }
         }
     }

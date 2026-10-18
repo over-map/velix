@@ -31,7 +31,7 @@ struct TabBar: View {
 
     @ViewBuilder private func icon(_ tab: Tab) -> some View {
         switch tab {
-        case .ride: VelixIconView(.rideTypeCity, size: 26)
+        case .ride: VelixIconView(.navigation, size: 26)
         case .routes: VelixIconView(.route, size: 26)
         case .you: VelixIconView(.userRound, size: 26)
         }

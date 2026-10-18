@@ -16,7 +16,10 @@ enum MapStyleKind: String, CaseIterable, Sendable {
 enum MapMode: String, CaseIterable, Sendable { case day, night }
 
 enum VelixMapStyle {
-    enum Failure: Error { case missingStyle(String), noBasemap }
+    enum Failure: Error { case missingStyle(String) }
+
+    /// OpenFreeMap's OpenMapTiles TileJSON, used only until the pack's basemap is installed.
+    static let onlineBasemap = "https://tiles.openfreemap.org/planet"
 
     /// The bundled style JSON with its `pmtiles://velix-pack/` sources pointed at the pack's files, written to Caches.
     /// Glyphs load from the bundle (`asset://MapStyle/glyphs`); images come from ``MapImages``.
@@ -26,9 +29,10 @@ enum VelixMapStyle {
         guard let src = Bundle.main.url(forResource: name, withExtension: "json", subdirectory: "MapStyle") else {
             throw Failure.missingStyle(name)
         }
-        guard let basemap else { throw Failure.noBasemap }
         var json = try String(contentsOf: src, encoding: .utf8)
-        json = json.replacingOccurrences(of: "pmtiles://velix-pack/basemap.pmtiles", with: "pmtiles://\(basemap.absoluteString)")
+        // No pack yet (first launch, S0e: "explore the map" while it downloads): the same OpenMapTiles schema online.
+        json = json.replacingOccurrences(of: "pmtiles://velix-pack/basemap.pmtiles",
+                                         with: basemap.map { "pmtiles://\($0.absoluteString)" } ?? onlineBasemap)
         if let overlays {
             json = json.replacingOccurrences(of: "pmtiles://velix-pack/overlays.pmtiles", with: "pmtiles://\(overlays.absoluteString)")
         }

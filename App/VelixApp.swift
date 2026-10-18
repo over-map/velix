@@ -5,17 +5,20 @@ struct VelixApp: App {
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("-design-gallery") {
+            let args = ProcessInfo.processInfo.arguments
+            if args.contains("-design-gallery") {
                 DesignGalleryView()
-            } else if ProcessInfo.processInfo.arguments.contains("-map-preview") {
+            } else if args.contains("-map-preview") {
                 MapPreviewView()
-            } else if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+            } else if args.contains("-spike") {
                 SpikeView()
-            } else {
+            } else if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
                 LaunchView()
+            } else {
+                RootView()
             }
             #else
-            LaunchView()
+            RootView()
             #endif
         }
     }
