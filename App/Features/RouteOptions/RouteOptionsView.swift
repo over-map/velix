@@ -7,6 +7,8 @@ struct RouteOptionsView: View {
     var onClose: () -> Void
     var onStart: (RouteOption) -> Void
     var onEditRules: () -> Void
+    /// Plan when the screen appears (snapshot tests show a fixed state instead).
+    var plansOnAppear = true
     @Environment(\.colorScheme) private var scheme
     @Environment(\.liveMap) private var liveMap
     @State private var sheetHeight: CGFloat = 480
@@ -34,7 +36,7 @@ struct RouteOptionsView: View {
             .ignoresSafeArea(edges: .bottom)
         }
         .onPreferenceChange(SheetHeightKey.self) { sheetHeight = $0 }
-        .task { if case .computing = model.state { await model.plan(app: app) } }
+        .task { if plansOnAppear, case .computing = model.state { await model.plan(app: app) } }
     }
 
     // MARK: Map
