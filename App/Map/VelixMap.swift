@@ -23,6 +23,8 @@ struct VelixMap: UIViewRepresentable {
     var userHeading: Double?
     /// Space covered by sheets and bars, so the camera centres in what's left.
     var insets = UIEdgeInsets.zero
+    /// Fit these points above the sheets (S3 route options); overrides `camera` while set.
+    var fit: [LatLon]?
     /// The rider moved the map (S1b: the Recenter button appears).
     var onUserPan: () -> Void = {}
 
@@ -45,7 +47,7 @@ struct VelixMap: UIViewRepresentable {
         let old = c.state
         c.state = self
         if old?.style != style || old?.mode != mode { c.loadStyle(on: map) } else { c.applyStyleState(on: map) }
-        if old?.camera != camera || old?.insets != insets { c.applyCamera(on: map, animated: old != nil) }
+        if old?.camera != camera || old?.insets != insets || old?.fit != fit { c.applyCamera(on: map, animated: old != nil) }
     }
 
     @MainActor
@@ -60,6 +62,17 @@ struct VelixMap: UIViewRepresentable {
         }
 
         func applyCamera(on map: MLNMapView, animated: Bool) {
+            if let pts = state?.fit, pts.count > 1 {
+                let lats = pts.map(\.lat), lons = pts.map(\.lon)
+                let bounds = MLNCoordinateBounds(sw: CLLocationCoordinate2D(latitude: lats.min()!, longitude: lons.min()!),
+                                                 ne: CLLocationCoordinate2D(latitude: lats.max()!, longitude: lons.max()!))
+                let i = state?.insets ?? .zero
+                map.contentInset = .zero
+                map.setVisibleCoordinateBounds(bounds, edgePadding: UIEdgeInsets(top: i.top + 40, left: i.left + 40,
+                                                                                  bottom: i.bottom + 40, right: i.right + 40),
+                                               animated: animated, completionHandler: nil)
+                return
+            }
             guard let c = state?.camera else { return }
             map.contentInset = state?.insets ?? .zero
             map.setCenter(CLLocationCoordinate2D(latitude: c.center.lat, longitude: c.center.lon), zoomLevel: c.zoom,

@@ -4,6 +4,12 @@ Product decisions live in `BRIEF.md` §8 and `../design/HANDOFF.md` §3. Log her
 
 | Date | Decision | Reason | Who |
 |---|---|---|---|
+| 2026-10-18 | Start rides the planned route as is: Ferrostar's `Route` is parsed from the option's Valhalla response (no second plan); the engine keeps the option's costing for reroutes | Tap 2 must ride exactly what the card promised | Claude |
+| 2026-10-18 | Riding uses Ferrostar's stock navigation view on the Velix map style until M7 builds the P5 screen; Live Activity gets real ContentState (maneuver, distance, street, arrival, remaining) | The commute works end to end now; P5 UI is M7's scope | Claude |
+| 2026-10-18 | S8 adds an "About and data" sheet (version, pack, attributions from the pack manifest + OSM/OpenMapTiles/Photon) not drawn in P7 | ODbL and CC BY require visible attribution | Claude |
+| 2026-10-18 | Rides and Strava / Apple Health rows in S8 show empty / "Connect" states until M9 (ride history, sync) | BUILD_PLAN M9 | Claude |
+| 2026-10-18 | Stored app state decodes every field as optional | An app update must never reset onboarding, Home or Work (found when a new Place field made an older file unreadable) | Claude |
+| 2026-10-18 | Route options without a location fix show "Can’t find your location"; picking another start is deferred | P4 S1f mentions starting from a picked place; not drawn in S3 | Claude |
 | 2026-10-18 | Search: Photon (photon.komoot.io, OSM data, fair use), 300 ms debounce, ≥ 2 characters, biased to the rider, limited to the pack bbox, English labels, Velix User-Agent; offline → S2e | BRIEF §5; no key, open data. Heavy use would need our own Photon instance (later) | Claude |
 | 2026-10-18 | Weather notice and transit suggestion are slots behind protocols (`WeatherWarnings`, M10 source; `TransitSuggester`, M8 planner), empty in M6 | BUILD_PLAN puts the weather source in M10 and the transit planner in M8; screens and states are built now | Claude |
 | 2026-10-18 | Outside-region check uses the pack bbox until the pack ships its polygon to the app | Good enough for Lombardy's shape at S1e scale; polygon later | Claude |

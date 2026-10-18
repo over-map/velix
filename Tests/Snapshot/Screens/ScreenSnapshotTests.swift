@@ -96,4 +96,34 @@ final class ScreenSnapshotTests: XCTestCase {
         check(SearchView(app: app(), purpose: .destination, query: "Via Brerra", results: [], onDone: { _ in }), named: "S2d-noMatch")
         check(SearchView(app: app(), purpose: .destination, query: "Navig", offline: true, onDone: { _ in }), named: "S2e-offline")
     }
+
+    // MARK: S3 Route options
+
+    func testS3RouteOptions() {
+        func s3(_ state: RouteOptionsModel.State, rideType: RideType = .city, why: Bool = false, lit: Bool = false,
+                pack: PackService.State = .ready(.sideloaded), place: Place = AppSamples.politecnico) -> some View {
+            let a = app(pack: pack, rideType: rideType)
+            a.litStreetsOnly = lit
+            let m = RouteOptionsModel(destination: place, state: state)
+            m.whyExpanded = why
+            return RouteOptionsView(app: a, model: m, onClose: {}, onStart: { _ in }, onEditRules: {})
+        }
+        check(s3(.options(AppSamples.options())), named: "S3a-bestFastest")
+        check(s3(.options(AppSamples.options()), why: true), named: "S3b-why")
+        check(s3(.options(AppSamples.options(single: true)),
+                 place: Place(id: "c", name: "Milano Centrale", subtitle: "", kind: .station, lat: 45.4859, lon: 9.204)), named: "S3c-single")
+        check(s3(.blocked(rule: .noCobbles, rideType: .cargo, closest: nil), rideType: .cargo,
+                 place: Place(id: "d", name: "Piazza del Duomo", subtitle: "", kind: .poi, lat: 45.4641, lon: 9.1919)), named: "S3f-blocked")
+        check(s3(.computing), named: "S3g-computing")
+        check(s3(.options(AppSamples.options(lit: true)), lit: true), named: "S3h-lit")
+        check(s3(.options(AppSamples.options(rideType: .cargo)), rideType: .cargo), named: "S3i-cargo")
+        let mb = Int64(1_000_000)
+        check(s3(.options(AppSamples.options()), pack: .downloading(received: 132 * mb, total: 220 * mb)), named: "S3-downloading")
+    }
+
+    // MARK: S8 You
+
+    func testS8You() {
+        check(YouView(app: app()), named: "S8a-you")
+    }
 }

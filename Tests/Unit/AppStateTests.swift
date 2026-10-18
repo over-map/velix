@@ -20,6 +20,18 @@ struct AppStateTests {
         #expect(store.load() == s)
     }
 
+    @Test func olderStateFilesStillLoad() throws {
+        // M6a wrote places without lineFamilies; a future field must not reset onboarding or Home / Work.
+        let json = #"{"onboarded":true,"rideType":"city","rules":[],"recents":[],"work":{"id":"N1","kind":"address","lat":45.47,"lines":[],"lon":9.22,"name":"Politecnico","subtitle":"Piazza Leonardo da Vinci"},"futureField":1}"#
+        let url = dir.appending(path: "old.json")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data(json.utf8).write(to: url)
+        let s = AppStore(url: url).load()
+        #expect(s.onboarded)
+        #expect(s.work?.name == "Politecnico")
+        #expect(s.packAutoUpdate)
+    }
+
     @Test func recentsDedupeAndCap() {
         var s = AppState()
         for i in 0 ..< 30 {

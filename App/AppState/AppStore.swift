@@ -12,6 +12,20 @@ struct AppState: Codable, Equatable, Sendable {
     var recents: [Place] = []
     var packAutoUpdate = true
 
+    init() {}
+
+    /// Every field is optional in stored state: a newer app reads an older file without losing it.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        onboarded = try c.decodeIfPresent(Bool.self, forKey: .onboarded) ?? false
+        rideType = (try? c.decode(RideType.self, forKey: .rideType)) ?? .city
+        rules = (try? c.decode([RideType: Set<Rule>].self, forKey: .rules)) ?? [:]
+        home = try? c.decode(Place.self, forKey: .home)
+        work = try? c.decode(Place.self, forKey: .work)
+        recents = (try? c.decode([Place].self, forKey: .recents)) ?? []
+        packAutoUpdate = try c.decodeIfPresent(Bool.self, forKey: .packAutoUpdate) ?? true
+    }
+
     static let recentsKept = 20
     static let recentsShown = 5
 

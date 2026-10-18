@@ -3,7 +3,13 @@ import SwiftUI
 /// WhyThisRoute (P2 §08, S3): collapsed link; expanded list of hazards on your route and roads avoided.
 /// Same items as the map (striped tubes = on your route, dashed lilac = avoided), so the map lines have an accessible twin.
 struct WhyThisRoute: View {
-    struct Hazard: Hashable { var type: HazardType; var subtitle: String; var count: Int? }
+    struct Hazard: Hashable {
+        var type: HazardType
+        var subtitle: String
+        var count: Int?
+        /// Trailing value instead of a count ("70 m" for cobbles, P4 S3b).
+        var amount: String?
+    }
     struct Avoided: Hashable { var name: String; var reason: String }
 
     @Binding var expanded: Bool
@@ -43,7 +49,9 @@ struct HazardRow: View {
                 Text(hazard.subtitle).velixType(.rowSubtitle).foregroundStyle(Color.velix.ink2)
             }
             Spacer(minLength: 0)
-            if let count = hazard.count { Text("\(count)×").velixType(.label).foregroundStyle(Color.velix.ink2) }
+            if let amount = hazard.amount ?? hazard.count.map({ "\($0)×" }) {
+                Text(amount).velixType(.label).foregroundStyle(Color.velix.ink2)
+            }
         }
         .padding(.vertical, CGFloat.velix.s)
         .frame(minHeight: 64)

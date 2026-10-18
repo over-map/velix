@@ -62,7 +62,7 @@ struct MapRouteModel: Equatable, Sendable {
         var f: [[String: Any]] = []
         for a in avoided { f.append(line(a.shape, ["role": "avoided"])) }
         for alt in alternatives { f.append(line(alt, ["role": "alt"])) }
-        f.append(line(best, ["role": "best"]))
+        if best.count > 1 { f.append(line(best, ["role": "best"])) }
         for t in tubes { f.append(line(t, ["role": "tube"])) }
         return collection(f)
     }

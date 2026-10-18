@@ -66,7 +66,32 @@ final class AppModel {
         warning = await weather.current(near: location.coordinate)
     }
 
-    func choose(_ place: Place) { state.addRecent(place) }
+    /// S3: the destination whose route options are open.
+    var destination: Place?
+    /// The ride in progress (Start).
+    var ride: RideSession?
+
+    /// Open route options for a place (Home, Work, a search result): tap 1 of the commute.
+    func choose(_ place: Place) {
+        state.addRecent(place)
+        destination = place
+    }
+
+    /// Tap 2: ride the chosen route.
+    func start(_ option: RouteOption, to place: Place) {
+        let session = RideSession(destination: place)
+        session.onEnd = { [weak self] in
+            self?.ride = nil
+            self?.litStreetsOnly = false     // "For the next ride only" (S8)
+        }
+        do {
+            try session.start(option: option, engine: engine.navigationEngine)
+            ride = session
+            destination = nil
+        } catch {
+            print("Start failed: \(error)")
+        }
+    }
 
     /// The map style for the current ride type (remembered per type).
     var mapStyle: MapStyleSheet.Style {
