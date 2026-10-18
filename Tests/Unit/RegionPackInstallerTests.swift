@@ -10,7 +10,7 @@ private struct FolderDownloader: PackDownloading {
     var failing: Set<String> = []
     var log: DownloadLog?
 
-    func download(_ url: URL, to destination: URL, progress: @Sendable (Int64) -> Void) async throws {
+    func download(_ url: URL, to destination: URL, progress: @escaping @Sendable (Int64) -> Void) async throws {
         log?.add(url.lastPathComponent)
         if failing.contains(url.lastPathComponent) { throw URLError(.networkConnectionLost) }
         let source = folder.appending(path: url.lastPathComponent)
@@ -70,6 +70,22 @@ struct RegionPackInstallerTests {
     private func installer(release: URL, failing: Set<String> = [], log: DownloadLog? = nil) -> RegionPackInstaller {
         RegionPackInstaller(root: tmp.appending(path: "RegionPack"),
                             downloader: FolderDownloader(folder: release, failing: failing, log: log))
+    }
+
+    /// The live URLSession downloader end to end (file URL): byte progress, file in place, and no trap when the
+    /// session keeps the progress closure after the download (the 18 Oct device crash).
+    @Test func urlSessionDownloaderDownloadsWithProgress() async throws {
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        let source = tmp.appending(path: "big.bin")
+        let data = Data((0 ..< 3_000_000).map { UInt8($0 % 251) })
+        try data.write(to: source)
+        let log = DownloadLog()
+        let dest = tmp.appending(path: "out.bin")
+        try await URLSessionPackDownloader().download(source, to: dest) { bytes in log.add("\(bytes)") }
+        #expect(try Data(contentsOf: dest) == data)
+        #expect(!log.all.isEmpty)
+        // A second download right after: the first session's delegate must not hold anything that traps.
+        try await URLSessionPackDownloader().download(source, to: tmp.appending(path: "out2.bin")) { _ in }
     }
 
     @Test func xzRoundTripsThroughCompressionFramework() throws {
