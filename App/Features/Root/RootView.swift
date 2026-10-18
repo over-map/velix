@@ -4,6 +4,7 @@ import SwiftUI
 struct RootView: View {
     @State private var app: AppModel
     @State private var tab: TabBar.Tab = .ride
+    @Environment(\.colorScheme) private var scheme
     @State private var sheet: RideSheet?
     /// S0e–g: the download sheet over the live map, right after onboarding.
     @State private var showDownload = false
@@ -64,7 +65,8 @@ struct RootView: View {
         }
         .fullScreenCover(isPresented: Binding(get: { app.ride != nil }, set: { if !$0 { app.ride?.end() } })) {
             if let ride = app.ride {
-                RidingView(session: ride, styleURL: (try? VelixMapStyle.url(MapStyleKind(app.mapStyle), .day)) ?? URL(fileURLWithPath: "/"))
+                RidingView(session: ride, styleURL: (try? VelixMapStyle.url(MapStyleKind(app.mapStyle), scheme == .dark ? .night : .day))
+                           ?? URL(fileURLWithPath: "/"))
             }
         }
     }
