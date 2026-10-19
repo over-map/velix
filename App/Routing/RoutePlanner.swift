@@ -228,10 +228,8 @@ struct RoutePlanner: Sendable {
         return (scored.min { $0.0.seconds + penalty($0.1) < $1.0.seconds + penalty($1.1) }!.0, nil)
     }
 
-    /// Riding pace on cobbles (sett) for route times, km/h.
-    static let cobbleSpeed = 12.0
-    /// Average wait at a signalised junction (half of a typical 40–60 s red), seconds.
-    static let signalWait = 20.0
+    /// Average wait at a signalised junction: about half the time you arrive on red, then wait ≈ 20 s.
+    static let signalWait = 10.0
     /// Lights this close to the start or the destination are left alone by the fewer-lights candidate (metres).
     static let lightsEndMargin = 150.0
     static let maxLightBoxes = 6
@@ -287,11 +285,12 @@ struct RoutePlanner: Sendable {
         // Valhalla's bicycle costing never waits at traffic lights (a signal even lowers its turn stress): add the
         // average wait per signalised junction, so routes compare as Google's do (Filippo's Via Soave commute, 19 Oct).
         let waits = Double(analysis.signalStops.count) * Self.signalWait
-        // Cobbles reach Valhalla as gravel (pack retag, so Best avoids them), which a hybrid rides at ≈ 6 km/h: time
-        // them at a realistic pace instead, or every cobbled square looks like a minute's detour.
+        // Cobbles reach Valhalla as gravel (pack retag, so Best avoids them), which it rides at 40–75 % speed: time
+        // them at riding pace (Filippo: pure fastest, cobbles at normal speed); the rules' penalties keep them out of Best.
         let cobbleWays = Set(analysis.hazards.filter { $0.type == .cobbles }.map(\.osm))
+        let pace: Double = if case let .number(v) = costing.costingOptions["cycling_speed"] { v } else { 16 }
         let cobbleSaving = analysis.edges.filter { cobbleWays.contains("w\($0.wayId)") && $0.speed > 0 }.reduce(0.0) { sum, e in
-            sum + max(0, e.meters / (Double(e.speed) / 3.6) - e.meters / (max(Double(e.speed), Self.cobbleSpeed) / 3.6))
+            sum + max(0, e.meters / (Double(e.speed) / 3.6) - e.meters / (max(Double(e.speed), pace) / 3.6))
         }
         return RouteOption(costing: costing, osrmJSON: osrm, seconds: route.duration + waits - cobbleSaving, meters: route.distance,
                            analysis: analysis, exclusions: exclusions, timings: timings)
