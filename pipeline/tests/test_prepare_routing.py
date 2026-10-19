@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stages"))
 try:
-    from prepare_routing import stairs_closed_to_bikes, walkable_not_rideable  # needs osmium (tools image)
+    from prepare_routing import lift_gate_closed_to_bikes, open_to_bikes, stairs_closed_to_bikes, walkable_not_rideable  # needs osmium (tools image)
 except ImportError:  # pragma: no cover
     walkable_not_rideable = None
 
@@ -45,6 +45,18 @@ class WalkStretches(unittest.TestCase):
         self.assertFalse(walkable_not_rideable({"highway": "footway", "surface": "dirt"}))
         self.assertTrue(walkable_not_rideable({"highway": "pedestrian", "surface": "sett"}))
         self.assertTrue(walkable_not_rideable({"highway": "pedestrian", "surface": "gravel", "velix:surface": "sett"}))
+
+    def test_private_lift_gates_open_to_bikes(self):
+        self.assertTrue(lift_gate_closed_to_bikes({"barrier": "lift_gate", "access": "private"}))
+        self.assertFalse(lift_gate_closed_to_bikes({"barrier": "lift_gate"}))
+        self.assertFalse(lift_gate_closed_to_bikes({"barrier": "lift_gate", "access": "private", "bicycle": "no"}))
+        self.assertFalse(lift_gate_closed_to_bikes({"barrier": "gate", "access": "private"}))
+
+    def test_private_passages_lose_access_private_for_bikes(self):
+        t = open_to_bikes({"highway": "service", "access": "private", "foot": "yes"})
+        self.assertEqual((t["bicycle"], t["motor_vehicle"], t.get("access")), ("yes", "no", None))
+        self.assertEqual((t["highway"], t["velix:highway"]), ("footway", "service"))
+        self.assertEqual(open_to_bikes({"highway": "footway"}).get("motor_vehicle"), None)
 
     def test_stairs_without_a_ramp_close_to_bikes(self):
         self.assertTrue(stairs_closed_to_bikes({"highway": "steps"}))

@@ -8,6 +8,7 @@ struct FakeHazards: HazardSource {
     var points: [HazardRecord] = []
     var lit: [Int64: (lit: Bool?, path: Bool)] = [:]
     var walk: Set<Int64> = []
+    var lights: [LatLon] = []
 
     func lineHazards(onWays ways: some Collection<Int64>) -> [HazardRecord] {
         let set = Set(ways)
@@ -24,6 +25,10 @@ struct FakeHazards: HazardSource {
 
     func walkWays(among ways: some Collection<Int64>) -> Set<Int64> {
         walk.intersection(ways)
+    }
+
+    func signals(in box: (Double, Double, Double, Double)) -> [LatLon] {
+        lights.filter { $0.lat >= box.0 && $0.lat <= box.2 && $0.lon >= box.1 && $0.lon <= box.3 }
     }
 
     static func line(_ type: HazardType, way: Int64, length: Double) -> HazardRecord {
@@ -158,6 +163,15 @@ struct RuleCheckerTests {
         return RouteAnalyzer.analyze(shape: shape, edges: edges,
                                      hazards: FakeHazards(lines: cobbles.map { FakeHazards.line(.cobbles, way: $0, length: 100) },
                                                           walk: walk))
+    }
+
+    @Test func trafficLightsCountOncePerJunction() {
+        let (shape, edges) = eastwardRoute([(1, edge()), (2, edge()), (3, edge())])
+        // Two signal nodes 10 m apart at the first junction, one at the second.
+        let k = 111_320 * cos(45.47 * .pi / 180)
+        let at = { (m: Double) in LatLon(lat: shape[0].lat, lon: shape[0].lon + m / k) }
+        let a = RouteAnalyzer.analyze(shape: shape, edges: edges, hazards: FakeHazards(lights: [at(100), at(110), at(200)]))
+        #expect(a.signalStops.map { Int($0.distanceAlong.rounded()) } == [100, 200])
     }
 
     @Test func walkingStretchesBreakNoWalkingAndGetExcluded() throws {

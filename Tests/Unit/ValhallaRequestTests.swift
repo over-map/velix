@@ -70,7 +70,7 @@ struct ValhallaRequestTests {
         let body = try request()
         #expect(body["costing"] as? String == "bicycle")
         let options = try #require((body["costing_options"] as? [String: Any])?["bicycle"] as? [String: Any])
-        #expect(options["bicycle_type"] as? String == "Hybrid")
+        #expect(options["bicycle_type"] as? String == "Cross")
     }
 
     @Test func startCarriesHeadingOnlyWhenCourseKnown() throws {

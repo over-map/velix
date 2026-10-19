@@ -154,6 +154,22 @@ struct RoutePlanner: Sendable {
                 currentPenalty = nextPenalty
             }
         }
+        // Fewer lights: Valhalla prefers lanes across busy signalised junctions over quiet streets that cross fewer.
+        // Box out the lights of the leading candidate that Fastest doesn't also cross (those are on the direct line)
+        // away from both ends; `choose` keeps it only if it's quicker once the waits count.
+        let lead = choose(candidates, rules: rules).option
+        let shared = fastest?.analysis.signalStops.map(\.location) ?? []
+        let avoidable = lead.analysis.signalStops.filter { s in
+            s.distanceAlong > Self.lightsEndMargin && s.distanceAlong < lead.analysis.lengthM - Self.lightsEndMargin
+                && !shared.contains { Geo.distance($0, s.location) < RouteAnalyzer.junctionSpan }
+        }
+        if !avoidable.isEmpty, lead.exclusions.count + avoidable.count <= maxExclusionPolygons {
+            let boxes = avoidable.prefix(Self.maxLightBoxes).map { Geo.box(around: [$0.location], padding: Self.lightBoxPadding) }
+            if let next = try await compute(profile.best, from: origin, to: destination, heading: heading,
+                                            exclusions: lead.exclusions + boxes) {
+                candidates.append(next)
+            }
+        }
         // Fastest is a candidate too for the soft types: Best is never worse than Fastest on time + rule penalty.
         if let fastest, rules.rideType != .cargo { candidates.append(fastest) }
         let choice = choose(candidates, rules: rules)
@@ -212,6 +228,15 @@ struct RoutePlanner: Sendable {
         return (scored.min { $0.0.seconds + penalty($0.1) < $1.0.seconds + penalty($1.1) }!.0, nil)
     }
 
+    /// Riding pace on cobbles (sett) for route times, km/h.
+    static let cobbleSpeed = 12.0
+    /// Average wait at a signalised junction (half of a typical 40–60 s red), seconds.
+    static let signalWait = 20.0
+    /// Lights this close to the start or the destination are left alone by the fewer-lights candidate (metres).
+    static let lightsEndMargin = 150.0
+    static let maxLightBoxes = 6
+    static let lightBoxPadding = 25.0
+
     /// Seconds of detour a metre of each broken rule is worth. Cobbles 3 s/m: Filippo takes a longer route to avoid
     /// them more than for anything else (300 m of cobbles ≈ worth a 15-min detour).
     static func weight(_ rule: Rule) -> Double {
@@ -259,7 +284,16 @@ struct RoutePlanner: Sendable {
         let attrs = try JSONDecoder().decode(TraceResponse.self, from: Data(trace.utf8))
         let analysis = RouteAnalyzer.analyze(shape: Geo.decodePolyline6(attrs.shape), edges: attrs.edges, hazards: hazards)
         lap("analyze")
-        return RouteOption(costing: costing, osrmJSON: osrm, seconds: route.duration, meters: route.distance,
+        // Valhalla's bicycle costing never waits at traffic lights (a signal even lowers its turn stress): add the
+        // average wait per signalised junction, so routes compare as Google's do (Filippo's Via Soave commute, 19 Oct).
+        let waits = Double(analysis.signalStops.count) * Self.signalWait
+        // Cobbles reach Valhalla as gravel (pack retag, so Best avoids them), which a hybrid rides at ≈ 6 km/h: time
+        // them at a realistic pace instead, or every cobbled square looks like a minute's detour.
+        let cobbleWays = Set(analysis.hazards.filter { $0.type == .cobbles }.map(\.osm))
+        let cobbleSaving = analysis.edges.filter { cobbleWays.contains("w\($0.wayId)") && $0.speed > 0 }.reduce(0.0) { sum, e in
+            sum + max(0, e.meters / (Double(e.speed) / 3.6) - e.meters / (max(Double(e.speed), Self.cobbleSpeed) / 3.6))
+        }
+        return RouteOption(costing: costing, osrmJSON: osrm, seconds: route.duration + waits - cobbleSaving, meters: route.distance,
                            analysis: analysis, exclusions: exclusions, timings: timings)
     }
 
@@ -315,12 +349,12 @@ struct RoutePlanner: Sendable {
     }
 }
 
-private struct OSRMResponse: Decodable {
+struct OSRMResponse: Decodable {
     struct Route: Decodable { let duration: Double; let distance: Double; let geometry: String }
     let routes: [Route]
 }
 
-private struct TraceResponse: Decodable {
+struct TraceResponse: Decodable {
     let shape: String
     let edges: [RouteEdge]
 }

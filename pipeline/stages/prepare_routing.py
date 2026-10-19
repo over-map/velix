@@ -42,6 +42,31 @@ def below_or_indoors(tags) -> bool:
             or tags.get("location") in {"underground", "indoor"} or tags.get("fee") == "yes" or layer < 0)
 
 
+def open_to_bikes(tags: dict) -> dict:
+    """bicycle=yes, and a private `access` moved to motor_vehicle: Valhalla treats access=private as destination-only
+    and never enters such a way mid-route, even with bicycle=yes (Via Gaetano Pini was only usable as a route's end)."""
+    tags["velix:bicycle"] = tags.get("bicycle", "")
+    tags["bicycle"] = "yes"
+    if tags.get("access") in CLOSED:
+        # motor_vehicle=no, not =private: Valhalla makes a way destination-only for every mode from any "private".
+        tags["velix:access"] = tags.pop("access")
+        tags["motor_vehicle"] = "no"
+        # A road closed to cars but open on foot is car-free: weigh it like the other passages (a footway open to
+        # bikes), calmer than any street with traffic. As a service road or even a living street Valhalla rated it
+        # busier than the residential street beside it (Via Gaetano Pini vs Via Bianca di Savoia, Filippo, 19 Oct).
+        if tags.get("highway") in {"service", "residential", "unclassified"}:
+            tags["velix:highway"] = tags["highway"]
+            tags["highway"] = "footway"
+            tags.setdefault("surface", "asphalt")  # a road: Valhalla would assume an untagged footway is rough
+    return tags
+
+
+def lift_gate_closed_to_bikes(tags) -> bool:
+    """A car barrier: riders go round it. With access=private Valhalla closes the whole way to bikes (Via Gaetano Pini,
+    Milan, a hospital road open on foot that Google routes bikes through)."""
+    return tags.get("barrier") == "lift_gate" and tags.get("access") in CLOSED and "bicycle" not in tags
+
+
 def stairs_closed_to_bikes(tags) -> bool:
     """Steps a rider can't wheel the bike up: no bicycle ramp and no explicit bicycle access."""
     return (tags.get("highway") == "steps" and tags.get("ramp:bicycle") not in {"yes", "both", "left", "right"}
@@ -79,17 +104,22 @@ def walkable_not_rideable(tags) -> bool:
     return False
 
 
-def main():
-    cfg = load_config()
-    out = out_dir(cfg)
-    src, dst = out / "region.osm.pbf", out / "routing.osm.pbf"
+def transform(src, dst):
+    """Writes the routing copy of `src` to `dst`; returns (cobbled ways, walk-stretch way ids, steps, lift gates)."""
     if dst.exists():
         dst.unlink()
     writer = osmium.SimpleWriter(str(dst))
     changed = 0
     walk: list[int] = []
     stairs = 0
+    gates = 0
     for obj in osmium.FileProcessor(str(src)).with_locations():
+        if obj.is_node() and lift_gate_closed_to_bikes(obj.tags):
+            tags = open_to_bikes(dict(obj.tags))
+            tags["access"] = "yes"  # an access tag keeps Valhalla from timing it as an untagged gate (30 s)
+            writer.add_node(obj.replace(tags=tags))
+            gates += 1
+            continue
         if not obj.is_way() or "highway" not in obj.tags:
             writer.add(obj)
             continue
@@ -106,15 +136,22 @@ def main():
             stairs += 1
             touched = True
         elif walkable_not_rideable(tags) and length_m(obj) <= WALK_MAX_M:
-            tags["velix:bicycle"] = tags.get("bicycle", "")
-            tags["bicycle"] = "yes"
+            tags = open_to_bikes(tags)
             walk.append(obj.id)
             touched = True
         writer.add_way(obj.replace(tags=tags) if touched else obj)
     writer.close()
+    return changed, walk, stairs, gates
+
+
+def main():
+    cfg = load_config()
+    out = out_dir(cfg)
+    dst = out / "routing.osm.pbf"
+    changed, walk, stairs, gates = transform(out / "region.osm.pbf", dst)
     (out / "walk_ways.json").write_text(json.dumps(sorted(walk)))
     log(f"{dst.name}: {changed} cobbled ways retagged surface=gravel, {len(walk)} walk stretches bicycle=yes, "
-        f"{stairs} steps bicycle=no")
+        f"{stairs} steps bicycle=no, {gates} private lift gates bicycle=yes")
 
 
 if __name__ == "__main__":

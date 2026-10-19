@@ -7,10 +7,13 @@ protocol HazardSource: Sendable {
     func lighting(ofWays ways: some Collection<Int64>) -> [Int64: (lit: Bool?, path: Bool)]
     /// Walk stretches among these ways (packs from 2026.10 build 4 on; empty before).
     func walkWays(among ways: some Collection<Int64>) -> Set<Int64>
+    /// Traffic lights in this bounding box (minLat, minLon, maxLat, maxLon); packs from 2026.10 build 4 on.
+    func signals(in box: (Double, Double, Double, Double)) -> [LatLon]
 }
 
 extension HazardSource {
     func walkWays(among ways: some Collection<Int64>) -> Set<Int64> { [] }
+    func signals(in box: (Double, Double, Double, Double)) -> [LatLon] { [] }
 }
 
 extension HazardStore: HazardSource {}
@@ -90,12 +93,23 @@ enum RouteAnalyzer {
             return (l.path && l.lit != true) || l.lit == false
         }.map(\.wayId)).count
 
-        // Point hazards near the line, chunk by chunk.
+        // Point hazards and traffic lights near the line, chunk by chunk.
         var seenPoints = Set<Int64>()
+        var lights: [SignalStop] = []
         let chunk = 40
         for start in stride(from: 0, to: max(shape.count - 1, 0), by: chunk) {
             let end = min(start + chunk, shape.count - 1)
             let piece = Array(shape[start ... end])
+            for p in source.signals(in: Geo.bbox(piece, padding: pointTolerance + 2)) {
+                var best: (d: Double, i: Int, t: Double)?
+                for i in start ..< end {
+                    let r = Geo.distance(from: p, toSegment: shape[i], shape[i + 1])
+                    if r.meters <= pointTolerance, r.meters < (best?.d ?? .infinity) { best = (r.meters, i, r.t) }
+                }
+                guard let hit = best else { continue }
+                lights.append(SignalStop(distanceAlong: along[hit.i] + hit.t * Geo.distance(shape[hit.i], shape[hit.i + 1]),
+                                         location: p))
+            }
             for h in source.pointHazards(in: Geo.bbox(piece, padding: pointTolerance + 2)) where !seenPoints.contains(h.id) {
                 let p = LatLon(lat: h.lat, lon: h.lon)
                 var best: (d: Double, i: Int, t: Double)?
@@ -114,12 +128,25 @@ enum RouteAnalyzer {
                                              street: edgeName(at: hit.i, edges), detail: h.detail, osm: h.osm))
             }
         }
+        a.signalStops = junctions(lights)
         a.profile = ElevationProfile(edges: edges)
         a.climbM = a.profile.climb
         a.maxGrade = Int(a.profile.maxGrade.rounded())
         a.hazards += steepStretches(a.profile, edges: edges, along: along)
         a.hazards.sort { $0.distanceAlong < $1.distanceAlong }
         return a
+    }
+
+    /// Signal nodes of one junction (a light per approach and crossing) are tagged within a few tens of metres.
+    static let junctionSpan = 40.0
+
+    static func junctions(_ lights: [SignalStop]) -> [SignalStop] {
+        var out: [SignalStop] = []
+        for l in lights.sorted(by: { $0.distanceAlong < $1.distanceAlong }) {
+            if let last = out.last, l.distanceAlong - last.distanceAlong < junctionSpan { continue }
+            out.append(l)
+        }
+        return out
     }
 
     /// Steep climbs and descents from Valhalla edge grades (elevation is baked into the pack tiles).

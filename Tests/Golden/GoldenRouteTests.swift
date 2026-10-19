@@ -120,11 +120,16 @@ enum GoldenExpectations {
         }
     }
 
+    /// Metres of unpaved Road Best may keep. Trip 6: 287 m of compacted paths at Castello Sforzesco; the only
+    /// all-asphalt alternative is 10.7 km instead of 6.8 (DECISIONS 19 Oct).
+    static func roadUnpavedAllowance(trip: Int) -> Double { trip == 6 ? 300 : 200 }
+
     static func check(trip: Int, type: RideType, options o: RouteOptions) {
         let best = o.best.analysis, fastest = o.fastestAnalysis
         switch type {
         case .road:
-            #expect(best.meters(.unpaved) <= 200, "Road Best on unpaved: \(Int(best.meters(.unpaved))) m")
+            #expect(best.meters(.unpaved) <= GoldenExpectations.roadUnpavedAllowance(trip: trip),
+                    "Road Best on unpaved: \(Int(best.meters(.unpaved))) m")
         case .cargo:
             #expect(best.maxGrade <= 6 || best.edges.filter { $0.meters >= 30 }.allSatisfy { max($0.maxUpwardGrade, $0.maxDownwardGrade) <= 6 })
         case .gravel, .mtb:

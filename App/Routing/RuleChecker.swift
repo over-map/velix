@@ -11,7 +11,7 @@ struct RuleViolation: Equatable, Sendable {
 enum RuleChecker {
     /// Pieces this close to the start or the destination don't count (your own doorstep may be cobbled).
     static let endpointTolerance = 50.0
-    static let cobbleTolerance = 15.0
+    static let cobbleTolerance = 25.0  // crossing a cobbled square (Piazza Ferrari ≈ 21 m on Filippo's commute)
     static let alongTolerance = 15.0
     static let unpavedTolerance = 50.0
     /// "Bike lanes only": mixed traffic is allowed only for short links and crossings.
