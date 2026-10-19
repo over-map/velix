@@ -14,7 +14,7 @@ Google's "Walk your bicycle" stretches. Their way ids go to
 walk_ways.json → hazards.sqlite `walk_ways`, so the app can exclude them when "Allow walking stretches" is off.
 Filippo rides these passages slowly rather than pushing (19 Oct), so they are tagged bicycle=yes, not dismount: at
 Valhalla's fixed walking speed (≈ 5 km/h) every crossing cost ≈ 5 s and a 150 m hospital road ≈ 1.5 min, and routes
-through residential grids lost to longer detours. They stay in walk_ways, so "Allow walking stretches" off avoids them.
+through residential grids lost to longer detours. They stay in walk_ways (crosswalks excepted), so City's "Allow walking stretches", off by default, avoids them.
 Indoor, underground and paid passages (metro stations) and unpaved paths are never walk stretches. Steps without a bicycle ramp get
 bicycle=no: once footpaths are walkable, Valhalla would otherwise carry the bike up and down stairs (19 Oct goldens)."""
 import json
@@ -244,7 +244,8 @@ def transform(src, dst):
             touched = True
         elif is_passage(obj, tags, roads):
             tags = open_to_bikes(tags)
-            walk.append(obj.id)
+            if tags.get("footway") != "crossing":  # crossing a street at a crosswalk is ordinary riding (20 Oct)
+                walk.append(obj.id)
             touched = True
         writer.add_way(obj.replace(tags=tags) if touched else obj)
     writer.close()

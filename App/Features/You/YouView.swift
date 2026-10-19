@@ -103,8 +103,6 @@ struct YouView: View {
         group("Routing", footnote: "These apply to every ride type. Follow the signs on the street.") {
             RuleToggleRow(title: "Respect one-way streets", subtitle: "Off: one-way streets may be used both ways",
                           icon: .route, isOn: $app.state.respectOneways, divider: false)
-            RuleToggleRow(title: "Allow walking stretches", subtitle: "Short passages where you push the bike",
-                          icon: .footprints, isOn: $app.state.allowWalking)
         }
     }
 

@@ -21,19 +21,28 @@ struct CommuteGoldenTests {
         #expect(route.geometry.count > 10)
     }
 
-    /// Filippo's trip (18 Oct): Via Soave 20 → Piazza Santo Stefano. Before one-ways were ridden both ways City Best
-    /// detoured 4.3 km east with 122 m of cobbles; the direct ways north are one-way (contraflow legal on the street).
-    @Test func soaveToSantoStefanoStaysDirectAndSmooth() async throws {
+    /// Filippo's trip: Via Soave 20 → Piazza Santo Stefano. With walking stretches on (City), Best is his own route
+    /// (Patellani → Oriani → Giardino Oriana Fallaci → Quadronno → Via Gaetano Pini → Calimero → Sforza → Laghetto,
+    /// 20 Oct); Fastest is its own card through Ripamonti and Porta Romana, walking stretches on or off.
+    @Test func soaveToSantoStefano() async throws {
         let planner = try #require(GoldenPack.planner).get()
-        let plan = try await planner.plan(from: LatLon(lat: 45.447767, lon: 9.1963936), to: LatLon(lat: 45.4621338, lon: 9.194385),
-                                          rules: .defaults(for: .city))
-        guard case let .options(o) = plan else { Issue.record("no options: \(plan)"); return }
-        #expect(o.best.meters < 3800, "City Best \(Int(o.best.meters)) m")
-        #expect(o.best.analysis.meters(.cobbles) < 60, "cobbles \(Int(o.best.analysis.meters(.cobbles))) m")
-        var strict = RuleSet.defaults(for: .city)
-        strict.respectOneways = true
-        guard case let .options(s) = try await planner.plan(from: LatLon(lat: 45.447767, lon: 9.1963936),
-                                                            to: LatLon(lat: 45.4621338, lon: 9.194385), rules: strict) else { return }
-        #expect(s.best.meters > o.best.meters)   // the setting makes a difference here
+        let from = LatLon(lat: 45.447767, lon: 9.1963936), to = LatLon(lat: 45.4621338, lon: 9.194385)
+        var walking = RuleSet.defaults(for: .city)
+        walking.enabled.insert(.walkingStretches)
+        guard case let .options(o) = try await planner.plan(from: from, to: to, rules: walking) else { Issue.record("no options"); return }
+        let names = Set(o.best.analysis.edges.compactMap(\.name))
+        #expect(names.isSuperset(of: ["Via Carlo Patellani", "Via Alfredo Oriani", "Via Gaetano Pini", "Via San Calimero", "Via Laghetto"]),
+                "Best \(o.best.analysis.edges.compactMap(\.name))")
+        #expect(!names.contains("Via Bianca di Savoia"))
+        #expect(o.best.analysis.meters(.cobbles) < 40)
+        for plan in [o, try await { () async throws -> RouteOptions? in
+            if case let .options(d) = try await planner.plan(from: from, to: to, rules: .defaults(for: .city)) { return d }
+            return nil
+        }()].compactMap({ $0 }) {
+            let fastest = try #require(plan.fastest, "Fastest must have its own card")
+            let fastNames = Set(fastest.analysis.edges.compactMap(\.name))
+            #expect(fastNames.isSuperset(of: ["Via Giuseppe Ripamonti", "Corso di Porta Romana"]))
+            #expect(fastest.seconds < plan.best.seconds)
+        }
     }
 }

@@ -34,9 +34,10 @@ enum RideType: String, CaseIterable, Codable, Sendable {
     /// Rules shown in You for this type, in design order, with their default value (design/tools/p7gen.js `RULES`).
     var ruleDefaults: [(Rule, Bool)] {
         switch self {
-        case .city: [(.noCobbles, true), (.neverAlongTramRails, true), (.bikeLanesOnly, false), (.noStepsOrGaps, true)]
+        case .city: [(.noCobbles, true), (.neverAlongTramRails, true), (.bikeLanesOnly, false), (.noStepsOrGaps, true),
+                     (.walkingStretches, false)]
         case .ebike: [(.noCobbles, false), (.neverAlongTramRails, true), (.bikeLanesOnly, false)]
-        case .road: [(.pavedOnly, true), (.noCobbles, true), (.neverAlongTramRails, true)]
+        case .road: [(.pavedOnly, true), (.noCobbles, true), (.neverAlongTramRails, true), (.bikeLanesOnly, false)]
         case .gravel: [(.neverAlongTramRails, true), (.maxGrade6, false)]
         case .mtb: [(.neverAlongTramRails, true), (.maxGrade6, false)]
         case .cargo: [(.noCobbles, true), (.neverAlongTramRails, true), (.bikeLanesOnly, true), (.maxGrade6, true),
@@ -47,7 +48,9 @@ enum RideType: String, CaseIterable, Codable, Sendable {
 
 enum Rule: String, CaseIterable, Codable, Sendable {
     case noCobbles, neverAlongTramRails, bikeLanesOnly, noStepsOrGaps, pavedOnly, maxGrade6, litStreetsOnly
-    /// Not a ride-type rule: active when You → Routing → "Allow walking stretches" is off.
+    /// City only, off by default (Filippo, 20 Oct): a permission, not a restriction. Off, ``noWalking`` is enforced.
+    case walkingStretches
+    /// Enforced unless the ride type's "Allow walking stretches" is on (every type but City: always).
     case noWalking
 
     var title: String {
@@ -59,6 +62,7 @@ enum Rule: String, CaseIterable, Codable, Sendable {
         case .pavedOnly: "Paved roads only"
         case .maxGrade6: "Max grade 6%"
         case .litStreetsOnly: "Lit streets only"
+        case .walkingStretches: "Allow walking stretches"
         case .noWalking: "No walking stretches"
         }
     }
@@ -73,8 +77,6 @@ struct RuleSet: Equatable, Sendable {
     /// Off by default: one-way streets are routed both ways (many Milan streets allow contraflow cycling and OSM
     /// often lacks oneway:bicycle=no). On: follow one-way restrictions (You → Routing).
     var respectOneways = false
-    /// On by default: short passages for pedestrians only are ridden slowly (bicycle=yes in the tiles, listed in walk_ways). Off: excluded.
-    var allowWalking = true
 
     static func defaults(for type: RideType) -> RuleSet {
         RuleSet(rideType: type, enabled: Set(type.ruleDefaults.filter(\.1).map(\.0)))
@@ -82,7 +84,10 @@ struct RuleSet: Equatable, Sendable {
 
     /// Rules to enforce, in the order used to name the blocking rule (design order, lit streets last).
     var active: [Rule] {
-        rideType.ruleDefaults.map(\.0).filter(enabled.contains) + (allowWalking ? [] : [.noWalking])
-            + (litStreetsOnly ? [.litStreetsOnly] : [])
+        rideType.ruleDefaults.map(\.0).filter { enabled.contains($0) && $0 != .walkingStretches }
+            + (allowsWalking ? [] : [.noWalking]) + (litStreetsOnly ? [.litStreetsOnly] : [])
     }
+
+    /// Short pedestrian passages (bicycle=yes in the tiles, listed in walk_ways) may be ridden slowly.
+    var allowsWalking: Bool { enabled.contains(.walkingStretches) }
 }

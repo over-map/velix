@@ -38,6 +38,8 @@ struct RouteOptions: Sendable {
     /// nil when one "Best and fastest" card is shown.
     let fastest: RouteOption?
     let fastestAnalysis: RouteAnalysis
+    /// Fastest's time, also when its card is hidden (it may then be slower than Best).
+    var fastestSeconds: Double = 0
     let bestName: String
     let bestLine: String
     let fastestLine: String?
@@ -73,13 +75,16 @@ struct RoutePlanner: Sendable {
     var minPenaltyWorthARound = 60.0
 
     func plan(from origin: LatLon, to destination: LatLon, heading: Double? = nil, rules: RuleSet) async throws -> RoutePlan {
-        let free = try await planOnce(from: origin, to: destination, heading: heading, rules: rules)
+        let profile = try RideProfile.load(rules.rideType).adjusted(for: rules)
+        let fastest = try await compute(profile.fastest, from: origin, to: destination, heading: heading, exclusions: [])
+        let free = try await planOnce(from: origin, to: destination, heading: heading, rules: rules, fastest: fastest)
         guard !rules.respectOneways, needsOnewayCheck(free, rules: rules) else { return free }
         // One-ways ridden both ways (default) can lead Best into rule-breaking stretches the rounds don't clear:
-        // plan once more following one-ways and keep the better (never worse than before the setting existed).
+        // plan once more following one-ways for Best and keep the better (never worse than before the setting
+        // existed). Fastest stays the free one: pure fastest, whatever Best needed (Via Soave → Ripamonti, 20 Oct).
         var strictRules = rules
         strictRules.respectOneways = true
-        let strict = try await planOnce(from: origin, to: destination, heading: heading, rules: strictRules)
+        let strict = try await planOnce(from: origin, to: destination, heading: heading, rules: strictRules, fastest: fastest)
         return better(free, strict, rules: rules)
     }
 
@@ -108,10 +113,10 @@ struct RoutePlanner: Sendable {
         }
     }
 
-    private func planOnce(from origin: LatLon, to destination: LatLon, heading: Double?, rules: RuleSet) async throws -> RoutePlan {
+    private func planOnce(from origin: LatLon, to destination: LatLon, heading: Double?, rules: RuleSet,
+                          fastest: RouteOption?) async throws -> RoutePlan {
         let started = Date()
         let profile = try RideProfile.load(rules.rideType).adjusted(for: rules)
-        let fastest = try await compute(profile.fastest, from: origin, to: destination, heading: heading, exclusions: [])
         guard let firstBest = try await compute(profile.best, from: origin, to: destination, heading: heading, exclusions: []) else {
             return fastest == nil ? .noRoute
                 : .noRouteMeetsRules(rules.active.first ?? .noCobbles, rules.rideType, closest: fastest, remaining: [])
@@ -199,6 +204,7 @@ struct RoutePlanner: Sendable {
         }
         return .options(RouteOptions(
             rules: rules, best: best, fastest: single ? nil : fastestOption, fastestAnalysis: fastestOption.analysis,
+            fastestSeconds: fastestOption.seconds,
             bestName: single ? "Best and fastest" : rules.rideType.bestName, bestLine: bestLine,
             fastestLine: fastestLine, litLine: litLine,
             avoided: Self.avoidedRoads(best: best.analysis, fastest: fastestOption.analysis, rideType: rules.rideType),
@@ -218,7 +224,8 @@ struct RoutePlanner: Sendable {
     private func choose(_ candidates: [RouteOption], rules: RuleSet) -> (option: RouteOption, blocking: Rule?) {
         let scored = candidates.map { c in (c, RuleChecker.violations(of: rules.active, in: c.analysis)) }
         if rules.rideType == .cargo {
-            if let ok = scored.filter({ RuleChecker.hardViolations($0.1, rideType: .cargo).isEmpty }).min(by: { $0.0.seconds < $1.0.seconds }) {
+            if let ok = scored.filter({ RuleChecker.hardViolations($0.1, rideType: .cargo).isEmpty })
+                .min(by: { $0.0.seconds + penalty($0.1) < $1.0.seconds + penalty($1.1) }) {
                 return (ok.0, nil)
             }
             let closest = scored.min { penalty($0.1) < penalty($1.1) }!
@@ -228,6 +235,8 @@ struct RoutePlanner: Sendable {
         return (scored.min { $0.0.seconds + penalty($0.1) < $1.0.seconds + penalty($1.1) }!.0, nil)
     }
 
+    /// Riding pace on passages (walk stretches), km/h.
+    static let passagePace = 10.0
     /// Average wait at a signalised junction: about half the time you arrive on red, then wait ≈ 20 s.
     static let signalWait = 10.0
     /// Lights this close to the start or the destination are left alone by the fewer-lights candidate (metres).
@@ -247,6 +256,7 @@ struct RoutePlanner: Sendable {
         case .bikeLanesOnly: 0.5
         case .litStreetsOnly: 0.7
         case .noWalking: 3.0
+        case .walkingStretches: 0
         }
     }
 
@@ -292,7 +302,13 @@ struct RoutePlanner: Sendable {
         let cobbleSaving = analysis.edges.filter { cobbleWays.contains("w\($0.wayId)") && $0.speed > 0 }.reduce(0.0) { sum, e in
             sum + max(0, e.meters / (Double(e.speed) / 3.6) - e.meters / (max(Double(e.speed), pace) / 3.6))
         }
-        return RouteOption(costing: costing, osrmJSON: osrm, seconds: route.duration + waits - cobbleSaving, meters: route.distance,
+        // Passages (hospital roads, garden paths, pedestrian streets) are ridden slowly (Filippo, 19 Oct): Valhalla times
+        // them at full speed because the tiles open them with bicycle=yes.
+        let passageExtra = analysis.walkEdges.filter { $0.speed > 0 }.reduce(0.0) { sum, e in
+            sum + max(0, e.meters / (min(Double(e.speed), Self.passagePace) / 3.6) - e.meters / (Double(e.speed) / 3.6))
+        }
+        return RouteOption(costing: costing, osrmJSON: osrm, seconds: route.duration + waits - cobbleSaving + passageExtra,
+                           meters: route.distance,
                            analysis: analysis, exclusions: exclusions, timings: timings)
     }
 

@@ -87,8 +87,7 @@ struct GoldenRouteTests {
                 func cost(_ seconds: Double, _ a: RouteAnalysis) -> Double {
                     seconds + RuleChecker.violations(of: rules.active, in: a).reduce(0) { $0 + RoutePlanner.weight($1.rule) * $1.meters }
                 }
-                let fastestSeconds = o.fastest?.seconds ?? o.best.seconds
-                #expect(cost(o.best.seconds, o.best.analysis) <= cost(fastestSeconds, o.fastestAnalysis) + 1,
+                #expect(cost(o.best.seconds, o.best.analysis) <= cost(o.fastestSeconds, o.fastestAnalysis) + 1,
                         "\(trip) \(type): Best scores worse than Fastest")
             }
             #expect(o.fastestAnalysis.lengthM > 0)
@@ -112,6 +111,7 @@ enum GoldenExpectations {
         case (3, .cargo, .neverAlongTramRails): true // Darsena and the tram corridors to Città Studi
         case (7, .cargo, .neverAlongTramRails): true // Darsena start: tram rails along Ripa di Porta Ticinese
         case (8, .cargo, .noStepsOrGaps): true      // cycle barrier on the way into Monza (OSM n2704536133)
+        case (8, .cargo, .noCobbles): true          // ... named first when 28 m of Monza's cobbles remain too
         case (4, .cargo, .noCobbles): true          // cobbled destination in Brera
         case (5, .cargo, _): true                    // through the cobbled, pedestrian centre
         case (10, .cargo, .maxGrade6): true          // Città Alta is steep

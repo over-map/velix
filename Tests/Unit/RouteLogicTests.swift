@@ -66,15 +66,15 @@ func edge(use: String = "road", lane: String = "none", road: String = "residenti
 
 struct RuleSetTests {
     @Test func cityDefaultsFollowTheDesign() {
-        #expect(RuleSet.defaults(for: .city).active == [.noCobbles, .neverAlongTramRails, .noStepsOrGaps])
-        #expect(RuleSet.defaults(for: .cargo).active.count == 5)
-        #expect(RuleSet.defaults(for: .gravel).active == [.neverAlongTramRails])
+        #expect(RuleSet.defaults(for: .city).active == [.noCobbles, .neverAlongTramRails, .noStepsOrGaps, .noWalking])
+        #expect(RuleSet.defaults(for: .cargo).active.count == 6)
+        #expect(RuleSet.defaults(for: .gravel).active == [.neverAlongTramRails, .noWalking])
     }
 
     @Test func litStreetsOnlyComesLast() {
         var rules = RuleSet.defaults(for: .road)
         rules.litStreetsOnly = true
-        #expect(rules.active == [.pavedOnly, .noCobbles, .neverAlongTramRails, .litStreetsOnly])
+        #expect(rules.active == [.pavedOnly, .noCobbles, .neverAlongTramRails, .noWalking, .litStreetsOnly])
     }
 
     @Test(arguments: RideType.allCases)
@@ -180,7 +180,7 @@ struct RuleCheckerTests {
         let v = try #require(RuleChecker.violation(of: .noWalking, in: a))
         #expect(v.meters == 100)
         #expect(!v.exclusions.isEmpty)
-        #expect(RuleChecker.hardViolations([v], rideType: .city) == [v])
+        #expect(RuleChecker.hardViolations([v], rideType: .cargo).isEmpty)  // a preference, never blocking
         #expect(RuleChecker.violation(of: .noWalking, in: analysis([(1, edge()), (2, edge())])) == nil)
     }
 

@@ -27,13 +27,16 @@ enum RuleChecker {
     /// What may remain when nothing better exists. The design's City Best keeps 70 m of cobbles at Piazza Ascoli with
     /// "No cobbles" on, while Cargo / kids is blocked by cobbles: so rules are soft for every type but Cargo / kids.
     static func softTolerance(_ rule: Rule, rideType: RideType) -> Double {
+        // Passages are a preference for every type (a penalty in `choose`), never a reason to block or re-plan: the
+        // tiles open them for all costings, and the rounds can't box out every footpath of a long Cargo trip.
+        if rule == .noWalking { return .infinity }
         guard rideType != .cargo else { return 0 }
         switch rule {
         case .noCobbles: return 100
         case .neverAlongTramRails: return 30
         case .pavedOnly: return 200
         case .litStreetsOnly: return 100
-        case .noStepsOrGaps, .maxGrade6, .bikeLanesOnly, .noWalking: return 0
+        case .noStepsOrGaps, .maxGrade6, .bikeLanesOnly, .noWalking, .walkingStretches: return 0
         }
     }
 
@@ -123,6 +126,8 @@ enum RuleChecker {
             let long = runs.filter { $0.reduce(0) { $0 + $1.meters } > maxMixedRun }.flatMap { $0 }.filter(inside)
             return long.isEmpty ? nil : RuleViolation(rule: rule, meters: long.reduce(0) { $0 + $1.meters },
                                                       exclusions: boxes(long, padding: 3))
+        case .walkingStretches:
+            return nil  // a permission, never broken
         case .noWalking:
             let bad = a.walkEdges.filter(inside)
             let m = bad.reduce(0) { $0 + $1.meters }
