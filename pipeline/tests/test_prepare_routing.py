@@ -11,7 +11,8 @@ except ImportError:  # pragma: no cover
 
 @unittest.skipIf(walkable_not_rideable is None, "run in the tools image")
 class WalkStretches(unittest.TestCase):
-    def test_crossings_and_footpaths_are_walked(self):
+    def test_crossings_footpaths_and_sidewalks_are_walked(self):
+        self.assertTrue(walkable_not_rideable({"highway": "footway", "footway": "sidewalk"}))
         self.assertTrue(walkable_not_rideable({"highway": "footway", "footway": "crossing"}))
         self.assertTrue(walkable_not_rideable({"highway": "footway"}))
         self.assertTrue(walkable_not_rideable({"highway": "pedestrian"}))
@@ -21,8 +22,7 @@ class WalkStretches(unittest.TestCase):
         # Via Gaetano Pini, Milan: access=private, foot=yes
         self.assertTrue(walkable_not_rideable({"highway": "service", "access": "private", "foot": "yes"}))
 
-    def test_sidewalks_areas_and_rideable_ways_are_left_alone(self):
-        self.assertFalse(walkable_not_rideable({"highway": "footway", "footway": "sidewalk"}))
+    def test_areas_and_rideable_ways_are_left_alone(self):
         self.assertFalse(walkable_not_rideable({"highway": "pedestrian", "area": "yes"}))
         self.assertFalse(walkable_not_rideable({"highway": "footway", "bicycle": "yes"}))
         self.assertFalse(walkable_not_rideable({"highway": "cycleway"}))

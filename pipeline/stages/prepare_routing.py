@@ -8,7 +8,7 @@ at 0.8), and road bikes refuse them. `gravel`, not `dirt`: avoiding cobbles is t
 longer route (Filippo, 15 Oct), and `dirt` (≈ 3×) left 300–600 m of cobbles on central Milan trips. The hazard sidecar
 still knows them as cobbles, so the comfort mix and the paved-only rule are unaffected.
 
-Walk stretches (Filippo, 18 Oct): short passages open to pedestrians but not to bikes (crosswalks, footpaths,
+Walk stretches (Filippo, 18 Oct): short passages open to pedestrians but not to bikes (crosswalks, footpaths, sidewalks,
 pedestrian streets, private roads with public foot access such as a hospital's internal road) are made rideable (see below), as
 Google's "Walk your bicycle" stretches. Their way ids go to
 walk_ways.json → hazards.sqlite `walk_ways`, so the app can exclude them when "Allow walking stretches" is off.
@@ -21,6 +21,7 @@ import json
 import math
 
 import osmium
+import shapely
 
 from common import load_config, log, out_dir
 
@@ -96,12 +97,52 @@ def walkable_not_rideable(tags) -> bool:
     if tags.get("foot") in CLOSED or (tags.get("access") in CLOSED and tags.get("foot") not in FOOT_OK):
         return False                                       # no one on foot either
     if hw == "footway":
-        return tags.get("footway") != "sidewalk"          # crossings and footpaths; sidewalks run beside roads
+        return True   # crossings, footpaths and sidewalks (sidewalks only away from roads: see `beside_road`)
     if hw == "pedestrian":
         return True
     if hw in {"service", "residential", "unclassified", "living_street"}:
         return tags.get("access") in CLOSED and tags.get("foot") in FOOT_OK
     return False
+
+
+ROADS = {"motorway", "trunk", "primary", "secondary", "tertiary", "unclassified", "residential", "living_street",
+         "service", "motorway_link", "trunk_link", "primary_link", "secondary_link", "tertiary_link"}
+BESIDE_ROAD_M = 15.0   # a sidewalk runs 3–10 m from its road's centre line
+K_LON = 111_320 * math.cos(math.radians(45.5))
+
+
+def xy(lat, lon):
+    return lon * K_LON, lat * 111_320
+
+
+class RoadIndex:
+    """Road centre lines, to tell sidewalks along a street from sidewalk-tagged paths away from roads."""
+
+    def __init__(self, src):
+        lines = []
+        for w in osmium.FileProcessor(str(src), osmium.osm.NODE | osmium.osm.WAY).with_locations():
+            if not w.is_way():
+                continue
+            if w.tags.get("highway") not in ROADS:
+                continue
+            try:
+                pts = [xy(n.lat, n.lon) for n in w.nodes]
+            except osmium.InvalidLocationError:
+                continue
+            if len(pts) > 1:
+                lines.append(shapely.LineString(pts))
+        self.tree = shapely.STRtree(lines)
+
+    def beside_road(self, way) -> bool:
+        """Most of the way within BESIDE_ROAD_M of a road (crossing one doesn't count)."""
+        try:
+            pts = [shapely.Point(*xy(n.lat, n.lon)) for n in way.nodes]
+        except osmium.InvalidLocationError:
+            return True
+        line = shapely.LineString([p.coords[0] for p in pts]) if len(pts) > 1 else None
+        samples = [line.interpolate(f, normalized=True) for f in (0.1, 0.3, 0.5, 0.7, 0.9)] if line else pts
+        near = sum(1 for p in samples if len(self.tree.query(p, predicate="dwithin", distance=BESIDE_ROAD_M)))
+        return near > len(samples) / 2
 
 
 def transform(src, dst):
@@ -113,6 +154,7 @@ def transform(src, dst):
     walk: list[int] = []
     stairs = 0
     gates = 0
+    roads = RoadIndex(src)
     for obj in osmium.FileProcessor(str(src)).with_locations():
         if obj.is_node() and lift_gate_closed_to_bikes(obj.tags):
             tags = open_to_bikes(dict(obj.tags))
@@ -135,7 +177,8 @@ def transform(src, dst):
             tags["bicycle"] = "no"
             stairs += 1
             touched = True
-        elif walkable_not_rideable(tags) and length_m(obj) <= WALK_MAX_M:
+        elif walkable_not_rideable(tags) and length_m(obj) <= WALK_MAX_M \
+                and not (tags.get("footway") == "sidewalk" and roads.beside_road(obj)):
             tags = open_to_bikes(tags)
             walk.append(obj.id)
             touched = True
