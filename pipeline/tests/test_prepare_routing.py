@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stages"))
 try:
-    from prepare_routing import is_short_crossing, stairs_closed_to_bikes, walkable_not_rideable  # needs osmium (tools image)
+    from prepare_routing import stairs_closed_to_bikes, walkable_not_rideable  # needs osmium (tools image)
 except ImportError:  # pragma: no cover
     walkable_not_rideable = None
 
@@ -41,11 +41,10 @@ class WalkStretches(unittest.TestCase):
         self.assertFalse(walkable_not_rideable({"highway": "footway", "layer": "-2"}))
         self.assertTrue(walkable_not_rideable({"highway": "footway", "layer": "1", "bridge": "yes"}))
 
-    def test_short_crosswalks_are_ridden(self):
-        crossing = {"highway": "footway", "footway": "crossing"}
-        self.assertTrue(is_short_crossing(crossing, 12))
-        self.assertFalse(is_short_crossing(crossing, 45))
-        self.assertFalse(is_short_crossing({"highway": "footway"}, 12))
+    def test_unpaved_paths_are_left_alone(self):
+        self.assertFalse(walkable_not_rideable({"highway": "footway", "surface": "dirt"}))
+        self.assertTrue(walkable_not_rideable({"highway": "pedestrian", "surface": "sett"}))
+        self.assertTrue(walkable_not_rideable({"highway": "pedestrian", "surface": "gravel", "velix:surface": "sett"}))
 
     def test_stairs_without_a_ramp_close_to_bikes(self):
         self.assertTrue(stairs_closed_to_bikes({"highway": "steps"}))

@@ -9,13 +9,13 @@ longer route (Filippo, 15 Oct), and `dirt` (≈ 3×) left 300–600 m of cobbles
 still knows them as cobbles, so the comfort mix and the paved-only rule are unaffected.
 
 Walk stretches (Filippo, 18 Oct): short passages open to pedestrians but not to bikes (crosswalks, footpaths,
-pedestrian streets, private roads with public foot access such as a hospital's internal road) get bicycle=dismount, which
-Valhalla routes at walking speed. Riders push the bike there, as Google's "Walk your bicycle". Their way ids go to
+pedestrian streets, private roads with public foot access such as a hospital's internal road) are made rideable (see below), as
+Google's "Walk your bicycle" stretches. Their way ids go to
 walk_ways.json → hazards.sqlite `walk_ways`, so the app can exclude them when "Allow walking stretches" is off.
-Crosswalks up to 30 m get bicycle=yes instead: riders cross them at about riding speed, and at Valhalla's walking
-speed every crossing cost ≈ 5 s, so routes with many of them lost to longer detours (Via Soave → Piazza Santo Stefano:
-Google's calm route crosses 12, ≈ 1 min). They stay in walk_ways, so "Allow walking stretches" off still avoids them.
-Indoor, underground and paid passages (metro stations) are never walk stretches. Steps without a bicycle ramp get
+Filippo rides these passages slowly rather than pushing (19 Oct), so they are tagged bicycle=yes, not dismount: at
+Valhalla's fixed walking speed (≈ 5 km/h) every crossing cost ≈ 5 s and a 150 m hospital road ≈ 1.5 min, and routes
+through residential grids lost to longer detours. They stay in walk_ways, so "Allow walking stretches" off avoids them.
+Indoor, underground and paid passages (metro stations) and unpaved paths are never walk stretches. Steps without a bicycle ramp get
 bicycle=no: once footpaths are walkable, Valhalla would otherwise carry the bike up and down stairs (19 Oct goldens)."""
 import json
 import math
@@ -28,8 +28,9 @@ COBBLES = {"sett", "cobblestone", "unhewn_cobblestone"}
 BIKE_OK = {"yes", "designated", "permissive", "dismount", "use_sidepath", "destination"}
 FOOT_OK = {"yes", "designated", "permissive"}
 WALK_MAX_M = 200
-CROSSING_MAX_M = 30
 CLOSED = {"private", "no", "customers"}
+UNPAVED = {"unpaved", "compacted", "fine_gravel", "gravel", "pebblestone", "dirt", "earth", "ground", "grass", "mud",
+           "sand", "woodchips", "rock"}
 
 
 def below_or_indoors(tags) -> bool:
@@ -39,10 +40,6 @@ def below_or_indoors(tags) -> bool:
         layer = 0
     return (tags.get("indoor") not in (None, "no") or tags.get("tunnel") not in (None, "no")
             or tags.get("location") in {"underground", "indoor"} or tags.get("fee") == "yes" or layer < 0)
-
-
-def is_short_crossing(tags, length: float) -> bool:
-    return tags.get("highway") == "footway" and tags.get("footway") == "crossing" and length <= CROSSING_MAX_M
 
 
 def stairs_closed_to_bikes(tags) -> bool:
@@ -69,8 +66,8 @@ def walkable_not_rideable(tags) -> bool:
     hw = tags.get("highway")
     if hw is None or tags.get("area") == "yes" or tags.get("bicycle") in BIKE_OK:
         return False
-    if below_or_indoors(tags):
-        return False
+    if below_or_indoors(tags) or tags.get("velix:surface", tags.get("surface")) in UNPAVED:
+        return False                                       # park paths aren't shortcuts (Road goldens, 19 Oct)
     if tags.get("foot") in CLOSED or (tags.get("access") in CLOSED and tags.get("foot") not in FOOT_OK):
         return False                                       # no one on foot either
     if hw == "footway":
@@ -108,15 +105,15 @@ def main():
             tags["bicycle"] = "no"
             stairs += 1
             touched = True
-        elif walkable_not_rideable(tags) and (length := length_m(obj)) <= WALK_MAX_M:
+        elif walkable_not_rideable(tags) and length_m(obj) <= WALK_MAX_M:
             tags["velix:bicycle"] = tags.get("bicycle", "")
-            tags["bicycle"] = "yes" if is_short_crossing(tags, length) else "dismount"
+            tags["bicycle"] = "yes"
             walk.append(obj.id)
             touched = True
         writer.add_way(obj.replace(tags=tags) if touched else obj)
     writer.close()
     (out / "walk_ways.json").write_text(json.dumps(sorted(walk)))
-    log(f"{dst.name}: {changed} cobbled ways retagged surface=gravel, {len(walk)} walk stretches bicycle=dismount, "
+    log(f"{dst.name}: {changed} cobbled ways retagged surface=gravel, {len(walk)} walk stretches bicycle=yes, "
         f"{stairs} steps bicycle=no")
 
 

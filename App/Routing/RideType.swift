@@ -73,7 +73,7 @@ struct RuleSet: Equatable, Sendable {
     /// Off by default: one-way streets are routed both ways (many Milan streets allow contraflow cycling and OSM
     /// often lacks oneway:bicycle=no). On: follow one-way restrictions (You → Routing).
     var respectOneways = false
-    /// On by default: short passages for pedestrians only are walked (bicycle=dismount in the tiles). Off: excluded.
+    /// On by default: short passages for pedestrians only are ridden slowly (bicycle=yes in the tiles, listed in walk_ways). Off: excluded.
     var allowWalking = true
 
     static func defaults(for type: RideType) -> RuleSet {

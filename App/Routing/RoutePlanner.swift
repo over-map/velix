@@ -219,7 +219,7 @@ struct RoutePlanner: Sendable {
         case .noCobbles: 3.0
         case .neverAlongTramRails: 3.0
         case .noStepsOrGaps: 3.0
-        case .pavedOnly: 0.7
+        case .pavedOnly: 1.2
         case .maxGrade6: 2.0
         case .bikeLanesOnly: 0.5
         case .litStreetsOnly: 0.7
