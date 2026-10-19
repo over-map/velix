@@ -12,6 +12,9 @@ Walk stretches (Filippo, 18 Oct): short passages open to pedestrians but not to 
 pedestrian streets, private roads with public foot access such as a hospital's internal road) get bicycle=dismount, which
 Valhalla routes at walking speed. Riders push the bike there, as Google's "Walk your bicycle". Their way ids go to
 walk_ways.json → hazards.sqlite `walk_ways`, so the app can exclude them when "Allow walking stretches" is off.
+Crosswalks up to 30 m get bicycle=yes instead: riders cross them at about riding speed, and at Valhalla's walking
+speed every crossing cost ≈ 5 s, so routes with many of them lost to longer detours (Via Soave → Piazza Santo Stefano:
+Google's calm route crosses 12, ≈ 1 min). They stay in walk_ways, so "Allow walking stretches" off still avoids them.
 Indoor, underground and paid passages (metro stations) are never walk stretches. Steps without a bicycle ramp get
 bicycle=no: once footpaths are walkable, Valhalla would otherwise carry the bike up and down stairs (19 Oct goldens)."""
 import json
@@ -25,6 +28,7 @@ COBBLES = {"sett", "cobblestone", "unhewn_cobblestone"}
 BIKE_OK = {"yes", "designated", "permissive", "dismount", "use_sidepath", "destination"}
 FOOT_OK = {"yes", "designated", "permissive"}
 WALK_MAX_M = 200
+CROSSING_MAX_M = 30
 CLOSED = {"private", "no", "customers"}
 
 
@@ -35,6 +39,10 @@ def below_or_indoors(tags) -> bool:
         layer = 0
     return (tags.get("indoor") not in (None, "no") or tags.get("tunnel") not in (None, "no")
             or tags.get("location") in {"underground", "indoor"} or tags.get("fee") == "yes" or layer < 0)
+
+
+def is_short_crossing(tags, length: float) -> bool:
+    return tags.get("highway") == "footway" and tags.get("footway") == "crossing" and length <= CROSSING_MAX_M
 
 
 def stairs_closed_to_bikes(tags) -> bool:
@@ -100,9 +108,9 @@ def main():
             tags["bicycle"] = "no"
             stairs += 1
             touched = True
-        elif walkable_not_rideable(tags) and length_m(obj) <= WALK_MAX_M:
+        elif walkable_not_rideable(tags) and (length := length_m(obj)) <= WALK_MAX_M:
             tags["velix:bicycle"] = tags.get("bicycle", "")
-            tags["bicycle"] = "dismount"
+            tags["bicycle"] = "yes" if is_short_crossing(tags, length) else "dismount"
             walk.append(obj.id)
             touched = True
         writer.add_way(obj.replace(tags=tags) if touched else obj)
