@@ -191,6 +191,16 @@ struct RuleCheckerTests {
         #expect(!v.exclusions.isEmpty)
     }
 
+    @Test func mildCobblesCountAThird() throws {
+        var a = analysis([(1, edge()), (2, edge()), (3, edge()), (4, edge())])
+        a.hazards = [RouteHazard(type: .cobbles, distanceAlong: 100, lengthM: 100, street: nil, detail: "sett · mild", osm: "w2"),
+                     RouteHazard(type: .cobbles, distanceAlong: 200, lengthM: 100, street: nil, detail: "sett", osm: "w3")]
+        let v = try #require(RuleChecker.violation(of: .noCobbles, in: a))
+        #expect(abs(v.meters - (100 + 100.0 / 3)) < 0.01)
+        a.hazards.removeLast()
+        #expect(abs((RuleChecker.violation(of: .noCobbles, in: a)?.meters ?? 0) - 100.0 / 3) < 0.01)
+    }
+
     @Test func cobbledDoorstepDoesNotCount() {
         // The last edge ends at the destination; only its last 50 m would be tolerated, so use a short last edge.
         var a = analysis([(1, edge()), (2, edge())], cobbles: [])

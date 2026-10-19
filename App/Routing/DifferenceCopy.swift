@@ -109,13 +109,22 @@ enum DifferenceCopy {
     /// The one line under a single "Best and fastest" card.
     static func singleCardLine(best: RouteAnalysis, bestSeconds: Double, fastest: RouteAnalysis,
                                fastestSeconds: Double, rideType: RideType) -> String {
-        let gap = max(0, bestSeconds - fastestSeconds)
-        guard gap >= 5 else { return "Fastest takes the same way. So there’s one route." }
+        let gap = bestSeconds - fastestSeconds
+        guard gap >= 5 else {
+            // Fastest's own costing found another way that turns out no quicker once lights and cobbles count.
+            return sameWay(best, fastest) ? "Fastest takes the same way. So there’s one route."
+                : "It’s also the quickest way. So there’s one route."
+        }
         let quicker = gap < 90 ? "\(Int((gap / 10).rounded() * 10)) s" : "\(Int((gap / 60).rounded())) min"
         if let reason = avoidedReasons(best: best, fastest: fastest, rideType: rideType).first {
             return "Fastest is only \(quicker) quicker, with \(reason.text). So there’s one route."
         }
         return "Fastest is only \(quicker) quicker. So there’s one route."
+    }
+
+    private static func sameWay(_ a: RouteAnalysis, _ b: RouteAnalysis) -> Bool {
+        let shared = a.metersByWay.reduce(0.0) { $0 + min($1.value, b.metersByWay[$1.key] ?? 0) }
+        return shared >= 0.95 * max(a.lengthM, b.lengthM)
     }
 
     /// "Lit streets only: avoids 2 dark park paths, +2 min"

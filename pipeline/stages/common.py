@@ -43,3 +43,23 @@ def write_json(path: Path, data) -> None:
 
 def log(msg: str) -> None:
     print(f"[{Path(sys.argv[0]).stem}] {msg}", flush=True)
+
+
+COBBLE_SURFACES = {"sett", "cobblestone", "unhewn_cobblestone"}
+CAR_FREE = {"footway", "pedestrian", "cycleway", "path", "bridleway"}
+
+
+def cobble_class(tags) -> str | None:
+    """How rough a cobbled way rides (Filippo, 19 Oct): None if not cobbled, else "smooth", "mild" or "rough".
+    OSM smoothness decides where tagged (≈ 9 % of Lombardy's cobbles); otherwise cobbles on car-free paths are small
+    and well laid (a garden path's porphyry), and on streets they are big and worn by traffic and trams (Ripamonti)."""
+    if tags.get("surface") not in COBBLE_SURFACES:
+        return None
+    smooth = tags.get("smoothness")
+    if smooth in {"excellent", "good"}:
+        return "smooth"
+    if smooth == "intermediate":
+        return "mild"
+    if smooth:
+        return "rough"
+    return "mild" if tags.get("highway") in CAR_FREE else "rough"

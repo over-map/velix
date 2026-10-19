@@ -23,9 +23,8 @@ import math
 import osmium
 import shapely
 
-from common import load_config, log, out_dir
+from common import cobble_class, load_config, log, out_dir
 
-COBBLES = {"sett", "cobblestone", "unhewn_cobblestone"}
 BIKE_OK = {"yes", "designated", "permissive", "dismount", "use_sidepath", "destination"}
 FOOT_OK = {"yes", "designated", "permissive"}
 WALK_MAX_M = 200
@@ -145,6 +144,60 @@ class RoadIndex:
         return near > len(samples) / 2
 
 
+CONNECTOR_MAX_M = 40.0
+CONNECTOR_ID_BASE = 4_000_000_000   # above every OSM way id today, below Valhalla's 32-bit way id limit
+
+
+def is_passage(way, tags, roads) -> bool:
+    return (walkable_not_rideable(tags) and length_m(way) <= WALK_MAX_M
+            and not (tags.get("footway") == "sidewalk" and roads.beside_road(way)))
+
+
+def sidewalk_connectors(src, roads) -> list[tuple[int, list[int]]]:
+    """Short pieces (≤ 40 m) of street sidewalks that link a passage to a crossing or a street: a path away from roads
+    (Giardino Oriana Fallaci, Milan) often joins the street network only through the sidewalk beside it."""
+    sidewalks: list[tuple[int, list[int], list[tuple[float, float]]]] = []
+    passage_nodes: set[int] = set()
+    for w in osmium.FileProcessor(str(src), osmium.osm.NODE | osmium.osm.WAY).with_locations():
+        if not w.is_way() or "highway" not in w.tags:
+            continue
+        tags = dict(w.tags)
+        if is_passage(w, tags, roads):
+            if tags.get("footway") != "crossing":  # a crosswalk already joins its sidewalk to the street
+                passage_nodes.update(n.ref for n in w.nodes)
+        elif tags.get("highway") == "footway" and tags.get("footway") == "sidewalk" and walkable_not_rideable(tags):
+            try:
+                sidewalks.append((w.id, [n.ref for n in w.nodes], [(n.lat, n.lon) for n in w.nodes]))
+            except osmium.InvalidLocationError:
+                pass
+    on_sidewalk = {r for _, refs, _ in sidewalks for r in refs}
+    link_nodes: set[int] = set()
+    for w in osmium.FileProcessor(str(src), osmium.osm.WAY):
+        t = w.tags
+        if t.get("highway") in ROADS or (t.get("highway") == "footway" and t.get("footway") == "crossing"):
+            link_nodes.update(n.ref for n in w.nodes if n.ref in on_sidewalk)
+    out, seen = [], set()
+    for wid, refs, pts in sidewalks:
+        for i, r in enumerate(refs):
+            if r not in passage_nodes:
+                continue
+            for step in (1, -1):
+                d, j = 0.0, i
+                while 0 <= j + step < len(refs):
+                    (a, b), (c, e) = pts[j], pts[j + step]
+                    d += math.hypot((c - a) * 111_320, (e - b) * 111_320 * math.cos(math.radians(a)))
+                    j += step
+                    if d > CONNECTOR_MAX_M:
+                        break
+                    if refs[j] in link_nodes:
+                        seg = tuple(refs[min(i, j):max(i, j) + 1])
+                        if seg not in seen:
+                            seen.add(seg)
+                            out.append((wid, list(seg)))
+                        break
+    return out
+
+
 def transform(src, dst):
     """Writes the routing copy of `src` to `dst`; returns (cobbled ways, walk-stretch way ids, steps, lift gates)."""
     if dst.exists():
@@ -155,7 +208,16 @@ def transform(src, dst):
     stairs = 0
     gates = 0
     roads = RoadIndex(src)
+    links = sidewalk_connectors(src, roads)
+    pending = True
     for obj in osmium.FileProcessor(str(src)).with_locations():
+        if pending and obj.is_relation():
+            for k, (wid, refs) in enumerate(links):
+                cid = CONNECTOR_ID_BASE + k
+                writer.add_way(osmium.osm.mutable.Way(id=cid, version=1, nodes=refs, tags={
+                    "highway": "footway", "footway": "sidewalk", "bicycle": "yes", "velix:connector": str(wid)}))
+                walk.append(cid)
+            pending = False
         if obj.is_node() and lift_gate_closed_to_bikes(obj.tags):
             tags = open_to_bikes(dict(obj.tags))
             tags["access"] = "yes"  # an access tag keeps Valhalla from timing it as an untagged gate (30 s)
@@ -167,9 +229,12 @@ def transform(src, dst):
             continue
         tags = dict(obj.tags)
         touched = False
-        if tags.get("surface") in COBBLES:
+        kind = cobble_class(tags)
+        if kind:
+            # Rough cobbles reach Valhalla as gravel (avoided, slow); smooth and mild ones as paving stones (ridden at
+            # normal speed; Velix's "No cobbles" rule still counts mild ones at a third, see RuleChecker).
             tags["velix:surface"] = tags["surface"]
-            tags["surface"] = "gravel"
+            tags["surface"] = "gravel" if kind == "rough" else "paving_stones"
             changed += 1
             touched = True
         if stairs_closed_to_bikes(tags):
@@ -177,13 +242,13 @@ def transform(src, dst):
             tags["bicycle"] = "no"
             stairs += 1
             touched = True
-        elif walkable_not_rideable(tags) and length_m(obj) <= WALK_MAX_M \
-                and not (tags.get("footway") == "sidewalk" and roads.beside_road(obj)):
+        elif is_passage(obj, tags, roads):
             tags = open_to_bikes(tags)
             walk.append(obj.id)
             touched = True
         writer.add_way(obj.replace(tags=tags) if touched else obj)
     writer.close()
+    log(f"{len(links)} sidewalk connectors (≤ {CONNECTOR_MAX_M:.0f} m) between passages and crossings or streets")
     return changed, walk, stairs, gates
 
 
@@ -193,7 +258,7 @@ def main():
     dst = out / "routing.osm.pbf"
     changed, walk, stairs, gates = transform(out / "region.osm.pbf", dst)
     (out / "walk_ways.json").write_text(json.dumps(sorted(walk)))
-    log(f"{dst.name}: {changed} cobbled ways retagged surface=gravel, {len(walk)} walk stretches bicycle=yes, "
+    log(f"{dst.name}: {changed} cobbled ways retagged (rough → gravel, mild or smooth → paving_stones), {len(walk)} walk stretches bicycle=yes, "
         f"{stairs} steps bicycle=no, {gates} private lift gates bicycle=yes")
 
 

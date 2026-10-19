@@ -13,6 +13,7 @@ enum RuleChecker {
     static let endpointTolerance = 50.0
     static let cobbleTolerance = 25.0  // crossing a cobbled square (Piazza Ferrari ≈ 21 m on Filippo's commute)
     static let alongTolerance = 15.0
+    static let mildCobbleShare = 1.0 / 3
     static let unpavedTolerance = 50.0
     /// "Bike lanes only": mixed traffic is allowed only for short links and crossings.
     static let maxMixedRun = 150.0
@@ -70,9 +71,14 @@ enum RuleChecker {
 
         switch rule {
         case .noCobbles:
+            // Small, well-laid cobbles (car-free paths, or OSM smoothness=intermediate; pack detail "· mild") count a
+            // third: big worn setts on a street are what riders detour for (Filippo, 19 Oct).
+            let mildWays = Set(a.hazards.filter { $0.type == .cobbles && $0.detail.hasSuffix("mild") }.map(\.osm))
             let bad = a.edges.filter { cobbleWays.contains("w\($0.wayId)") && inside($0) }
-            let m = bad.reduce(0) { $0 + $1.meters }
-            return m > cobbleTolerance ? RuleViolation(rule: rule, meters: m, exclusions: boxes(bad, padding: 8)) : nil
+            let rough = bad.filter { !mildWays.contains("w\($0.wayId)") }
+            let m = bad.reduce(0) { $0 + $1.meters * (mildWays.contains("w\($1.wayId)") ? mildCobbleShare : 1) }
+            return m > cobbleTolerance
+                ? RuleViolation(rule: rule, meters: m, exclusions: boxes(rough.isEmpty ? bad : rough, padding: 8)) : nil
         case .neverAlongTramRails:
             let bad = a.edges.filter { alongWays.contains("w\($0.wayId)") && inside($0) }
             let m = a.hazards.filter { $0.type == .along && alongWays.contains($0.osm) }.reduce(0) { $0 + $1.lengthM }

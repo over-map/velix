@@ -115,6 +115,7 @@ enum GoldenExpectations {
         case (4, .cargo, .noCobbles): true          // cobbled destination in Brera
         case (5, .cargo, _): true                    // through the cobbled, pedestrian centre
         case (10, .cargo, .maxGrade6): true          // Città Alta is steep
+        case (10, .cargo, .noCobbles): true          // ... and cobbled (26 m left, with the 6% grade)
         case (10, .cargo, .bikeLanesOnly): true
         default: false
         }

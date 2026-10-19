@@ -3,7 +3,8 @@
 Types (names match the hazard glyphs in design/assets/glyphs/hazard-*.svg):
   tram     tram-rail crossing point (railway=tram_level_crossing/tram_crossing nodes + geometric crossings)
   along    tram rail running within 3 m and < 20° of a cycle-usable way for > 30 m
-  cobbles  surface=sett|cobblestone|unhewn_cobblestone on a cycle-usable way
+  cobbles  surface=sett|cobblestone|unhewn_cobblestone on a cycle-usable way; detail "<surface> · mild" for small,
+           well-laid cobbles (common.cobble_class), none for smooth ones
   steps    highway=steps
   gap      barrier node on a cycle-usable way (bollard, gate, cycle_barrier…), or maxwidth < 1 m
   dismount bicycle=dismount, or a pedestrian street/area where bicycles aren't allowed
@@ -25,12 +26,11 @@ from pyproj import Transformer
 from shapely.geometry import LineString, Point
 from shapely.ops import transform
 
-from common import load_config, log, out_dir, write_json
+from common import cobble_class, load_config, log, out_dir, write_json
 
 TO_M = Transformer.from_crs("EPSG:4326", "EPSG:32632", always_xy=True).transform
 TO_LL = Transformer.from_crs("EPSG:32632", "EPSG:4326", always_xy=True).transform
 
-COBBLES = {"sett", "cobblestone", "unhewn_cobblestone"}
 ROADS = {"primary", "primary_link", "secondary", "secondary_link", "tertiary", "tertiary_link", "unclassified",
          "residential", "living_street", "service", "trunk", "trunk_link"}
 PATHS = {"cycleway", "path", "track", "footway", "pedestrian", "bridleway"}
@@ -154,8 +154,10 @@ class Collect(osmium.SimpleHandler):
             if nd.ref in self.barrier_nodes:
                 kind, lon, lat = self.barrier_nodes[nd.ref]
                 self.features.append(point("gap", lon, lat, f"n{nd.ref}", kind))
-        if t.get("surface") in COBBLES:
-            self.features.append(line("cobbles", coords, f"w{w.id}", t.get("surface")))
+        kind = cobble_class(t)
+        if kind in {"mild", "rough"}:
+            detail = t.get("surface") + (" · mild" if kind == "mild" else "")
+            self.features.append(line("cobbles", coords, f"w{w.id}", detail))
         if t.get("bicycle") == "dismount":
             self.features.append(line("dismount", coords, f"w{w.id}", "bicycle=dismount"))
         width = parse_m(t.get("maxwidth"))
