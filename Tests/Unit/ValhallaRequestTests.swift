@@ -44,6 +44,20 @@ struct ValhallaRequestTests {
         return try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
     }
 
+    @Test func ignoringOneWaysSearchesForwardOnly() throws {
+        func body(_ rules: RuleSet) throws -> [String: Any] {
+            let json = try ValhallaOnDeviceProvider.requestJSON(
+                from: UserLocation(clCoordinateLocation2D: .init(latitude: 45.47, longitude: 9.20)),
+                waypoints: [Waypoint(coordinate: GeographicCoordinate(lat: 45.48, lng: 9.22), kind: .break)],
+                profile: try RideProfile.load(.city).adjusted(for: rules).best)
+            return try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        }
+        var rules = RuleSet.defaults(for: .city)
+        #expect((try body(rules)["date_time"] as? [String: Any])?["type"] as? Int == 0)
+        rules.respectOneways = true
+        #expect(try body(rules)["date_time"] == nil)
+    }
+
     @Test func asksForOsrmWithBannerAndVoiceInstructions() throws {
         let body = try request()
         #expect(body["format"] as? String == "osrm")
