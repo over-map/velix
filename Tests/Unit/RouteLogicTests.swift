@@ -74,7 +74,7 @@ struct RuleSetTests {
     @Test func litStreetsOnlyComesLast() {
         var rules = RuleSet.defaults(for: .road)
         rules.litStreetsOnly = true
-        #expect(rules.active == [.pavedOnly, .noCobbles, .neverAlongTramRails, .noWalking, .litStreetsOnly])
+        #expect(rules.active == [.pavedOnly, .noCobbles, .noWalking, .litStreetsOnly])
     }
 
     @Test(arguments: RideType.allCases)

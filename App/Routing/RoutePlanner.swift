@@ -84,7 +84,8 @@ struct RoutePlanner: Sendable {
         // existed). Fastest stays the free one: pure fastest, whatever Best needed (Via Soave → Ripamonti, 20 Oct).
         var strictRules = rules
         strictRules.respectOneways = true
-        let strict = try await planOnce(from: origin, to: destination, heading: heading, rules: strictRules, fastest: fastest)
+        let strict = try await planOnce(from: origin, to: destination, heading: heading, rules: strictRules, fastest: fastest,
+                                        fewerLights: false)  // planning time: the re-plan only rescues Best
         return better(free, strict, rules: rules)
     }
 
@@ -114,7 +115,7 @@ struct RoutePlanner: Sendable {
     }
 
     private func planOnce(from origin: LatLon, to destination: LatLon, heading: Double?, rules: RuleSet,
-                          fastest: RouteOption?) async throws -> RoutePlan {
+                          fastest: RouteOption?, fewerLights: Bool = true) async throws -> RoutePlan {
         let started = Date()
         let profile = try RideProfile.load(rules.rideType).adjusted(for: rules)
         guard let firstBest = try await compute(profile.best, from: origin, to: destination, heading: heading, exclusions: []) else {
@@ -168,7 +169,8 @@ struct RoutePlanner: Sendable {
             s.distanceAlong > Self.lightsEndMargin && s.distanceAlong < lead.analysis.lengthM - Self.lightsEndMargin
                 && !shared.contains { Geo.distance($0, s.location) < RouteAnalyzer.junctionSpan }
         }
-        if !avoidable.isEmpty, lead.exclusions.count + avoidable.count <= maxExclusionPolygons {
+        // Valhalla slows down sharply with many polygons (≈ 1.2 s a request after a few rule rounds): skip it then.
+        if fewerLights, !avoidable.isEmpty, lead.exclusions.count + min(avoidable.count, Self.maxLightBoxes) <= Self.maxPolygonsWithLights {
             let boxes = avoidable.prefix(Self.maxLightBoxes).map { Geo.box(around: [$0.location], padding: Self.lightBoxPadding) }
             if let next = try await compute(profile.best, from: origin, to: destination, heading: heading,
                                             exclusions: lead.exclusions + boxes) {
@@ -242,6 +244,7 @@ struct RoutePlanner: Sendable {
     /// Lights this close to the start or the destination are left alone by the fewer-lights candidate (metres).
     static let lightsEndMargin = 150.0
     static let maxLightBoxes = 6
+    static let maxPolygonsWithLights = 12
     static let lightBoxPadding = 25.0
 
     /// Seconds of detour a metre of each broken rule is worth. Cobbles 3 s/m: Filippo takes a longer route to avoid

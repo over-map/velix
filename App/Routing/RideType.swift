@@ -37,7 +37,7 @@ enum RideType: String, CaseIterable, Codable, Sendable {
         case .city: [(.noCobbles, true), (.neverAlongTramRails, true), (.bikeLanesOnly, false), (.noStepsOrGaps, true),
                      (.walkingStretches, false)]
         case .ebike: [(.noCobbles, false), (.neverAlongTramRails, true), (.bikeLanesOnly, false)]
-        case .road: [(.pavedOnly, true), (.noCobbles, true), (.neverAlongTramRails, true), (.bikeLanesOnly, false)]
+        case .road: [(.pavedOnly, true), (.noCobbles, true), (.bikeLanesOnly, false)]  // rides outside the city: no tram rails rule
         case .gravel: [(.neverAlongTramRails, true), (.maxGrade6, false)]
         case .mtb: [(.neverAlongTramRails, true), (.maxGrade6, false)]
         case .cargo: [(.noCobbles, true), (.neverAlongTramRails, true), (.bikeLanesOnly, true), (.maxGrade6, true),
