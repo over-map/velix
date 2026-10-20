@@ -78,14 +78,15 @@ final class AppModel {
     }
 
     /// Tap 2: ride the chosen route.
-    func start(_ option: RouteOption, to place: Place) {
-        let session = RideSession(destination: place)
-        session.onEnd = { [weak self] in
+    func start(_ option: RouteOption, choice: RideChoice = .best, to place: Place) {
+        let rules = state.ruleSet(for: state.rideType, litStreetsOnly: litStreetsOnly)
+        let session = RideSession(destination: place, option: option, rules: rules, choice: choice, planner: engine.loadedPlanner)
+        session.onEnd = { [weak self] _ in
             self?.ride = nil
             self?.litStreetsOnly = false     // "For the next ride only" (S8)
         }
         do {
-            try session.start(option: option, engine: engine.navigationEngine)
+            try session.start()
             ride = session
             destination = nil
         } catch {

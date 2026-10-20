@@ -30,6 +30,9 @@ struct RootView: View {
         }
         .task {
             if app.state.onboarded, !app.pack.isReady { app.pack.install() }
+            #if DEBUG
+            if let place = Self.launchDestination { app.choose(place) }
+            #endif
             await app.refreshWarning()
         }
     }
@@ -57,7 +60,7 @@ struct RootView: View {
             if let place = app.destination {
                 RouteOptionsView(app: app, model: RouteOptionsModel(destination: place),
                                  onClose: { app.destination = nil },
-                                 onStart: { app.start($0, to: place) },
+                                 onStart: { app.start($0, choice: $1, to: place) },
                                  onEditRules: { app.destination = nil; tab = .you })
                     .id(place.id + app.state.rideType.rawValue)
                     .transition(.move(edge: .bottom))
@@ -109,3 +112,18 @@ enum Format {
         "\(received / 1_000_000) of \(total / 1_000_000) MB"
     }
 }
+
+#if DEBUG
+extension RootView {
+    /// `-ride-to 45.4621,9.1944[,Piazza Santo Stefano]`: open route options for a place at launch (with
+    /// `-fake-location` and `-simulate-ride`, a whole ride can be tried away from Lombardy, on the phone or the Simulator).
+    static var launchDestination: Place? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-ride-to"), i + 1 < args.count else { return nil }
+        let parts = args[i + 1].split(separator: ",", maxSplits: 2).map(String.init)
+        guard parts.count >= 2, let lat = Double(parts[0]), let lon = Double(parts[1]) else { return nil }
+        return Place(id: "launch-\(parts[0]),\(parts[1])", name: parts.count > 2 ? parts[2] : "Destination",
+                     subtitle: "", kind: .address, lat: lat, lon: lon)
+    }
+}
+#endif
