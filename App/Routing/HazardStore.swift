@@ -52,6 +52,38 @@ final class HazardStore: @unchecked Sendable {
         return out
     }
 
+    /// Walk stretches (table `walk_ways`, absent in older packs: then none).
+    func walkWays(among ways: some Collection<Int64>) -> Set<Int64> {
+        let ids = Array(Set(ways))
+        var out = Set<Int64>()
+        lock.lock(); defer { lock.unlock() }
+        for chunk in stride(from: 0, to: ids.count, by: 400).map({ Array(ids[$0 ..< min($0 + 400, ids.count)]) }) {
+            var stmt: OpaquePointer?
+            let sql = "SELECT way_id FROM walk_ways WHERE way_id IN (\(chunk.map(String.init).joined(separator: ",")))"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            while sqlite3_step(stmt) == SQLITE_ROW { out.insert(sqlite3_column_int64(stmt, 0)) }
+            sqlite3_finalize(stmt)
+        }
+        return out
+    }
+
+    /// Traffic lights (rtree `signals`, absent in older packs: then none).
+    func signals(in box: (Double, Double, Double, Double)) -> [LatLon] {
+        lock.lock(); defer { lock.unlock() }
+        var stmt: OpaquePointer?
+        let sql = """
+            SELECT min_lat, min_lon FROM signals WHERE min_lat <= \(box.2) AND max_lat >= \(box.0)
+              AND min_lon <= \(box.3) AND max_lon >= \(box.1)
+            """
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(stmt) }
+        var out: [LatLon] = []
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            out.append(LatLon(lat: sqlite3_column_double(stmt, 0), lon: sqlite3_column_double(stmt, 1)))
+        }
+        return out
+    }
+
     private static let columns = "h.id, h.type, h.geom, h.lat, h.lon, h.length_m, h.polyline6, h.detail, h.osm, h.heading"
 
     private func query(_ sql: String) -> [HazardRecord] {

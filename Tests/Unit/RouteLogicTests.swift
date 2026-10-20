@@ -7,6 +7,8 @@ struct FakeHazards: HazardSource {
     var lines: [HazardRecord] = []
     var points: [HazardRecord] = []
     var lit: [Int64: (lit: Bool?, path: Bool)] = [:]
+    var walk: Set<Int64> = []
+    var lights: [LatLon] = []
 
     func lineHazards(onWays ways: some Collection<Int64>) -> [HazardRecord] {
         let set = Set(ways)
@@ -19,6 +21,14 @@ struct FakeHazards: HazardSource {
 
     func lighting(ofWays ways: some Collection<Int64>) -> [Int64: (lit: Bool?, path: Bool)] {
         lit.filter { Set(ways).contains($0.key) }
+    }
+
+    func walkWays(among ways: some Collection<Int64>) -> Set<Int64> {
+        walk.intersection(ways)
+    }
+
+    func signals(in box: (Double, Double, Double, Double)) -> [LatLon] {
+        lights.filter { $0.lat >= box.0 && $0.lat <= box.2 && $0.lon >= box.1 && $0.lon <= box.3 }
     }
 
     static func line(_ type: HazardType, way: Int64, length: Double) -> HazardRecord {
@@ -56,15 +66,15 @@ func edge(use: String = "road", lane: String = "none", road: String = "residenti
 
 struct RuleSetTests {
     @Test func cityDefaultsFollowTheDesign() {
-        #expect(RuleSet.defaults(for: .city).active == [.noCobbles, .neverAlongTramRails, .noStepsOrGaps])
-        #expect(RuleSet.defaults(for: .cargo).active.count == 5)
-        #expect(RuleSet.defaults(for: .gravel).active == [.neverAlongTramRails])
+        #expect(RuleSet.defaults(for: .city).active == [.noCobbles, .neverAlongTramRails, .noStepsOrGaps, .noWalking])
+        #expect(RuleSet.defaults(for: .cargo).active.count == 6)
+        #expect(RuleSet.defaults(for: .gravel).active == [.neverAlongTramRails, .noWalking])
     }
 
     @Test func litStreetsOnlyComesLast() {
         var rules = RuleSet.defaults(for: .road)
         rules.litStreetsOnly = true
-        #expect(rules.active == [.pavedOnly, .noCobbles, .neverAlongTramRails, .litStreetsOnly])
+        #expect(rules.active == [.pavedOnly, .noCobbles, .noWalking, .litStreetsOnly])
     }
 
     @Test(arguments: RideType.allCases)
@@ -147,10 +157,31 @@ struct RouteAnalyzerTests {
 }
 
 struct RuleCheckerTests {
-    private func analysis(_ specs: [(way: Int64, edit: (inout RouteEdge) -> Void)], cobbles: [Int64] = []) -> RouteAnalysis {
+    private func analysis(_ specs: [(way: Int64, edit: (inout RouteEdge) -> Void)], cobbles: [Int64] = [],
+                          walk: Set<Int64> = []) -> RouteAnalysis {
         let (shape, edges) = eastwardRoute(specs)
         return RouteAnalyzer.analyze(shape: shape, edges: edges,
-                                     hazards: FakeHazards(lines: cobbles.map { FakeHazards.line(.cobbles, way: $0, length: 100) }))
+                                     hazards: FakeHazards(lines: cobbles.map { FakeHazards.line(.cobbles, way: $0, length: 100) },
+                                                          walk: walk))
+    }
+
+    @Test func trafficLightsCountOncePerJunction() {
+        let (shape, edges) = eastwardRoute([(1, edge()), (2, edge()), (3, edge())])
+        // Two signal nodes 10 m apart at the first junction, one at the second.
+        let k = 111_320 * cos(45.47 * .pi / 180)
+        let at = { (m: Double) in LatLon(lat: shape[0].lat, lon: shape[0].lon + m / k) }
+        let a = RouteAnalyzer.analyze(shape: shape, edges: edges, hazards: FakeHazards(lights: [at(100), at(110), at(200)]))
+        #expect(a.signalStops.map { Int($0.distanceAlong.rounded()) } == [100, 200])
+    }
+
+    @Test func walkingStretchesBreakNoWalkingAndGetExcluded() throws {
+        let a = analysis([(1, edge()), (2, edge(use: "footway")), (3, edge())], walk: [2])
+        #expect(a.walkEdges.map(\.wayId) == [2])
+        let v = try #require(RuleChecker.violation(of: .noWalking, in: a))
+        #expect(v.meters == 100)
+        #expect(!v.exclusions.isEmpty)
+        #expect(RuleChecker.hardViolations([v], rideType: .cargo).isEmpty)  // a preference, never blocking
+        #expect(RuleChecker.violation(of: .noWalking, in: analysis([(1, edge()), (2, edge())])) == nil)
     }
 
     @Test func cobblesMidRouteBreakTheRuleAndGetExcluded() throws {
@@ -158,6 +189,16 @@ struct RuleCheckerTests {
         let v = try #require(RuleChecker.violation(of: .noCobbles, in: a))
         #expect(v.meters == 100)
         #expect(!v.exclusions.isEmpty)
+    }
+
+    @Test func mildCobblesCountAThird() throws {
+        var a = analysis([(1, edge()), (2, edge()), (3, edge()), (4, edge())])
+        a.hazards = [RouteHazard(type: .cobbles, distanceAlong: 100, lengthM: 100, street: nil, detail: "sett · mild", osm: "w2"),
+                     RouteHazard(type: .cobbles, distanceAlong: 200, lengthM: 100, street: nil, detail: "sett", osm: "w3")]
+        let v = try #require(RuleChecker.violation(of: .noCobbles, in: a))
+        #expect(abs(v.meters - (100 + 100.0 / 3)) < 0.01)
+        a.hazards.removeLast()
+        #expect(abs((RuleChecker.violation(of: .noCobbles, in: a)?.meters ?? 0) - 100.0 / 3) < 0.01)
     }
 
     @Test func cobbledDoorstepDoesNotCount() {

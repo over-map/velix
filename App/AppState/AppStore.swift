@@ -11,6 +11,8 @@ struct AppState: Codable, Equatable, Sendable {
     /// Newest first.
     var recents: [Place] = []
     var packAutoUpdate = true
+    /// You → Routing: follow one-way restrictions (default off, Filippo 18 Oct).
+    var respectOneways = false
 
     init() {}
 
@@ -24,6 +26,7 @@ struct AppState: Codable, Equatable, Sendable {
         work = try? c.decode(Place.self, forKey: .work)
         recents = (try? c.decode([Place].self, forKey: .recents)) ?? []
         packAutoUpdate = try c.decodeIfPresent(Bool.self, forKey: .packAutoUpdate) ?? true
+        respectOneways = try c.decodeIfPresent(Bool.self, forKey: .respectOneways) ?? false
     }
 
     static let recentsKept = 20
@@ -33,6 +36,7 @@ struct AppState: Codable, Equatable, Sendable {
         var set = RuleSet.defaults(for: type)
         if let enabled = rules[type] { set.enabled = enabled }
         set.litStreetsOnly = litStreetsOnly
+        set.respectOneways = respectOneways
         return set
     }
 

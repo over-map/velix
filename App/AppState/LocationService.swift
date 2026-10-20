@@ -23,6 +23,36 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.distanceFilter = 5
         update(manager.authorizationStatus)
+        #if DEBUG
+        if let fake = Self.fakeLocation { pin(fake) }
+        #endif
+    }
+
+    #if DEBUG
+    /// `-fake-location 45.4478,9.1964`: a fixed position for trying routes on a phone outside the region.
+    static var fakeLocation: LatLon? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-fake-location"), i + 1 < args.count else { return nil }
+        let parts = args[i + 1].split(separator: ",").compactMap { Double($0) }
+        return parts.count == 2 ? LatLon(lat: parts[0], lon: parts[1]) : nil
+    }
+
+    private func pin(_ p: LatLon) {
+        manager.delegate = nil
+        manager.stopUpdatingLocation()
+        manager.stopUpdatingHeading()
+        access = .allowed
+        location = CLLocation(latitude: p.lat, longitude: p.lon)
+        cannotFind = false
+    }
+    #endif
+
+    /// Direction of travel for route planning: the GPS course, only while actually riding (≥ 2 m/s). Standing still,
+    /// the compass says where the phone points, not where the rider will go, and Valhalla would force the route's
+    /// first metres that way (Via Soave, 19 Oct: Fastest went west along Corso Italia instead of east to Ripamonti).
+    var travelHeading: Double? {
+        guard let l = location, l.speed >= 2, l.course >= 0, l.courseAccuracy >= 0, l.courseAccuracy <= 30 else { return nil }
+        return l.course
     }
 
     var coordinate: LatLon? { location.map { LatLon(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) } }

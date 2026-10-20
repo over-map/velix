@@ -3,7 +3,8 @@
 Types (names match the hazard glyphs in design/assets/glyphs/hazard-*.svg):
   tram     tram-rail crossing point (railway=tram_level_crossing/tram_crossing nodes + geometric crossings)
   along    tram rail running within 3 m and < 20° of a cycle-usable way for > 30 m
-  cobbles  surface=sett|cobblestone|unhewn_cobblestone on a cycle-usable way
+  cobbles  surface=sett|cobblestone|unhewn_cobblestone on a cycle-usable way; detail "<surface> · mild" for small,
+           well-laid cobbles (common.cobble_class), none for smooth ones
   steps    highway=steps
   gap      barrier node on a cycle-usable way (bollard, gate, cycle_barrier…), or maxwidth < 1 m
   dismount bicycle=dismount, or a pedestrian street/area where bicycles aren't allowed
@@ -18,18 +19,18 @@ import math
 import sqlite3
 from collections import defaultdict
 
+import json
 import osmium
 import shapely
 from pyproj import Transformer
 from shapely.geometry import LineString, Point
 from shapely.ops import transform
 
-from common import load_config, log, out_dir, write_json
+from common import cobble_class, load_config, log, out_dir, write_json
 
 TO_M = Transformer.from_crs("EPSG:4326", "EPSG:32632", always_xy=True).transform
 TO_LL = Transformer.from_crs("EPSG:32632", "EPSG:4326", always_xy=True).transform
 
-COBBLES = {"sett", "cobblestone", "unhewn_cobblestone"}
 ROADS = {"primary", "primary_link", "secondary", "secondary_link", "tertiary", "tertiary_link", "unclassified",
          "residential", "living_street", "service", "trunk", "trunk_link"}
 PATHS = {"cycleway", "path", "track", "footway", "pedestrian", "bridleway"}
@@ -110,6 +111,7 @@ class Collect(osmium.SimpleHandler):
         self.infra_ends: list[tuple[int, int, float, float, float]] = []
         self.features: list[dict] = []
         self.ways: list[tuple[int, int | None, int]] = []  # (way id, lit 1/0/None, is path)
+        self.signals: list[tuple[float, float]] = []  # (lon, lat) of traffic lights, for the planner's waiting time
 
     def node(self, n):
         t = n.tags
@@ -117,6 +119,9 @@ class Collect(osmium.SimpleHandler):
             self.barrier_nodes[n.id] = (t.get("barrier"), n.location.lon, n.location.lat)
         if t.get("railway") in {"tram_level_crossing", "tram_crossing"}:
             self.crossing_nodes.append((n.id, n.location.lon, n.location.lat))
+        if t.get("highway") == "traffic_signals" or t.get("crossing") == "traffic_signals" \
+                or t.get("crossing:signals") == "yes":
+            self.signals.append((n.location.lon, n.location.lat))
         if t.get("bicycle") == "dismount" and not t.get("highway"):
             self.features.append(point("dismount", n.location.lon, n.location.lat, f"n{n.id}", "bicycle=dismount"))
 
@@ -149,8 +154,10 @@ class Collect(osmium.SimpleHandler):
             if nd.ref in self.barrier_nodes:
                 kind, lon, lat = self.barrier_nodes[nd.ref]
                 self.features.append(point("gap", lon, lat, f"n{nd.ref}", kind))
-        if t.get("surface") in COBBLES:
-            self.features.append(line("cobbles", coords, f"w{w.id}", t.get("surface")))
+        kind = cobble_class(t)
+        if kind in {"mild", "rough"}:
+            detail = t.get("surface") + (" · mild" if kind == "mild" else "")
+            self.features.append(line("cobbles", coords, f"w{w.id}", detail))
         if t.get("bicycle") == "dismount":
             self.features.append(line("dismount", coords, f"w{w.id}", "bicycle=dismount"))
         width = parse_m(t.get("maxwidth"))
@@ -285,7 +292,7 @@ def lane_end_hazards(c: Collect, pbf: str) -> list[dict]:
     return out
 
 
-def write_sqlite(path, features, meta, ways=()):
+def write_sqlite(path, features, meta, ways=(), walk_ways=(), signals=()):
     if path.exists():
         path.unlink()
     db = sqlite3.connect(path)
@@ -309,8 +316,16 @@ def write_sqlite(path, features, meta, ways=()):
             lit INTEGER,                 -- 1 lit, 0 unlit, NULL not tagged
             path INTEGER NOT NULL        -- 1 = path/footway/cycleway/track (park-path candidate)
         ) WITHOUT ROWID;
+        CREATE TABLE walk_ways (
+            way_id INTEGER PRIMARY KEY   -- short passages for pedestrians (rideable in the routing tiles, prepare_routing.py)
+        ) WITHOUT ROWID;
+        CREATE VIRTUAL TABLE signals USING rtree(id, min_lon, max_lon, min_lat, max_lat);  -- traffic lights (points)
     """)
     db.executemany("INSERT OR REPLACE INTO ways VALUES (?,?,?)", sorted(ways))
+    db.executemany("INSERT OR IGNORE INTO walk_ways VALUES (?)", [(w,) for w in sorted(walk_ways)])
+    db.executemany("INSERT INTO signals VALUES (?,?,?,?,?)",
+                   [(i, round(lon, 7), round(lon, 7), round(lat, 7), round(lat, 7))
+                    for i, (lon, lat) in enumerate(sorted(set(signals)), start=1)])
     features.sort(key=lambda f: (f["type"], f["osm"], f["coords"][0], f.get("heading") or -1))
     for i, f in enumerate(features, start=1):
         co = f["coords"]
@@ -343,7 +358,10 @@ def main():
     for f in features:
         counts[f["type"]] += 1
     log("counts: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
-    write_sqlite(out / "hazards.sqlite", features, {"schema": "2", "region": cfg["region"]["id"]}, c.ways)
+    walk_file = out / "walk_ways.json"
+    walk = json.loads(walk_file.read_text()) if walk_file.exists() else []
+    write_sqlite(out / "hazards.sqlite", features, {"schema": "2", "region": cfg["region"]["id"]}, c.ways, walk, c.signals)
+    log(f"walk stretches: {len(walk)}, traffic signal nodes: {len(set(c.signals))}")
     log(f"ways with lighting/path info: {len(c.ways)} ({sum(1 for _, l, _ in c.ways if l == 1)} lit)")
     write_json(out / "hazards.counts.json", dict(sorted(counts.items())))
 

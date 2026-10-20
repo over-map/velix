@@ -19,6 +19,8 @@ struct RouteOption: Sendable {
     let meters: Double
     let analysis: RouteAnalysis
     let exclusions: [[[Double]]]
+    /// Segments left out (Valhalla `exclude_locations`): the rule rounds' exclusions.
+    var excludedPoints: [LatLon] = []
     /// Milliseconds spent in route / trace / analysis (golden report, performance budget).
     var timings: [String: Double] = [:]
 }
@@ -38,6 +40,8 @@ struct RouteOptions: Sendable {
     /// nil when one "Best and fastest" card is shown.
     let fastest: RouteOption?
     let fastestAnalysis: RouteAnalysis
+    /// Fastest's time, also when its card is hidden (it may then be slower than Best).
+    var fastestSeconds: Double = 0
     let bestName: String
     let bestLine: String
     let fastestLine: String?
@@ -61,22 +65,63 @@ enum RoutePlan: Sendable {
 struct RoutePlanner: Sendable {
     let engine: RoutingEngine
     let hazards: HazardSource
-    /// Exclusion rounds after the first route (cobbles, rails, steps… boxed out and routed again).
-    var maxRounds = 3
-    /// Valhalla's limit (raised in ValhallaOnDeviceProvider) with a margin.
-    var maxExclusionPerimeter = 50_000.0
-    /// valhalla-mobile slows down sharply with many polygons (≈ 0.1 s each on an M1): cap them.
-    var maxExclusionPolygons = 60
+    /// Exclusion rounds after the first route (cobbled, railed, stepped… segments left out and routed again).
+    var maxRounds = 5
+    /// Valhalla's default `max_exclude_locations` is 50.
+    var maxExcludedPoints = 50
     /// No new exclusion round starts after this (seconds since the plan started).
     var roundBudget = 1.2
     /// Soft ride types only try to remove rule-breaking worth more than this (seconds of penalty).
     var minPenaltyWorthARound = 60.0
 
     func plan(from origin: LatLon, to destination: LatLon, heading: Double? = nil, rules: RuleSet) async throws -> RoutePlan {
+        let profile = try RideProfile.load(rules.rideType).adjusted(for: rules)
+        let fastest = try await compute(profile.fastest, from: origin, to: destination, heading: heading, exclusions: [],
+                                        phase: "fastest")
+        let free = try await planOnce(from: origin, to: destination, heading: heading, rules: rules, fastest: fastest)
+        guard !rules.respectOneways, needsOnewayCheck(free, rules: rules) else { return free }
+        // One-ways ridden both ways (default) can lead Best into rule-breaking stretches the rounds don't clear:
+        // plan once more following one-ways for Best and keep the better (never worse than before the setting
+        // existed). Fastest stays the free one: pure fastest, whatever Best needed (Via Soave → Ripamonti, 20 Oct).
+        var strictRules = rules
+        strictRules.respectOneways = true
+        let strict = try await planOnce(from: origin, to: destination, heading: heading, rules: strictRules, fastest: fastest,
+                                        fewerLights: false)  // planning time: the re-plan only rescues Best
+        return better(free, strict, rules: rules)
+    }
+
+    /// The free plan still breaks a rule enough to matter, or found nothing.
+    private func needsOnewayCheck(_ plan: RoutePlan, rules: RuleSet) -> Bool {
+        switch plan {
+        case let .options(o):
+            let v = RuleChecker.violations(of: rules.active, in: o.best.analysis)
+            return rules.rideType == .cargo ? !RuleChecker.hardViolations(v, rideType: .cargo).isEmpty
+                : penalty(RuleChecker.hardViolations(v, rideType: rules.rideType)) > minPenaltyWorthARound
+        case .noRouteMeetsRules, .noRoute:
+            return true
+        }
+    }
+
+    private func better(_ a: RoutePlan, _ b: RoutePlan, rules: RuleSet) -> RoutePlan {
+        switch (a, b) {
+        case let (.options(x), .options(y)):
+            let sx = x.best.seconds + penalty(RuleChecker.violations(of: rules.active, in: x.best.analysis))
+            let sy = y.best.seconds + penalty(RuleChecker.violations(of: rules.active, in: y.best.analysis))
+            return sy < sx ? b : a
+        case (.options, _): return a
+        case (_, .options): return b
+        case (.noRouteMeetsRules, _): return a
+        default: return b
+        }
+    }
+
+    private func planOnce(from origin: LatLon, to destination: LatLon, heading: Double?, rules: RuleSet,
+                          fastest: RouteOption?, fewerLights: Bool = true) async throws -> RoutePlan {
         let started = Date()
         let profile = try RideProfile.load(rules.rideType).adjusted(for: rules)
-        let fastest = try await compute(profile.fastest, from: origin, to: destination, heading: heading, exclusions: [])
-        guard let firstBest = try await compute(profile.best, from: origin, to: destination, heading: heading, exclusions: []) else {
+        let tag = rules.respectOneways ? "strict." : ""
+        guard let firstBest = try await compute(profile.best, from: origin, to: destination, heading: heading, exclusions: [],
+                                                phase: tag + "best") else {
             return fastest == nil ? .noRoute
                 : .noRouteMeetsRules(rules.active.first ?? .noCobbles, rules.rideType, closest: fastest, remaining: [])
         }
@@ -97,25 +142,69 @@ struct RoutePlanner: Sendable {
             while rounds < roundsAllowed, Date().timeIntervalSince(started) < budget {
                 let remaining = RuleChecker.violations(of: rules.active, in: current.analysis)
                     .sorted { Self.weight($0.rule) * $0.meters > Self.weight($1.rule) * $1.meters }
-                let room = maxExclusionPolygons - current.exclusions.count
+                // The worst stretches first, a point per offending segment (`exclude_locations`, ≈ 1 ms each; boxes
+                // cost 11–35 ms each, 20 Oct golden trace), at most `maxExcludedPoints` per request.
+                let room = maxExcludedPoints - current.excludedPoints.count
                 let more = Array(remaining.flatMap(\.exclusions).prefix(max(room, 0)))
                 guard !more.isEmpty else { break }
                 rounds += 1
                 var next = try await compute(profile.best, from: origin, to: destination, heading: heading,
-                                             exclusions: current.exclusions + more)
+                                             exclusions: [], points: current.excludedPoints + more, phase: tag + "round\(rounds)")
                 if next == nil {
-                    // Valhalla refuses a request whose start or destination falls in an excluded box: keep the ends free.
-                    let clear = (current.exclusions + more).filter { !Self.near($0, origin) && !Self.near($0, destination) }
-                    next = try await compute(profile.best, from: origin, to: destination, heading: heading, exclusions: clear)
+                    // Valhalla refuses a request whose start or destination is excluded: keep the ends free.
+                    let clear = (current.excludedPoints + more).filter {
+                        Geo.distance($0, origin) > Self.endsFree && Geo.distance($0, destination) > Self.endsFree
+                    }
+                    // Nothing left to leave out, or nothing near the ends: the same request again would change nothing.
+                    if !clear.isEmpty, clear.count < current.excludedPoints.count + more.count {
+                        next = try await compute(profile.best, from: origin, to: destination, heading: heading,
+                                                 exclusions: [], points: clear, phase: tag + "round\(rounds)-ends")
+                    }
                 }
                 guard let next else { break }
                 candidates.append(next)
                 let nextPenalty = penalty(RuleChecker.violations(of: rules.active, in: next.analysis))
-                // Stop when a round doesn't help: avoiding one stretch only led onto another.
-                // Cargo / kids needs zero, so it keeps going on a tie.
-                if nextPenalty > currentPenalty || (nextPenalty == currentPenalty && rules.rideType != .cargo) { break }
+                // A round that only led onto another stretch still keeps its points: the next round adds the new
+                // stretch too (rounds are cheap with points, ≈ 70 ms). `choose` picks among all candidates.
+                if nextPenalty < currentPenalty || (nextPenalty == currentPenalty && rules.rideType == .cargo) {
+                    currentPenalty = nextPenalty
+                }
                 current = next
-                currentPenalty = nextPenalty
+            }
+        }
+        // Points leave out one segment each; where the route only slid onto the next cobbled or railed street, one
+        // round of boxes (which also take the short links at nearby junctions) finishes the job. Boxes cost 11–35 ms
+        // each, so only here and at most `maxFinishingBoxes` (trip 4 Centrale → Brera: 84 → 0 m of cobbles).
+        let afterPoints = choose(candidates, rules: rules).option
+        let leftover = RuleChecker.violations(of: rules.active, in: afterPoints.analysis)
+        if penalty(rules.rideType == .cargo ? RuleChecker.hardViolations(leftover, rideType: .cargo)
+                   : RuleChecker.hardViolations(leftover, rideType: rules.rideType)) > minPenaltyWorthARound {
+            let worst = leftover.sorted { Self.weight($0.rule) * $0.meters > Self.weight($1.rule) * $1.meters }
+            let boxes = worst.flatMap(\.exclusions)
+                .filter { Geo.distance($0, origin) > Self.endsFree && Geo.distance($0, destination) > Self.endsFree }
+                .prefix(Self.maxFinishingBoxes).map { Geo.box(around: [$0], padding: Self.finishingBoxPadding) }
+            if !boxes.isEmpty, let next = try await compute(profile.best, from: origin, to: destination, heading: heading,
+                                                            exclusions: Array(boxes), points: afterPoints.excludedPoints,
+                                                            phase: tag + "boxes") {
+                candidates.append(next)
+            }
+        }
+        // Fewer lights: Valhalla prefers lanes across busy signalised junctions over quiet streets that cross fewer.
+        // Box out the lights of the leading candidate that Fastest doesn't also cross (those are on the direct line)
+        // away from both ends; `choose` keeps it only if it's quicker once the waits count.
+        let lead = choose(candidates, rules: rules).option
+        let shared = fastest?.analysis.signalStops.map(\.location) ?? []
+        let avoidable = lead.analysis.signalStops.filter { s in
+            s.distanceAlong > Self.lightsEndMargin && s.distanceAlong < lead.analysis.lengthM - Self.lightsEndMargin
+                && !shared.contains { Geo.distance($0, s.location) < RouteAnalyzer.junctionSpan }
+        }
+        // Valhalla slows down sharply with many polygons (≈ 1.2 s a request after a few rule rounds): skip it then.
+        if fewerLights, !avoidable.isEmpty {
+            let lights = avoidable.prefix(Self.maxLightBoxes).map(\.location)
+            if let next = try await compute(profile.best, from: origin, to: destination, heading: heading, exclusions: [],
+                                            points: Array((lead.excludedPoints + lights).suffix(maxExcludedPoints)),
+                                            phase: tag + "lights") {
+                candidates.append(next)
             }
         }
         // Fastest is a candidate too for the soft types: Best is never worse than Fastest on time + rule penalty.
@@ -147,18 +236,13 @@ struct RoutePlanner: Sendable {
         }
         return .options(RouteOptions(
             rules: rules, best: best, fastest: single ? nil : fastestOption, fastestAnalysis: fastestOption.analysis,
+            fastestSeconds: fastestOption.seconds,
             bestName: single ? "Best and fastest" : rules.rideType.bestName, bestLine: bestLine,
             fastestLine: fastestLine, litLine: litLine,
             avoided: Self.avoidedRoads(best: best.analysis, fastest: fastestOption.analysis, rideType: rules.rideType),
             unavoidable: remaining, rounds: rounds, milliseconds: Date().timeIntervalSince(started) * 1000))
     }
 
-    /// Whether an exclusion ring comes within 150 m of a point.
-    static func near(_ ring: [[Double]], _ p: LatLon) -> Bool {
-        let pts = ring.map { LatLon(lat: $0[1], lon: $0[0]) }
-        let (s, w, n, e) = Geo.bbox(pts, padding: 150)
-        return p.lat >= s && p.lat <= n && p.lon >= w && p.lon <= e
-    }
 
     /// Cargo / kids: the quickest candidate that meets every rule, or the rule that blocks.
     /// Other ride types: the lowest time + penalty (seconds per metre that breaks a rule); never blocked, and what
@@ -166,7 +250,8 @@ struct RoutePlanner: Sendable {
     private func choose(_ candidates: [RouteOption], rules: RuleSet) -> (option: RouteOption, blocking: Rule?) {
         let scored = candidates.map { c in (c, RuleChecker.violations(of: rules.active, in: c.analysis)) }
         if rules.rideType == .cargo {
-            if let ok = scored.filter({ RuleChecker.hardViolations($0.1, rideType: .cargo).isEmpty }).min(by: { $0.0.seconds < $1.0.seconds }) {
+            if let ok = scored.filter({ RuleChecker.hardViolations($0.1, rideType: .cargo).isEmpty })
+                .min(by: { $0.0.seconds + penalty($0.1) < $1.0.seconds + penalty($1.1) }) {
                 return (ok.0, nil)
             }
             let closest = scored.min { penalty($0.1) < penalty($1.1) }!
@@ -176,6 +261,24 @@ struct RoutePlanner: Sendable {
         return (scored.min { $0.0.seconds + penalty($0.1) < $1.0.seconds + penalty($1.1) }!.0, nil)
     }
 
+    #if DEBUG
+    /// Golden diagnostics: one line per Valhalla request (phase, polygons, milliseconds).
+    nonisolated(unsafe) static var trace: ((String) -> Void)?
+    #endif
+
+    /// Riding pace on passages (walk stretches), km/h.
+    static let passagePace = 10.0
+    /// Average wait at a signalised junction: about half the time you arrive on red, then wait ≈ 20 s.
+    static let signalWait = 10.0
+    /// Lights this close to the start or the destination are left alone by the fewer-lights candidate (metres).
+    static let lightsEndMargin = 150.0
+    static let maxLightBoxes = 6
+    static let maxFinishingBoxes = 12
+    static let finishingBoxPadding = 8.0
+    /// Excluded points this close to the start or the destination are dropped when Valhalla refuses the request.
+    static let endsFree = 150.0
+    static let lightBoxPadding = 25.0
+
     /// Seconds of detour a metre of each broken rule is worth. Cobbles 3 s/m: Filippo takes a longer route to avoid
     /// them more than for anything else (300 m of cobbles ≈ worth a 15-min detour).
     static func weight(_ rule: Rule) -> Double {
@@ -183,10 +286,12 @@ struct RoutePlanner: Sendable {
         case .noCobbles: 3.0
         case .neverAlongTramRails: 3.0
         case .noStepsOrGaps: 3.0
-        case .pavedOnly: 0.7
+        case .pavedOnly: 1.2
         case .maxGrade6: 2.0
         case .bikeLanesOnly: 0.5
         case .litStreetsOnly: 0.7
+        case .noWalking: 3.0
+        case .walkingStretches: 0
         }
     }
 
@@ -202,27 +307,54 @@ struct RoutePlanner: Sendable {
     // MARK: Valhalla
 
     func compute(_ costing: RoutingProfile, from origin: LatLon, to destination: LatLon, heading: Double?,
-                 exclusions: [[[Double]]]) async throws -> RouteOption? {
+                 exclusions: [[[Double]]], points: [LatLon] = [], vias: [LatLon] = [],
+                 phase: String = "") async throws -> RouteOption? {
         var start = UserLocation(clCoordinateLocation2D: .init(latitude: origin.lat, longitude: origin.lon))
         if let heading { start.courseOverGround = CourseOverGround(degrees: UInt16(heading) % 360, accuracy: 30) }
         let request = try ValhallaOnDeviceProvider.requestJSON(
             from: start,
-            waypoints: [Waypoint(coordinate: GeographicCoordinate(lat: destination.lat, lng: destination.lon), kind: .break)],
-            profile: costing, excludePolygons: exclusions)
+            waypoints: vias.map { Waypoint(coordinate: GeographicCoordinate(lat: $0.lat, lng: $0.lon), kind: .via) }
+                + [Waypoint(coordinate: GeographicCoordinate(lat: destination.lat, lng: destination.lon), kind: .break)],
+            profile: costing, excludePolygons: exclusions, excludeLocations: points)
         var t = Date()
         var timings: [String: Double] = ["requestKB": Double(request.utf8.count) / 1024]
         func lap(_ key: String) { timings[key] = Date().timeIntervalSince(t) * 1000; t = Date() }
         guard let osrm = try? await engine.route(rawRequest: request),
               let route = try? JSONDecoder().decode(OSRMResponse.self, from: Data(osrm.utf8)).routes.first
-        else { return nil }
+        else {
+            #if DEBUG
+            Self.trace?("\(phase)-FAILED\tpolys \(exclusions.count)+\(points.count)\tKB 0\troute \(Int(Date().timeIntervalSince(t) * 1000))\ttrace 0\tanalyze 0\t0 m")
+            #endif
+            return nil
+        }
         lap("route")
         let trace = try await engine.traceAttributes(rawRequest: Self.traceRequest(polyline: route.geometry, costing: costing))
         lap("trace")
         let attrs = try JSONDecoder().decode(TraceResponse.self, from: Data(trace.utf8))
         let analysis = RouteAnalyzer.analyze(shape: Geo.decodePolyline6(attrs.shape), edges: attrs.edges, hazards: hazards)
         lap("analyze")
-        return RouteOption(costing: costing, osrmJSON: osrm, seconds: route.duration, meters: route.distance,
-                           analysis: analysis, exclusions: exclusions, timings: timings)
+        #if DEBUG
+        Self.trace?("\(phase)\tpolys \(exclusions.count)+\(points.count)\tKB \(Int(timings["requestKB"] ?? 0))\troute \(Int(timings["route"] ?? 0))"
+                    + "\ttrace \(Int(timings["trace"] ?? 0))\tanalyze \(Int(timings["analyze"] ?? 0))\t\(Int(route.distance)) m")
+        #endif
+        // Valhalla's bicycle costing never waits at traffic lights (a signal even lowers its turn stress): add the
+        // average wait per signalised junction, so routes compare as Google's do (Filippo's Via Soave commute, 19 Oct).
+        let waits = Double(analysis.signalStops.count) * Self.signalWait
+        // Cobbles reach Valhalla as gravel (pack retag, so Best avoids them), which it rides at 40–75 % speed: time
+        // them at riding pace (Filippo: pure fastest, cobbles at normal speed); the rules' penalties keep them out of Best.
+        let cobbleWays = Set(analysis.hazards.filter { $0.type == .cobbles }.map(\.osm))
+        let pace: Double = if case let .number(v) = costing.costingOptions["cycling_speed"] { v } else { 16 }
+        let cobbleSaving = analysis.edges.filter { cobbleWays.contains("w\($0.wayId)") && $0.speed > 0 }.reduce(0.0) { sum, e in
+            sum + max(0, e.meters / (Double(e.speed) / 3.6) - e.meters / (max(Double(e.speed), pace) / 3.6))
+        }
+        // Passages (hospital roads, garden paths, pedestrian streets) are ridden slowly (Filippo, 19 Oct): Valhalla times
+        // them at full speed because the tiles open them with bicycle=yes.
+        let passageExtra = analysis.walkEdges.filter { $0.speed > 0 }.reduce(0.0) { sum, e in
+            sum + max(0, e.meters / (min(Double(e.speed), Self.passagePace) / 3.6) - e.meters / (Double(e.speed) / 3.6))
+        }
+        return RouteOption(costing: costing, osrmJSON: osrm, seconds: route.duration + waits - cobbleSaving + passageExtra,
+                           meters: route.distance,
+                           analysis: analysis, exclusions: exclusions, excludedPoints: points, timings: timings)
     }
 
     static func traceRequest(polyline: String, costing: RoutingProfile) throws -> String {
@@ -277,12 +409,12 @@ struct RoutePlanner: Sendable {
     }
 }
 
-private struct OSRMResponse: Decodable {
+struct OSRMResponse: Decodable {
     struct Route: Decodable { let duration: Double; let distance: Double; let geometry: String }
     let routes: [Route]
 }
 
-private struct TraceResponse: Decodable {
+struct TraceResponse: Decodable {
     let shape: String
     let edges: [RouteEdge]
 }

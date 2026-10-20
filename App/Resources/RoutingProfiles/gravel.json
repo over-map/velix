@@ -15,7 +15,7 @@
   "fastest": {
     "costing": "bicycle",
     "costing_options": {
-      "bicycle_type": "Cross",
+      "bicycle_type": "Mountain",
       "cycling_speed": 18,
       "use_roads": 1.0,
       "use_hills": 0.5,

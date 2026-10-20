@@ -4,23 +4,27 @@
   "best": {
     "costing": "bicycle",
     "costing_options": {
-      "bicycle_type": "Hybrid",
+      "bicycle_type": "Cross",
       "cycling_speed": 16,
       "use_roads": 0.15,
       "use_hills": 0.3,
       "avoid_bad_surfaces": 0.7,
-      "use_living_streets": 0.7
+      "use_living_streets": 0.7,
+      "gate_cost": 2,
+      "gate_penalty": 0
     }
   },
   "fastest": {
     "costing": "bicycle",
     "costing_options": {
-      "bicycle_type": "Hybrid",
+      "bicycle_type": "Mountain",
       "cycling_speed": 16,
       "use_roads": 1.0,
       "use_hills": 0.5,
       "avoid_bad_surfaces": 0.0,
-      "use_living_streets": 0.5
+      "use_living_streets": 0.5,
+      "gate_cost": 2,
+      "gate_penalty": 0
     }
   }
 }

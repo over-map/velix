@@ -32,7 +32,7 @@ final class RouteOptionsModel {
         fastestSelected = false
         do {
             let planner = try await app.engine.planner()
-            switch try await planner.plan(from: origin, to: destination.location, heading: app.location.heading, rules: app.rules) {
+            switch try await planner.plan(from: origin, to: destination.location, heading: app.location.travelHeading, rules: app.rules) {
             case let .options(o): state = .options(o)
             case let .noRouteMeetsRules(rule, type, closest, _): state = .blocked(rule: rule, rideType: type, closest: closest)
             case .noRoute: state = .noRoute
@@ -127,6 +127,7 @@ final class RouteOptionsModel {
         case .maxGrade6: "Every way to \(destination) climbs more than 6%."
         case .bikeLanesOnly: "Every way to \(destination) leaves the bike lanes."
         case .litStreetsOnly: "Every way to \(destination) uses unlit paths."
+        case .noWalking, .walkingStretches: "Every way to \(destination) has a stretch where you push the bike."
         }
         return (why, "**\(rule.title)** is on for \(rideType.name).")
     }

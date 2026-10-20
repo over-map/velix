@@ -87,8 +87,7 @@ struct GoldenRouteTests {
                 func cost(_ seconds: Double, _ a: RouteAnalysis) -> Double {
                     seconds + RuleChecker.violations(of: rules.active, in: a).reduce(0) { $0 + RoutePlanner.weight($1.rule) * $1.meters }
                 }
-                let fastestSeconds = o.fastest?.seconds ?? o.best.seconds
-                #expect(cost(o.best.seconds, o.best.analysis) <= cost(fastestSeconds, o.fastestAnalysis) + 1,
+                #expect(cost(o.best.seconds, o.best.analysis) <= cost(o.fastestSeconds, o.fastestAnalysis) + 1,
                         "\(trip) \(type): Best scores worse than Fastest")
             }
             #expect(o.fastestAnalysis.lengthM > 0)
@@ -112,19 +111,26 @@ enum GoldenExpectations {
         case (3, .cargo, .neverAlongTramRails): true // Darsena and the tram corridors to Città Studi
         case (7, .cargo, .neverAlongTramRails): true // Darsena start: tram rails along Ripa di Porta Ticinese
         case (8, .cargo, .noStepsOrGaps): true      // cycle barrier on the way into Monza (OSM n2704536133)
+        case (8, .cargo, .noCobbles): true          // ... named first when 28 m of Monza's cobbles remain too
         case (4, .cargo, .noCobbles): true          // cobbled destination in Brera
         case (5, .cargo, _): true                    // through the cobbled, pedestrian centre
         case (10, .cargo, .maxGrade6): true          // Città Alta is steep
+        case (10, .cargo, .noCobbles): true          // ... and cobbled (26 m left, with the 6% grade)
         case (10, .cargo, .bikeLanesOnly): true
         default: false
         }
     }
 
+    /// Metres of unpaved Road Best may keep. Trip 6: ≈ 300 m of compacted paths at Castello Sforzesco; the only
+    /// all-asphalt alternative is 10.7 km instead of 6.8 (DECISIONS 19 Oct).
+    static func roadUnpavedAllowance(trip: Int) -> Double { trip == 6 ? 350 : 200 }
+
     static func check(trip: Int, type: RideType, options o: RouteOptions) {
         let best = o.best.analysis, fastest = o.fastestAnalysis
         switch type {
         case .road:
-            #expect(best.meters(.unpaved) <= 200, "Road Best on unpaved: \(Int(best.meters(.unpaved))) m")
+            #expect(best.meters(.unpaved) <= GoldenExpectations.roadUnpavedAllowance(trip: trip),
+                    "Road Best on unpaved: \(Int(best.meters(.unpaved))) m")
         case .cargo:
             #expect(best.maxGrade <= 6 || best.edges.filter { $0.meters >= 30 }.allSatisfy { max($0.maxUpwardGrade, $0.maxDownwardGrade) <= 6 })
         case .gravel, .mtb:
@@ -164,7 +170,7 @@ enum GoldenReport {
             summary["unavoidable"] = remaining.map { "\($0.rule.title) \(Int($0.meters)) m" }
             if let c = closest {
                 features.append(line(c.analysis.shape, ["role": "closest"]))
-                summary["closestRounds"] = c.exclusions.count
+                summary["closestRounds"] = c.excludedPoints.count
                 summary["closestLengthM"] = Int(c.analysis.lengthM)
                 summary["closestGaps"] = c.analysis.hazards.filter { $0.type == .gap }.map { "\($0.detail) at \(Int($0.distanceAlong)) m (\($0.osm))" }
             }

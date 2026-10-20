@@ -51,7 +51,30 @@ struct AppStateTests {
         s.rules[.city] = [.bikeLanesOnly]
         let city = s.ruleSet(for: .city, litStreetsOnly: true)
         #expect(city.enabled == [.bikeLanesOnly])
-        #expect(city.active == [.bikeLanesOnly, .litStreetsOnly])
+        #expect(city.active == [.bikeLanesOnly, .noWalking, .litStreetsOnly])
+    }
+
+    @Test func oneWaysAreIgnoredUnlessRespected() throws {
+        var s = AppState()
+        let city = try RideProfile.load(.city)
+        let free = city.adjusted(for: s.ruleSet(for: .city))
+        #expect(free.best.costingOptions["ignore_oneways"] == .bool(true))
+        #expect(free.fastest.costingOptions["ignore_oneways"] == .bool(true))
+        s.respectOneways = true
+        let strict = city.adjusted(for: s.ruleSet(for: .city))
+        #expect(strict.best.costingOptions["ignore_oneways"] == nil)
+        #expect(strict.fastest.costingOptions["ignore_oneways"] == nil)
+    }
+
+    @Test func walkingStretchesAreACityRuleOffByDefault() {
+        var s = AppState()
+        #expect(s.ruleSet(for: .city).active.contains(.noWalking))
+        #expect(!s.ruleSet(for: .city).active.contains(.walkingStretches))
+        s.rules[.city] = RuleSet.defaults(for: .city).enabled.union([.walkingStretches])
+        #expect(!s.ruleSet(for: .city).active.contains(.noWalking))
+        #expect(s.ruleSet(for: .city, litStreetsOnly: true).active.last == .litStreetsOnly)
+        #expect(s.ruleSet(for: .road).active.contains(.noWalking))
+        #expect(RideType.road.ruleDefaults.contains { $0.0 == .bikeLanesOnly && !$0.1 })
     }
 
     @Test func photonResultsParse() throws {

@@ -111,6 +111,11 @@ struct HazardRecord: Equatable, Sendable {
 }
 
 /// A hazard found on a route, with where it starts along the route.
+struct SignalStop: Equatable, Sendable {
+    let distanceAlong: Double
+    let location: LatLon
+}
+
 struct RouteHazard: Equatable, Sendable {
     let type: HazardType
     let distanceAlong: Double
@@ -140,6 +145,10 @@ struct RouteAnalysis: Equatable, Sendable {
     var unlitPaths: Int = 0
     var unlitMeters: Double = 0
     var unlitEdges: [RouteEdge] = []
+    /// Edges on short pedestrian passages (walk stretches; ridden slowly).
+    var walkEdges: [RouteEdge] = []
+    /// Junctions with traffic lights, in order along the route (signal nodes within 40 m count once).
+    var signalStops: [SignalStop] = []
     /// Metres on paths (cycleway, path, footway, track) — park paths for the scenic types.
     var pathMeters: Double = 0
 
