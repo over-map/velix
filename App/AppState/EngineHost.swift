@@ -29,8 +29,11 @@ final class EngineHost {
         return try await task.value
     }
 
-    /// The engine Ferrostar navigates with (M6b Start).
-    var navigationEngine: ValhallaOnDeviceProvider? { engine }
+    /// The planner, once loaded (a ride starts from planned options, so it is): reroutes plan with it (M7).
+    var loadedPlanner: RoutePlanner? {
+        guard let engine, let hazards else { return nil }
+        return RoutePlanner(engine: engine, hazards: hazards)
+    }
 
     /// Drop the engine (after installing a new pack).
     func reset() {

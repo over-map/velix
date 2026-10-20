@@ -72,7 +72,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSLocationWhenInUseUsageDescription: "Velix uses your location to plan routes from where you are and to follow you while you ride. It never leaves your phone."
         NSLocationAlwaysAndWhenInUseUsageDescription: "Velix uses your location to plan routes from where you are and to follow you while you ride. It never leaves your phone."
-        UIBackgroundModes: [location]
+        UIBackgroundModes: [location, audio]   # audio: voice prompts with the screen locked (M7)
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: false
         UIAppFonts:

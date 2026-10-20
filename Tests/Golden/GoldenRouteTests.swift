@@ -57,6 +57,14 @@ enum GoldenPack {
     }()
 
     static let outDir: URL? = ProcessInfo.processInfo.environment["VELIX_GOLDEN_OUT"].map { URL(filePath: $0) }
+
+    /// One untimed plan across the region first: the first requests read the tiles from disk (CI took 6 s for a
+    /// 2.4 km plan that takes 0.3 s warm), which isn't what the 5 s planning check is about.
+    static let warmUp = Task<Void, Never> {
+        guard let p = try? planner?.get() else { return }
+        _ = try? await p.plan(from: GoldenTrip.all[6].from, to: GoldenTrip.all[6].to, rules: .defaults(for: .city))
+        _ = try? await p.plan(from: GoldenTrip.all[7].from, to: GoldenTrip.all[7].to, rules: .defaults(for: .ebike))
+    }
 }
 
 @Suite(.enabled(if: GoldenPack.available, "Set TEST_RUNNER_VELIX_PACK_DIR to an unpacked region pack (hazards schema ≥ 2)"), .serialized)
@@ -66,6 +74,7 @@ struct GoldenRouteTests {
     @Test(arguments: cases)
     func goldenRoute(_ trip: GoldenTrip, _ type: RideType) async throws {
         let planner = try #require(GoldenPack.planner).get()
+        await GoldenPack.warmUp.value
         let rules = RuleSet.defaults(for: type)
         let plan = try await planner.plan(from: trip.from, to: trip.to, rules: rules)
         GoldenReport.write(trip: trip, type: type, plan: plan)

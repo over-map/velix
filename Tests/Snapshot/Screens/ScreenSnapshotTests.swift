@@ -106,7 +106,7 @@ final class ScreenSnapshotTests: XCTestCase {
             a.litStreetsOnly = lit
             let m = RouteOptionsModel(destination: place, state: state)
             m.whyExpanded = why
-            return RouteOptionsView(app: a, model: m, onClose: {}, onStart: { _ in }, onEditRules: {}, plansOnAppear: false)
+            return RouteOptionsView(app: a, model: m, onClose: {}, onStart: { _, _ in }, onEditRules: {}, plansOnAppear: false)
         }
         check(s3(.options(AppSamples.options())), named: "S3a-bestFastest")
         check(s3(.options(AppSamples.options()), why: true), named: "S3b-why")

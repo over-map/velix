@@ -4,18 +4,20 @@ import FerrostarSwiftUI
 import MapLibreSwiftUI
 import SwiftUI
 
-/// Riding until M7 builds the P5 screen: Ferrostar's navigation view on the Velix map style.
+/// Riding until M7b builds the P5 screen: Ferrostar's navigation view on the Velix map style, with the app's voice
+/// modes behind its mute button.
 struct RidingView: View {
     @Bindable var session: RideSession
     let styleURL: URL
+    @State private var camera: MapViewCamera = .automotiveNavigation(zoom: 17)
 
     var body: some View {
         DynamicallyOrientingNavigationView(
             styleURL: styleURL,
-            camera: $session.camera,
+            camera: $camera,
             navigationState: session.navigationState,
-            isMuted: session.core?.spokenInstructionObserver.isMuted ?? false,
-            onTapMute: { session.core?.spokenInstructionObserver.toggleMute() },
+            isMuted: session.voice.mode == .mute,
+            onTapMute: { session.voice.cycle() },
             onTapExit: { session.end() }
         )
     }
