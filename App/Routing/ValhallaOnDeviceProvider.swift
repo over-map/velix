@@ -27,8 +27,8 @@ final class ValhallaOnDeviceProvider: RoutingProvider, @unchecked Sendable {
         valhalla = try Valhalla(configPath: try Self.writeConfig(tileExtract: tileExtract).path)
     }
 
-    /// The default valhalla-mobile config with the pack's tiles, and room for rule exclusions: RoutePlanner boxes out
-    /// every cobbled / tram-rail / step way near a trip (hundreds of small polygons, so a long total perimeter).
+    /// The default valhalla-mobile config with the pack's tiles, and room for the few polygons RoutePlanner still sends
+    /// (finishing round, fewer-lights boxes); rule rounds leave segments out by point (`exclude_locations`).
     /// The Valhalla inside valhalla-mobile 0.6.3 has no vertex limit (and rejects the `max_exclude_polygons_vertices` key).
     static func writeConfig(tileExtract: URL) throws -> URL {
         let config = try ValhallaConfig(tileExtractTar: tileExtract)
@@ -81,7 +81,7 @@ final class ValhallaOnDeviceProvider: RoutingProvider, @unchecked Sendable {
     /// Valhalla route request asking for OSRM output with banner and voice instructions,
     /// which is what Ferrostar's OSRM parser expects.
     static func requestJSON(from userLocation: UserLocation, waypoints: [Waypoint], profile: RoutingProfile,
-                            excludePolygons: [[[Double]]] = []) throws -> String {
+                            excludePolygons: [[[Double]]] = [], excludeLocations: [LatLon] = []) throws -> String {
         var start: [String: JSONValue] = [
             "lat": .number(userLocation.coordinates.lat),
             "lon": .number(userLocation.coordinates.lng),
@@ -114,6 +114,9 @@ final class ValhallaOnDeviceProvider: RoutingProvider, @unchecked Sendable {
         // Valhalla to its forward-only time-dependent A*, where the option applies everywhere.
         if profile.costingOptions["ignore_oneways"] == .bool(true) {
             fields["date_time"] = .object(["type": .number(0)])
+        }
+        if !excludeLocations.isEmpty {  // the segment nearest each point is not used
+            fields["exclude_locations"] = .array(excludeLocations.map { .object(["lat": .number($0.lat), "lon": .number($0.lon)]) })
         }
         if !excludePolygons.isEmpty {  // rings of [lon, lat]
             fields["exclude_polygons"] = .array(excludePolygons.map { .array($0.map { .array($0.map(JSONValue.number)) }) })

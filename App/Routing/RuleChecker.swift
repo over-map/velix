@@ -4,7 +4,8 @@ import Foundation
 struct RuleViolation: Equatable, Sendable {
     let rule: Rule
     let meters: Double
-    let exclusions: [[[Double]]]
+    /// One point per offending segment (its middle, or the barrier), for Valhalla `exclude_locations`.
+    let exclusions: [LatLon]
 }
 
 /// Checks a route against the active rules. Thresholds absorb data noise; logged in docs/DECISIONS.md.
@@ -56,17 +57,15 @@ enum RuleChecker {
             let lo = max(0, min(e.beginShapeIndex, a.shape.count - 1)), hi = max(lo, min(e.endShapeIndex, a.shape.count - 1))
             return Array(a.shape[lo ... hi])
         }
-        /// One box per edge, trimmed short of both ends so the streets crossing at its junctions stay usable
-        /// (Valhalla drops every edge touching a polygon), and few polygons (valhalla-mobile slows down with many).
+        /// One point per edge, at its middle: Valhalla `exclude_locations` drops just the segment nearest each point, so
+        /// the streets crossing at its junctions stay usable. ≈ 20× cheaper per item than `exclude_polygons` boxes
+        /// (40 boxes 1.5 s, 40 locations 65 ms on San Siro → Duomo, 20 Oct).
         func point(at d: Double, on p: [LatLon], along: [Double]) -> LatLon { RuleChecker.point(at: d, on: p, along: along) }
-        func boxes(_ edges: [RouteEdge], padding: Double) -> [[[Double]]] {
-            edges.compactMap { e -> [[Double]]? in
+        func midpoints(_ edges: [RouteEdge]) -> [LatLon] {
+            edges.compactMap { e -> LatLon? in
                 let p = points(e)
-                guard p.count > 1 else { return p.isEmpty ? nil : Geo.box(around: p, padding: padding) }
-                let len = Geo.length(p)
-                let trim = min(8, len / 4)
-                let inner = trimmed(p, from: trim, to: len - trim)
-                return inner.count > 1 ? Geo.box(around: inner, padding: padding) : nil
+                guard p.count > 1 else { return p.first }
+                return point(at: Geo.length(p) / 2, on: p, along: RouteAnalyzer.cumulative(p))
             }
         }
         let cobbleWays = Set(a.hazards.filter { $0.type == .cobbles }.map(\.osm))
@@ -81,26 +80,26 @@ enum RuleChecker {
             let rough = bad.filter { !mildWays.contains("w\($0.wayId)") }
             let m = bad.reduce(0) { $0 + $1.meters * (mildWays.contains("w\($1.wayId)") ? mildCobbleShare : 1) }
             return m > cobbleTolerance
-                ? RuleViolation(rule: rule, meters: m, exclusions: boxes(rough.isEmpty ? bad : rough, padding: 8)) : nil
+                ? RuleViolation(rule: rule, meters: m, exclusions: midpoints(rough.isEmpty ? bad : rough)) : nil
         case .neverAlongTramRails:
             let bad = a.edges.filter { alongWays.contains("w\($0.wayId)") && inside($0) }
             let m = a.hazards.filter { $0.type == .along && alongWays.contains($0.osm) }.reduce(0) { $0 + $1.lengthM }
             return m > alongTolerance && !bad.isEmpty
-                ? RuleViolation(rule: rule, meters: m, exclusions: boxes(bad, padding: 4)) : nil
+                ? RuleViolation(rule: rule, meters: m, exclusions: midpoints(bad)) : nil
         case .noStepsOrGaps:
             let stepWays = Set(a.hazards.filter { $0.type == .steps }.map(\.osm))
             let stepEdges = a.edges.filter { e in (e.use == "steps" || stepWays.contains("w\(e.wayId)")) && inside(e) }
             let gaps = a.hazards.filter { $0.type == .gap && isNarrowGap($0.detail) && $0.distanceAlong > endpointTolerance && $0.distanceAlong < total - endpointTolerance }
             guard !stepEdges.isEmpty || !gaps.isEmpty else { return nil }
-            // A barrier is a point: box just the barrier, so the way and its junctions stay usable around it.
-            let gapBoxes = gaps.map { g in Geo.box(around: [point(at: g.distanceAlong, on: a.shape, along: along)], padding: 3) }
+            // A barrier is a point: drop just the segment at the barrier.
+            let gapBoxes = gaps.map { g in point(at: g.distanceAlong, on: a.shape, along: along) }
             return RuleViolation(rule: rule, meters: stepEdges.reduce(0) { $0 + $1.meters } + Double(gaps.count),
-                                 exclusions: boxes(stepEdges, padding: 6) + gapBoxes)
+                                 exclusions: midpoints(stepEdges) + gapBoxes)
         case .pavedOnly:
             // Cobbles reach Valhalla as "dirt" (pack retag): they are paved, and the cobbles rule covers them.
             let bad = a.edges.filter { $0.unpaved && !cobbleWays.contains("w\($0.wayId)") && inside($0) }
             let m = bad.reduce(0) { $0 + $1.meters }
-            return m > unpavedTolerance ? RuleViolation(rule: rule, meters: m, exclusions: boxes(bad, padding: 4)) : nil
+            return m > unpavedTolerance ? RuleViolation(rule: rule, meters: m, exclusions: midpoints(bad)) : nil
         case .maxGrade6:
             // Sustained slopes from the smoothed profile (see ElevationProfile), up or down.
             let steep = a.profile.stretches(steeperThan: Double(maxGrade), climb: true, minLength: 300)
@@ -114,7 +113,7 @@ enum RuleChecker {
                 edgeStart = hi
             }
             let meters = steep.reduce(0) { $0 + $1.length }
-            return RuleViolation(rule: rule, meters: meters, exclusions: boxes(bad, padding: 4))
+            return RuleViolation(rule: rule, meters: meters, exclusions: midpoints(bad))
         case .bikeLanesOnly:
             var runs: [[RouteEdge]] = [], current: [RouteEdge] = []
             for e in a.edges {
@@ -125,17 +124,17 @@ enum RuleChecker {
             if !current.isEmpty { runs.append(current) }
             let long = runs.filter { $0.reduce(0) { $0 + $1.meters } > maxMixedRun }.flatMap { $0 }.filter(inside)
             return long.isEmpty ? nil : RuleViolation(rule: rule, meters: long.reduce(0) { $0 + $1.meters },
-                                                      exclusions: boxes(long, padding: 3))
+                                                      exclusions: midpoints(long))
         case .walkingStretches:
             return nil  // a permission, never broken
         case .noWalking:
             let bad = a.walkEdges.filter(inside)
             let m = bad.reduce(0) { $0 + $1.meters }
-            return m > 0 ? RuleViolation(rule: rule, meters: m, exclusions: boxes(bad, padding: 3)) : nil
+            return m > 0 ? RuleViolation(rule: rule, meters: m, exclusions: midpoints(bad)) : nil
         case .litStreetsOnly:
             // Unlit paths and roads tagged unlit, from the sidecar `ways` table (RouteAnalyzer).
             return a.unlitMeters > 0
-                ? RuleViolation(rule: rule, meters: a.unlitMeters, exclusions: boxes(a.unlitEdges.filter(inside), padding: 6))
+                ? RuleViolation(rule: rule, meters: a.unlitMeters, exclusions: midpoints(a.unlitEdges.filter(inside)))
                 : nil
         }
     }
@@ -169,10 +168,4 @@ enum RuleChecker {
         narrowBarriers.contains(detail) || detail.hasPrefix("maxwidth")
     }
 
-    /// Total perimeter of exclusion rings (Valhalla limits it; see ValhallaOnDeviceProvider).
-    static func perimeter(_ rings: [[[Double]]]) -> Double {
-        rings.reduce(0) { sum, ring in
-            sum + zip(ring, ring.dropFirst()).reduce(0) { $0 + Geo.distance(LatLon(lat: $1.0[1], lon: $1.0[0]), LatLon(lat: $1.1[1], lon: $1.1[0])) }
-        }
-    }
 }

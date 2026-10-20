@@ -170,7 +170,7 @@ enum GoldenReport {
             summary["unavoidable"] = remaining.map { "\($0.rule.title) \(Int($0.meters)) m" }
             if let c = closest {
                 features.append(line(c.analysis.shape, ["role": "closest"]))
-                summary["closestRounds"] = c.exclusions.count
+                summary["closestRounds"] = c.excludedPoints.count
                 summary["closestLengthM"] = Int(c.analysis.lengthM)
                 summary["closestGaps"] = c.analysis.hazards.filter { $0.type == .gap }.map { "\($0.detail) at \(Int($0.distanceAlong)) m (\($0.osm))" }
             }
