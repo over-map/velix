@@ -8,6 +8,8 @@ struct RouteTrack: Equatable, Sendable {
     var length: Double { along.last ?? 0 }
     /// Metres from the start to the rider (never goes back by more than `backtrack`).
     private(set) var position: Double = 0
+    /// How far the last fix was from the line.
+    private(set) var offset: Double = .infinity
 
     /// How far behind the last position a fix may be placed (a U-turn on the route, a GPS wobble).
     static let backtrack = 40.0
@@ -31,6 +33,7 @@ struct RouteTrack: Equatable, Sendable {
             // Prefer the nearest segment; on a tie (a loop), the one closer to the last position.
             if r.meters < (best?.d ?? .infinity) - 0.5 { best = (r.meters, a) }
         }
+        offset = best?.d ?? .infinity
         if let best, best.d <= Self.maxOffset { position = best.along }
     }
 
@@ -45,4 +48,8 @@ struct RouteTrack: Equatable, Sendable {
     }
 
     var remaining: Double { max(0, length - position) }
+
+    /// Where to draw the rider: on the line while near it (Ferrostar's snapping threshold), else the fix itself.
+    func rider(_ fix: LatLon) -> LatLon { offset <= Self.snapWithin ? point(at: position) : fix }
+    static let snapWithin = 30.0
 }

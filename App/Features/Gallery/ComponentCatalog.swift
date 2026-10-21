@@ -38,9 +38,11 @@ enum ComponentCatalog {
         e("MapButton", "active", width: nil) { MapButton(active: true) },
         e("RecenterButton", "free", width: nil) { RecenterButton() },
         e("RecenterButton", "following", width: nil) { RecenterButton(following: true) },
+        e("RecenterButton", "riding", width: nil) { RecenterButton(riding: true) },
         e("NoticeBanner", "weather") { NoticeBanner.weather("Storm warning until 18:00", "Strong wind and hail in Milan. Consider the train.", onDismiss: {}) },
         e("NoticeBanner", "litStreets") { NoticeBanner.litStreets() },
         e("NoticeBanner", "late") { NoticeBanner.late("Running late, switched to fastest", "You still make the 08:12. Adds 2 rail crossings.") },
+        e("NoticeBanner", "weakGPS") { NoticeBanner.weakGPS() },
         e("NoticeBanner", "missed") { NoticeBanner.missed("Missed the 08:12, now on the 08:27", "Arrival 09:41, 15 min later.") },
         e("NoticeBanner", "pill", width: nil) { NoticePill(text: "Storm until 18:00") },
         e("RouteCard", "best") { RouteCard(model: .sampleBest) },
@@ -71,6 +73,7 @@ enum ComponentCatalog {
                            roadType: .mix(.protected), roadTypeDistance: "600 m")
         },
         e("ManeuverBanner", "arrival", width: 405) { ManeuverBanner(maneuver: .arrive, distance: "80 m", street: "Politecnico, on the right") },
+        e("ManeuverBanner", "rerouting", width: 405) { RerouteBanner() },
         e("ManeuverBanner", "stageStrip", width: 405) {
             VStack(spacing: 6) {
                 StageStrip(stages: [.ride, .train, .ride], current: 0)
@@ -96,6 +99,7 @@ enum ComponentCatalog {
                 MapControlStack()
                 MapControlStack(voice: .alerts, view: .threeD)
                 MapControlStack(voice: .mute, view: .north)
+                MapControlStack(overview: true)
             }
         },
         e("NextHazardCard", "default", width: 405) { NextHazardCard(type: .tram, distance: "120 m") },
@@ -120,8 +124,9 @@ enum ComponentCatalog {
             HStack(spacing: 8) { AvoidedTag(reason: "Rails along lane"); AvoidedTag(reason: "Cobbles 300 m") }
         },
         e("EtaBar", "normal", width: 425) { EtaBar(state: .normal(arrival: "08:42", minutes: "11", km: "2.6")) },
-        e("EtaBar", "rerouting", width: 425) { EtaBar(state: .rerouting) },
-        e("EtaBar", "arriving", width: 425) { EtaBar(state: .arriving("Politecnico, on the right")) },
+        e("EtaBar", "rerouting", width: 425) { EtaBar(state: .rerouting(cannotFind: false)) },
+        e("EtaBar", "cannotFind", width: 425) { EtaBar(state: .rerouting(cannotFind: true)) },
+        e("EtaBar", "arriving", width: 425) { EtaBar(state: .arriving) },
         e("OnTrainCard", "onTheTrain", width: 405) {
             OnTrainCard(minutes: "6 min", station: "Monza", arrival: "08:28", nextStop: "Sesto S. Giovanni", thenStop: "Monza",
                         bikeCarriages: [true, true, false, false, false, false], note: "Bike space in the first 2 carriages · exit on the right")

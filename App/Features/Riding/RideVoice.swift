@@ -1,4 +1,5 @@
 import AVFoundation
+import Observation
 import CoreHaptics
 @preconcurrency import FerrostarCore
 import Foundation
@@ -25,10 +26,11 @@ enum VoiceMode: String, CaseIterable, Sendable {
 /// talk over each other, and an audio session the app owns: ducks music, keeps speaking with the screen locked
 /// (UIBackgroundModes audio).
 @MainActor
+@Observable
 final class RideVoice {
-    let synthesizer = AVSpeechSynthesizer()
+    @ObservationIgnored let synthesizer = AVSpeechSynthesizer()
     /// Handed to FerrostarCore; muted outside `VoiceMode.all`.
-    let turns: SpokenInstructionObserver
+    @ObservationIgnored let turns: SpokenInstructionObserver
     private(set) var mode: VoiceMode = .all
 
     init() {

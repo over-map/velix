@@ -29,11 +29,29 @@ struct MapButton: View {
     }
 }
 
-/// RecenterButton: locate (default) or following (accent arrow with ink outline).
+/// RecenterButton: locate (default) or following (accent arrow with ink outline). `riding` is the 60 pt S4j button
+/// with locate-fixed (P5: nothing smaller than 60 pt while riding).
 struct RecenterButton: View {
     var following = false
+    var riding = false
     var action: () -> Void = {}
     var body: some View {
+        if riding {
+            Button(action: action) {
+                VelixIconView(.locateFixed, size: 26)
+                    .frame(width: 60, height: 60)
+                    .foregroundStyle(Color.velix.ink)
+                    .background(Color.velix.surface, in: Circle())
+                    .velixElevation(VelixElevations.e1, in: Circle())
+            }
+            .buttonStyle(VelixPressStyle())
+            .accessibilityLabel("Recenter on your location")
+        } else {
+            mapButton
+        }
+    }
+
+    private var mapButton: some View {
         RoundMapButton(label: following ? "Following your position" : "Recenter on your location", action: action) {
             if following {
                 ZStack {
@@ -62,6 +80,6 @@ struct NavigationArrow: Shape {
 }
 
 #Preview {
-    HStack(spacing: 14) { MapButton(); MapButton(active: true); RecenterButton(); RecenterButton(following: true) }
+    HStack(spacing: 14) { MapButton(); MapButton(active: true); RecenterButton(); RecenterButton(following: true); RecenterButton(riding: true) }
         .padding().background(Color.velix.canvas)
 }

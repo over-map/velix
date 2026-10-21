@@ -21,6 +21,23 @@ enum Maneuver: String, Codable, Hashable, CaseIterable, Sendable {
         }
     }
 
+    /// VoiceOver phrase (P8 S4: "Turn left in 160 metres onto Via Nino Bixio").
+    var spoken: String {
+        switch self {
+        case .straight: "Go straight"
+        case .slightRight: "Bear right"
+        case .right: "Turn right"
+        case .sharpRight: "Turn sharp right"
+        case .slightLeft: "Bear left"
+        case .left: "Turn left"
+        case .sharpLeft: "Turn sharp left"
+        case .uTurn: "Make a U-turn"
+        case .roundabout: "Take the roundabout"
+        case .merge: "Merge"
+        case .arrive: "Arrive"
+        }
+    }
+
     /// Lucide has no slight / sharp left: the right-hand arrows mirrored.
     private var mirrored: Bool { self == .slightLeft || self == .sharpLeft }
 

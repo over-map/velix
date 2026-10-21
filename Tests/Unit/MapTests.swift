@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Testing
 @testable import Velix
 
@@ -67,5 +68,16 @@ struct MapTests {
         MapImages.avoidedTexts = ["a0": "Cobbles 300 m"]
         #expect(MapImages.image(named: "avoided-a0-day") != nil)
         #expect(MapImages.image(named: "nope-day") == nil)
+    }
+}
+
+struct OverviewFitTests {
+    @MainActor @Test func fitsTheRouteInsideThePadding() throws {
+        // 0.01° of longitude at the equator, 300 pt wide: 512 · 2^z · 0.01/360 = 300 → z ≈ 14.4.
+        let fit = try #require(VelixMap.Coordinator.fitting([LatLon(lat: 0, lon: 0), LatLon(lat: 0, lon: 0.01)],
+                                                           in: CGSize(width: 380, height: 800),
+                                                           padding: UIEdgeInsets(top: 250, left: 40, bottom: 120, right: 40)))
+        #expect(abs(fit.zoom - log2(300 * 360 / (0.01 * 512))) < 0.01)
+        #expect(abs(fit.center.lon - 0.005) < 1e-9 && abs(fit.center.lat) < 1e-9)
     }
 }

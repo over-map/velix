@@ -19,24 +19,16 @@ struct ManeuverBanner: View {
                     .background(Color.velix.accent, in: RoundedRectangle(cornerRadius: 18))
                 VStack(alignment: .leading, spacing: 4) {
                     Text(distance).velixType(.ridingBigNumber).lineLimit(1).minimumScaleFactor(0.7)
-                    Text(street).velixType(VelixType.ridingStreet.sized(24, lineHeight: 28)).lineLimit(2)
+                    Text(street).velixType(VelixType.ridingStreet.sized(24, lineHeight: 28)).lineLimit(1).truncationMode(.tail)
                 }
                 .foregroundStyle(Color.velix.ink)
                 Spacer(minLength: 0)
             }
             if then != nil || roadType != nil {
-                HStack(spacing: 8) {
-                    if let then {
-                        HStack(spacing: 6) {
-                            Text("Then")
-                            then.maneuver.icon(size: 20)
-                            Text(then.street).lineLimit(1)
-                        }
-                        .velixType(.ridingLabel)
-                        .foregroundStyle(Color.velix.ink2)
-                    }
-                    Spacer(minLength: 0)
-                    if let roadType { RoadTypePill(kind: roadType, distance: roadTypeDistance).layoutPriority(1) }
+                // P5: the row wraps at large text (the pill drops under "Then"), P8.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { thenRow; Spacer(minLength: 0); pill }
+                    VStack(alignment: .leading, spacing: 8) { thenRow; pill }
                 }
                 .padding(.top, 12)
                 .overlay(alignment: .top) { Rectangle().fill(Color.velix.line).frame(height: 1) }
@@ -46,7 +38,57 @@ struct ManeuverBanner: View {
         .background(Color.velix.surface, in: RoundedRectangle(cornerRadius: 24))
         .velixElevation(VelixElevations.e1, in: RoundedRectangle(cornerRadius: 24))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(maneuver.label) in \(distance), \(street)")
+        .accessibilityLabel(accessibilityText)
+    }
+
+    @ViewBuilder private var thenRow: some View {
+        if let then {
+            HStack(spacing: 6) {
+                Text("Then")
+                then.maneuver.icon(size: 20)
+                if !then.street.isEmpty { Text(then.street).lineLimit(1) }
+            }
+            .velixType(VelixType.ridingLabel.sized(17, lineHeight: 21))
+            .foregroundStyle(Color.velix.ink2)
+            .fixedSize()
+        }
+    }
+
+    @ViewBuilder private var pill: some View {
+        if let roadType { RoadTypePill(kind: roadType, distance: roadTypeDistance).fixedSize() }
+    }
+
+    /// P8: "Turn left in 160 metres onto Via Nino Bixio. Then turn right onto Piazza Adelaide. Quiet street."
+    private var accessibilityText: String {
+        let spokenDistance = distance.replacingOccurrences(of: " km", with: " kilometres").replacingOccurrences(of: " m", with: " metres")
+        var t = maneuver == .arrive ? "Arrive in \(spokenDistance), \(street)." : "\(maneuver.spoken) in \(spokenDistance) onto \(street)."
+        if let then { t += " Then \(then.maneuver.spoken.lowercased())\(then.street.isEmpty ? "" : " onto \(then.street)")." }
+        if case let .mix(c)? = roadType { t += " \(c.label)." }
+        return t
+    }
+}
+
+/// The banner while rerouting (P5 S4g): no turn, no sound, no red.
+struct RerouteBanner: View {
+    var body: some View {
+        HStack(spacing: 14) {
+            VelixIconView(.loader, size: 40)
+                .foregroundStyle(Color.velix.ink)
+                .frame(width: 72, height: 72)
+                .background(Color.velix.surface2, in: RoundedRectangle(cornerRadius: 18))
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Rerouting").velixType(VelixType.ridingStreet.sized(30, lineHeight: 32))
+                Text("Keep riding. Back to the calm route in a moment.").velixType(VelixType.ridingLabel.sized(17, lineHeight: 22))
+                    .foregroundStyle(Color.velix.ink2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .foregroundStyle(Color.velix.ink)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, CGFloat.velix.m).padding(.vertical, 14)
+        .background(Color.velix.surface, in: RoundedRectangle(cornerRadius: 24))
+        .velixElevation(VelixElevations.e1, in: RoundedRectangle(cornerRadius: 24))
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -100,6 +142,7 @@ struct StageStrip: View {
         ManeuverBanner(maneuver: .right, distance: "200 m", street: "Via Ampère", then: (.left, "Via Celoria"),
                        roadType: .mix(.protected), roadTypeDistance: "600 m")
         ManeuverBanner(maneuver: .arrive, distance: "80 m", street: "Politecnico, on the right")
+        RerouteBanner()
         StageStrip(stages: [.ride, .train, .ride], current: 0)
     }
     .padding().background(Color.velix.canvas)

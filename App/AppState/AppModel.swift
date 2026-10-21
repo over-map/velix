@@ -78,9 +78,10 @@ final class AppModel {
     }
 
     /// Tap 2: ride the chosen route.
-    func start(_ option: RouteOption, choice: RideChoice = .best, to place: Place) {
+    func start(_ option: RouteOption, choice: RideChoice = .best, avoided: [AvoidedRoad] = [], to place: Place) {
         let rules = state.ruleSet(for: state.rideType, litStreetsOnly: litStreetsOnly)
-        let session = RideSession(destination: place, option: option, rules: rules, choice: choice, planner: engine.loadedPlanner)
+        let session = RideSession(destination: place, option: option, avoided: avoided, rules: rules, choice: choice,
+                                  planner: engine.loadedPlanner)
         session.onEnd = { [weak self] _ in
             self?.ride = nil
             self?.litStreetsOnly = false     // "For the next ride only" (S8)

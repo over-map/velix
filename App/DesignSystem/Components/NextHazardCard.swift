@@ -14,10 +14,10 @@ struct NextHazardCard: View {
         HStack(spacing: compact ? 10 : 12) {
             VelixIconView(type.glyph, size: compact ? 24 : 34)
                 .foregroundStyle(approaching ? Color.velix.hazard : Color.velix.hazardInk)
-                .frame(width: compact ? 40 : 56, height: compact ? 40 : 56)
+                .frame(width: compact ? 40 : 60, height: compact ? 40 : 60)
                 .background(approaching ? Color.velix.hazardInk : Color.velix.hazard,
                             in: RoundedRectangle(cornerRadius: compact ? 10 : 14))
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: compact ? 0 : 2) {
                 Text(compact ? type.title : type.shortTitle)
                     .velixType(compact ? VelixType.headline.sized(15, lineHeight: 18) : VelixType.ridingStreet.sized(20, lineHeight: 23))
                     .foregroundStyle(approaching ? Color.velix.hazardInk : Color.velix.ink)
@@ -32,9 +32,15 @@ struct NextHazardCard: View {
         }
         .padding(compact ? EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8) : EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 16))
         .background(approaching ? Color.velix.hazard : Color.velix.surface, in: RoundedRectangle(cornerRadius: compact ? 14 : 20))
-        .velixElevation(approaching ? VelixElevations.e0 : VelixElevations.e1, in: RoundedRectangle(cornerRadius: compact ? 14 : 20))
+        // Approaching (P5 S4e): a 4 pt hazard-ink ring outside the card, and e2.
+        .overlay {
+            if approaching { RoundedRectangle(cornerRadius: (compact ? 14 : 20) + 4).strokeBorder(Color.velix.hazardInk, lineWidth: 4).padding(-4) }
+        }
+        .velixElevation(approaching ? VelixElevations.e2 : VelixElevations.e1, in: RoundedRectangle(cornerRadius: compact ? 14 : 20))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(type.title)\(distance.map { " in \($0)" } ?? ""). \(advice ?? type.advice)")
+        // P8 S4: "Tram rails in 160 metres. Cross straight, at a right angle." Approaching is an alert.
+        .accessibilityLabel("\(type.shortTitle)\(distance.map { " in \($0.replacingOccurrences(of: " m", with: " metres"))" } ?? ""). \(advice ?? type.advice)")
+        .accessibilityAddTraits(approaching ? .updatesFrequently : [])
     }
 }
 

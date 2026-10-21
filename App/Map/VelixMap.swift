@@ -7,6 +7,18 @@ struct MapCamera: Equatable {
     var zoom: Double
     var pitch: Double = 0
     var bearing: Double = 0
+    /// Where the centre sits, as a share of the map's height from the top (riding: the rider low on screen, P5).
+    var anchor: Double = 0.5
+}
+
+/// How ``VelixMap`` moves to a new camera.
+enum MapCameraMotion: Equatable {
+    /// The default flight (S1, S3).
+    case standard
+    /// A view change while riding: 450 ms (`viewMode` token); a cut with Reduce Motion.
+    case viewMode(reduceMotion: Bool)
+    /// Following the rider fix by fix: a linear glide over the fix interval, so the map doesn't jump.
+    case track
 }
 
 /// The Velix map: a P3 style from the region pack, the MapStyleSheet overlays and the route stack.
@@ -25,6 +37,7 @@ struct VelixMap: UIViewRepresentable {
     var insets = UIEdgeInsets.zero
     /// Fit these points above the sheets (S3 route options); overrides `camera` while set.
     var fit: [LatLon]?
+    var motion: MapCameraMotion = .standard
     /// The rider moved the map (S1b: the Recenter button appears).
     var onUserPan: () -> Void = {}
 
@@ -62,24 +75,85 @@ struct VelixMap: UIViewRepresentable {
         }
 
         func applyCamera(on map: MLNMapView, animated: Bool) {
+            // Timed motions (riding) glide or cut; the standard one keeps MapLibre's flight.
+            let motion = state?.motion ?? .standard
+            let duration = motion == .standard ? nil : animated ? Self.duration(motion) : 0
             if let pts = state?.fit, pts.count > 1 {
                 let lats = pts.map(\.lat), lons = pts.map(\.lon)
                 let bounds = MLNCoordinateBounds(sw: CLLocationCoordinate2D(latitude: lats.min()!, longitude: lons.min()!),
                                                  ne: CLLocationCoordinate2D(latitude: lats.max()!, longitude: lons.max()!))
                 let i = state?.insets ?? .zero
                 map.contentInset = .zero
-                map.setVisibleCoordinateBounds(bounds, edgePadding: UIEdgeInsets(top: i.top + 40, left: i.left + 40,
-                                                                                  bottom: i.bottom + 40, right: i.right + 40),
-                                               animated: animated, completionHandler: nil)
+                let padding = UIEdgeInsets(top: i.top + 40, left: i.left + 40, bottom: i.bottom + 40, right: i.right + 40)
+                guard let duration else {
+                    map.setVisibleCoordinateBounds(bounds, edgePadding: padding, animated: animated, completionHandler: nil)
+                    return
+                }
+                // North up and flat (S4d), at the view-change pace: the fit worked out here, the padding as content insets.
+                guard let fit = Self.fitting(pts, in: map.bounds.size, padding: padding) else { return }
+                map.contentInset = padding
+                let cam = MLNMapCamera(lookingAtCenter: CLLocationCoordinate2D(latitude: fit.center.lat, longitude: fit.center.lon),
+                                       altitude: Self.altitude(for: fit, from: map), pitch: 0, heading: 0)
+                map.setCamera(cam, withDuration: duration, animationTimingFunction: CAMediaTimingFunction(name: .easeInEaseOut))
                 return
             }
             guard let c = state?.camera else { return }
-            map.contentInset = state?.insets ?? .zero
-            map.setCenter(CLLocationCoordinate2D(latitude: c.center.lat, longitude: c.center.lon), zoomLevel: c.zoom,
-                          direction: c.bearing, animated: animated)
-            let cam = map.camera
-            cam.pitch = c.pitch
-            map.setCamera(cam, animated: animated)
+            map.contentInset = Self.insets(state?.insets ?? .zero, anchor: c.anchor, height: map.bounds.height)
+            guard let duration else {
+                map.setCenter(CLLocationCoordinate2D(latitude: c.center.lat, longitude: c.center.lon), zoomLevel: c.zoom,
+                              direction: c.bearing, animated: animated)
+                let cam = map.camera
+                cam.pitch = c.pitch
+                map.setCamera(cam, animated: animated)
+                return
+            }
+            let center = CLLocationCoordinate2D(latitude: c.center.lat, longitude: c.center.lon)
+            let cam = MLNMapCamera(lookingAtCenter: center, altitude: Self.altitude(for: c, from: map), pitch: c.pitch, heading: c.bearing)
+            let timing = state?.motion == .track ? CAMediaTimingFunction(name: .linear) : CAMediaTimingFunction(name: .easeInEaseOut)
+            map.setCamera(cam, withDuration: duration, animationTimingFunction: timing)
+        }
+
+        /// Timed motions; nil for MapLibre's default flight.
+        static func duration(_ motion: MapCameraMotion) -> TimeInterval? {
+            switch motion {
+            case .standard: nil
+            case let .viewMode(reduceMotion): reduceMotion ? 0 : VelixMotions.viewMode.durationMs / 1000
+            case .track: 1
+            }
+        }
+
+        /// The north-up camera that shows `points` inside `size` less `padding` (Web Mercator, 512 pt world at z0).
+        static func fitting(_ points: [LatLon], in size: CGSize, padding: UIEdgeInsets) -> MapCamera? {
+            let w = Double(size.width - padding.left - padding.right), h = Double(size.height - padding.top - padding.bottom)
+            guard w > 0, h > 0, !points.isEmpty else { return nil }
+            func x(_ lon: Double) -> Double { (lon + 180) / 360 }
+            func y(_ lat: Double) -> Double { let s = sin(lat * .pi / 180); return 0.5 - log((1 + s) / (1 - s)) / (4 * .pi) }
+            let xs = points.map { x($0.lon) }, ys = points.map { y($0.lat) }
+            let (x0, x1, y0, y1) = (xs.min()!, xs.max()!, ys.min()!, ys.max()!)
+            let span = max((x1 - x0) * 512 / w, (y1 - y0) * 512 / h, 512 / pow(2, 18) / 256)
+            let my = (y0 + y1) / 2
+            let lat = atan(sinh(.pi * (1 - 2 * my))) * 180 / .pi
+            return MapCamera(center: LatLon(lat: lat, lon: (x0 + x1) / 2 * 360 - 180), zoom: min(18, max(0, log2(1 / span))))
+        }
+
+        /// Content insets that put the centre at `anchor` of the height (the rest of the insets kept).
+        static func insets(_ base: UIEdgeInsets, anchor: Double, height: CGFloat) -> UIEdgeInsets {
+            guard anchor != 0.5, height > 0 else { return base }
+            var i = base
+            let shift = CGFloat(2 * anchor - 1) * height
+            if shift > 0 { i.top += shift } else { i.bottom -= shift }
+            return i
+        }
+
+        /// The eye altitude for a zoom, scaled from the current camera: MapLibre's altitude halves per zoom level and
+        /// goes with cos(pitch) and cos(latitude) (MLNAltitudeForZoomLevel).
+        static func altitude(for c: MapCamera, from map: MLNMapView) -> CLLocationDistance {
+            let now = map.camera
+            let rad = { (d: Double) in d * .pi / 180 }
+            let zoom = pow(2, map.zoomLevel - c.zoom)
+            let pitch = cos(rad(c.pitch)) / max(0.1, cos(rad(now.pitch)))
+            let lat = cos(rad(c.center.lat)) / max(0.1, cos(rad(now.centerCoordinate.latitude)))
+            return now.altitude * zoom * pitch * lat
         }
 
         nonisolated func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
