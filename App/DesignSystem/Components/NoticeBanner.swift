@@ -69,6 +69,11 @@ extension NoticeBanner {
     static func late(_ title: String, _ message: String) -> NoticeBanner {
         NoticeBanner(title: title, message: message, icon: VelixIconView(.clock, size: 22))
     }
+    /// S4h: the next hazard card steps aside for it.
+    static func weakGPS() -> NoticeBanner {
+        NoticeBanner(title: "GPS is weak", message: "Showing your last position. Distances may be off.",
+                     icon: VelixIconView(.satelliteDish, size: 24))
+    }
     static func missed(_ title: String, _ message: String) -> NoticeBanner {
         NoticeBanner(title: title, message: message, icon: VelixIconView(.train, size: 22))
     }

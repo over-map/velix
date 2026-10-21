@@ -1,24 +1,195 @@
-@preconcurrency import FerrostarCore
-import FerrostarMapLibreUI
-import FerrostarSwiftUI
-import MapLibreSwiftUI
 import SwiftUI
 
-/// Riding until M7b builds the P5 screen: Ferrostar's navigation view on the Velix map style, with the app's voice
-/// modes behind its mute button.
+/// S4 Riding (P5): the ride on the Velix map, following the rider, with the controls and the one-thing-at-a-time
+/// cards. Reads the ride from ``RideSession``; ``RidingScreen`` draws it (and the snapshot tests).
 struct RidingView: View {
     @Bindable var session: RideSession
-    let styleURL: URL
-    @State private var camera: MapViewCamera = .automotiveNavigation(zoom: 17)
+    @Bindable var app: AppModel
+    @State private var camera = RideCamera()
+    @State private var motion = MapCameraMotion.track
+    /// The camera while panned: held so the map stays where the rider put it.
+    @State private var held: MapCamera?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        DynamicallyOrientingNavigationView(
-            styleURL: styleURL,
-            camera: $camera,
-            navigationState: session.navigationState,
-            isMuted: session.voice.mode == .mute,
-            onTapMute: { session.voice.cycle() },
-            onTapExit: { session.end() }
-        )
+        let state = session.screen(chevron: camera.showsChevron)
+        RidingScreen(state: state, camera: camera, voice: session.voice.mode, mapStyle: MapStyleKind(app.mapStyle),
+                     bikeLanes: app.bikeLanes, transitLines: app.transitLines, target: target(state), motion: motion,
+                     onVoice: { session.voice.cycle() },
+                     onView: { change { camera.cycleView() } },
+                     onOverview: { change { camera.toggleOverview(at: Date()) } },
+                     onRecenter: { change { camera.recenter() } },
+                     onPan: { if !camera.isPanned { held = target(state) }; camera.userPanned(at: Date()) },
+                     onEnd: { session.end() })
+            .onChange(of: session.here) { motion = .track }
+            .task {
+                // Overview and pan go back to follow after 10 s (P5 S4d, S4j).
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(1))
+                    var next = camera
+                    if next.tick(at: Date()) { change { camera = next } }
+                }
+            }
+    }
+
+    /// A tap on a control: the camera moves at the view-change pace (a cut with Reduce Motion), then tracks again.
+    private func change(_ update: () -> Void) {
+        motion = .viewMode(reduceMotion: reduceMotion)
+        update()
+    }
+
+    private func target(_ state: RideScreenState) -> MapCamera {
+        if camera.isPanned, let held { return held }
+        guard let rider = state.rider else { return MapCamera(center: session.destination.location, zoom: 15) }
+        return camera.follow(at: rider, course: state.course)
+    }
+}
+
+/// The S4 screen for a ``RideScreenState`` (P5 frames: banner, control stack, hazard card or notice, ETA bar).
+struct RidingScreen: View {
+    let state: RideScreenState
+    let camera: RideCamera
+    let voice: VoiceMode
+    var mapStyle: MapStyleKind = .standard
+    var bikeLanes = false
+    var transitLines = false
+    var target: MapCamera?
+    var motion: MapCameraMotion = .track
+    var onVoice: () -> Void = {}
+    var onView: () -> Void = {}
+    var onOverview: () -> Void = {}
+    var onRecenter: () -> Void = {}
+    var onPan: () -> Void = {}
+    var onEnd: () -> Void = {}
+
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.liveMap) private var liveMap
+    @State private var confirmEnd = false
+
+    /// The overview fits the rest of the trip between the banner and the ETA bar (design/p4/maps.js rOver: 250 / 120,
+    /// plus 20 so the ends clear them; VelixMap adds 40 all round).
+    static let overviewInsets = UIEdgeInsets(top: 230, left: 0, bottom: 100, right: 0)
+    /// The weak-GPS halo around the rider (P5 S4h).
+    static let haloSize: CGFloat = 116
+
+    var body: some View {
+        ZStack {
+            map.ignoresSafeArea()
+            rider.ignoresSafeArea().allowsHitTesting(false)
+            VStack(spacing: 0) {
+                top
+                HStack(alignment: .top) {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        MapControlStack(voice: voice.control, view: camera.view, overview: camera.isOverview,
+                                        onVoice: onVoice, onView: onView, onOverview: onOverview)
+                        if camera.isPanned { RecenterButton(riding: true, action: onRecenter) }
+                    }
+                }
+                .padding(.top, 18)
+                Spacer(minLength: 0)
+                bottomCard.padding(.bottom, 4)
+            }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 108 - 34)     // the ETA bar's height above the home indicator
+            VStack {
+                Spacer()
+                EtaBar(state: state.eta) { confirmEnd = true }
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
+        .dynamicTypeSize(...DynamicTypeSize.velixRidingCap)
+        .confirmationDialog("End this ride?", isPresented: $confirmEnd, titleVisibility: .visible) {
+            Button("End ride", role: .destructive, action: onEnd)
+            Button("Keep riding", role: .cancel) {}
+        }
+    }
+
+    // MARK: Map
+
+    @ViewBuilder private var map: some View {
+        if liveMap, let target {
+            VelixMap(style: mapStyle, mode: scheme == .dark ? .night : .day, bikeLanes: bikeLanes, transitLines: transitLines,
+                     route: state.map, camera: target, insets: camera.isOverview ? Self.overviewInsets : .zero,
+                     fit: camera.isOverview && state.ahead.count > 1 ? state.ahead : nil, motion: motion, onUserPan: onPan)
+        } else {
+            Color.velix.surface2
+        }
+    }
+
+    /// The rider at the camera's anchor while following: the P3 chevron (2D, 3D) and the weak-GPS halo.
+    @ViewBuilder private var rider: some View {
+        if camera.isFollowing, let target {
+            GeometryReader { g in
+                ZStack {
+                    if state.weakGPS {
+                        Circle().fill(Color.velix.accent.opacity(0.16))
+                            .overlay { Circle().strokeBorder(Color.velix.casing.opacity(0.35), lineWidth: 2) }
+                            .frame(width: Self.haloSize, height: Self.haloSize)
+                    }
+                    if camera.showsChevron { RiderChevron() }
+                }
+                .position(x: g.size.width / 2, y: g.size.height * target.anchor)
+            }
+        }
+    }
+
+    // MARK: Cards
+
+    @ViewBuilder private var top: some View {
+        switch state.top {
+        case .rerouting:
+            RerouteBanner()
+        case let .turn(turn, pill, pillDistance):
+            ManeuverBanner(maneuver: turn.maneuver, distance: RideSession.distance(turn.meters), street: turn.street,
+                           then: turn.then.map { ($0.maneuver, $0.street) }, roadType: pill, roadTypeDistance: pillDistance)
+        }
+    }
+
+    /// One card above the ETA bar: the weak-GPS notice, else the next hazard (P5 S4h: the card steps aside); none in
+/// the overview.
+    @ViewBuilder private var bottomCard: some View {
+        if camera.isOverview {
+            EmptyView()     // S4d: the whole trip, every hazard on the map, no card
+        } else if state.weakGPS {
+            NoticeBanner.weakGPS()
+        } else if let h = state.hazard {
+            NextHazardCard(type: h.type, advice: h.advice, distance: h.distance, approaching: h.approaching)
+                .animation(VelixMotions.hazardApproach.animation, value: h.approaching)
+        }
+    }
+}
+
+/// The follow puck (P3 render.js `F.follow`): an accent chevron with a white halo and an ink outline, pointing up.
+struct RiderChevron: View {
+    var body: some View {
+        ZStack {
+            Ellipse().fill(Color.black.opacity(0.25)).frame(width: 34, height: 12).offset(y: 10)
+            ChevronShape().stroke(Color.white, style: StrokeStyle(lineWidth: 7, lineJoin: .round))
+            ChevronShape().stroke(Color.velix.casing, style: StrokeStyle(lineWidth: 3.5, lineJoin: .round))
+            ChevronShape().fill(Color.velix.accent)
+        }
+        .frame(width: 36, height: 40)
+        .offset(y: -4)          // P3's origin (the rider) is at y 0 of −24…16, 4 pt below the box's middle
+        .accessibilityHidden(true)
+    }
+
+    /// (0, −24) → (18, 16) → (0, 7) → (−18, 16), on a 36 × 40 box.
+    struct ChevronShape: Shape {
+        func path(in r: CGRect) -> Path {
+            var p = Path()
+            p.move(to: CGPoint(x: r.midX, y: r.minY))
+            p.addLine(to: CGPoint(x: r.maxX, y: r.maxY))
+            p.addLine(to: CGPoint(x: r.midX, y: r.minY + r.height * 31 / 40))
+            p.addLine(to: CGPoint(x: r.minX, y: r.maxY))
+            p.closeSubpath()
+            return p
+        }
+    }
+}
+
+extension VoiceMode {
+    var control: MapControlStack.Voice {
+        switch self { case .all: .all; case .alerts: .alerts; case .mute: .mute }
     }
 }

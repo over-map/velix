@@ -56,6 +56,37 @@ enum AppSamples {
                             unavoidable: [], rounds: 1, milliseconds: 420)
     }
 
+    // MARK: S4 riding (P5 copy, the Politecnico trip)
+
+    /// Porta Venezia → a turn 580 m on → Politecnico: quiet street, then a main road (P5 pill "Quiet · 160 m" at 420 m).
+    static func rideOption() -> RouteOption {
+        let turn = LatLon(lat: 45.4762, lon: 9.2121)
+        var a = RouteAnalysis(shape: [portaVenezia, turn, politecnico.location])
+        a.edges = [RouteEdge(wayId: 1, lengthKm: 0.58, roadClass: "residential", beginShapeIndex: 0, endShapeIndex: 1),
+                   RouteEdge(wayId: 2, lengthKm: 1.2, roadClass: "secondary", beginShapeIndex: 1, endShapeIndex: 2)]
+        a.lengthM = 1780
+        a.hazards = [RouteHazard(type: .tram, distanceAlong: 580, lengthM: 0, street: "P.za Adelaide di Savoia", detail: "", osm: "n3")]
+        return RouteOption(costing: RoutingProfile(costing: "bicycle", costingOptions: [:]), osrmJSON: "{}",
+                           seconds: 18 * 60, meters: 4400, analysis: a, exclusions: [])
+    }
+
+    /// The ride `position` metres in, at 08:24, with P5 S4a's turn (Via Nino Bixio, then P.za Adelaide).
+    static func ride(at position: Double = 420) -> RideScreenState.Ride {
+        let option = rideOption()
+        var track = RouteTrack(shape: option.analysis.shape)
+        track.update(track.point(at: position))
+        let tracker = HazardTracker(hazards: option.analysis.hazards)
+        let now = Calendar.current.date(bySettingHour: 8, minute: 24, second: 0, of: Date(timeIntervalSince1970: 1_791_000_000))!
+        return .init(turn: RideTurn(maneuver: .left, meters: 160, street: "Via Nino Bixio",
+                                    then: .init(maneuver: .right, street: "P.za Adelaide"), secondsLeft: 18 * 60, metersLeft: 4400),
+                     option: option, track: track, next: tracker.next(at: track.position),
+                     destination: Place(id: "poli", name: "Politecnico, on the left", subtitle: "", kind: .poi,
+                                        lat: politecnico.lat, lon: politecnico.lon),
+                     avoided: [AvoidedRoad(name: "Viale Piave", meters: 400, reason: "Rails along lane",
+                                           shape: [LatLon(lat: 45.4745, lon: 9.2090), LatLon(lat: 45.4720, lon: 9.2100)])],
+                     rider: track.point(at: track.position), heading: 75, now: now)
+    }
+
     static let storm = WeatherWarning(title: "Severe weather in Milan", message: "Thunderstorms until 18:00. Take care if you ride.",
                                       pill: "Storm until 18:00")
 }

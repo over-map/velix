@@ -15,8 +15,11 @@ final class PlannedRouteProvider: CustomRouteProvider, @unchecked Sendable {
     private let choice: RideChoice
     private let lock = NSLock()
     private var _lastOption: RouteOption?
+    private var _lastAvoided: [AvoidedRoad] = []
     /// The option behind the last route returned (its analysis drives hazards and the map).
     var lastOption: RouteOption? { lock.withLock { _lastOption } }
+    /// The roads the last Best route leaves out (S4f tags; none on a Fastest ride).
+    var lastAvoided: [AvoidedRoad] { lock.withLock { _lastAvoided } }
     /// Called when a reroute fails: Ferrostar swallows the error and keeps the current route.
     var onFailure: @Sendable () -> Void = {}
 
@@ -38,10 +41,11 @@ final class PlannedRouteProvider: CustomRouteProvider, @unchecked Sendable {
             guard let to = waypoints.last?.coordinate else { throw Failure.noDestination }
             let from = LatLon(lat: userLocation.coordinates.lat, lon: userLocation.coordinates.lng)
             let heading = userLocation.courseOverGround.map { Double($0.degrees) }
-            guard let option = Self.pick(try await plan(from, LatLon(lat: to.lat, lon: to.lng), heading), choice: choice)
-            else { throw Failure.noRoute }
+            let planned = try await plan(from, LatLon(lat: to.lat, lon: to.lng), heading)
+            guard let option = Self.pick(planned, choice: choice) else { throw Failure.noRoute }
             let route = try RideSession.route(from: option)
-            lock.withLock { _lastOption = option }
+            let avoided = if case let .options(o) = planned, choice == .best { o.avoided } else { [AvoidedRoad]() }
+            lock.withLock { _lastOption = option; _lastAvoided = avoided }
             return [route]
         } catch {
             onFailure()

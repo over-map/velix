@@ -25,6 +25,11 @@ final class RideSession {
     private(set) var track: RouteTrack
     private(set) var nextHazard: HazardTracker.Next?
     private(set) var gps: GPSQuality = .good
+    /// Roads Best leaves out (S4f: tagged near the rider).
+    private(set) var avoided: [AvoidedRoad]
+    /// The last accepted fix, and the course to point the map along (GPS course when moving, else the route's).
+    private(set) var here: LatLon?
+    private(set) var course: Double = 0
     private(set) var policy = ReroutePolicy()
     private(set) var ended = false
     /// Set when the ride ended at the destination (S6 opens), not by End.
@@ -53,9 +58,11 @@ final class RideSession {
     /// The Live Activity updates every this many metres (P5 L1 "Updates every 10 m"), or at once on a change.
     static let activityStep = 10.0
 
-    init(destination: Place, option: RouteOption, rules: RuleSet, choice: RideChoice, planner: RoutePlanner?) {
+    init(destination: Place, option: RouteOption, avoided: [AvoidedRoad] = [], rules: RuleSet, choice: RideChoice,
+         planner: RoutePlanner?) {
         self.destination = destination
         self.option = option
+        self.avoided = choice == .best ? avoided : []
         self.rules = rules
         self.choice = choice
         track = RouteTrack(shape: option.analysis.shape)
@@ -146,6 +153,8 @@ final class RideSession {
         log?.fix(fix)
         let here = LatLon(lat: fix.coordinate.latitude, lon: fix.coordinate.longitude)
         track.update(here)
+        self.here = here
+        course = Self.course(fix: fix, track: track)
         nextHazard = tracker.next(at: track.position, gps: gps)
         if let h = tracker.alert(at: track.position, gps: gps) {
             haptics.hazard()
@@ -158,6 +167,21 @@ final class RideSession {
             return
         }
         updateActivity()
+    }
+
+    /// Heading up: the GPS course while moving (≥ 2 m/s, like ``LocationService/travelHeading``), else the route's
+    /// direction at the rider, so the map doesn't spin at a light.
+    static func course(fix: CLLocation, track: RouteTrack) -> Double {
+        if fix.speed >= 2, fix.course >= 0 { return fix.course }
+        return Geo.bearing(track.point(at: track.position), track.point(at: track.position + 15))
+    }
+
+    /// What the S4 screen shows now.
+    func screen(chevron: Bool, now: Date = Date()) -> RideScreenState {
+        RideScreenState(.init(turn: RideTurn(navigationState), option: option, track: track, next: nextHazard, gps: gps,
+                              rerouting: isRerouting, cannotFindRoute: policy.cannotFindRoute, arriving: isArriving,
+                              destination: destination, avoided: avoided, rider: here.map { track.rider($0) },
+                              heading: course, chevron: chevron, now: now))
     }
 
     /// At the door: close to the destination after most of the route, or at the end of the route line.
@@ -195,7 +219,9 @@ final class RideSession {
         do {
             try core.startNavigation(route: route)
             option = planned
+            avoided = provider.lastAvoided
             track = RouteTrack(shape: planned.analysis.shape)
+            if let here { track.update(here) }
             tracker = HazardTracker(hazards: planned.analysis.hazards, alerted: tracker.alerted)
             policy.succeeded(at: Date())
             log?.event(.reroute("accepted"))
@@ -250,7 +276,7 @@ final class RideSession {
     }
 
     /// "200 m", "1.2 km" (rounded like the P5 ManeuverBanner).
-    static func distance(_ m: Double) -> String {
+    nonisolated static func distance(_ m: Double) -> String {
         m >= 1000 ? Format.km(m) : "\(Int((m / 10).rounded()) * 10) m"
     }
 }

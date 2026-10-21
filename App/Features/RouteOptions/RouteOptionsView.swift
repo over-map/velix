@@ -5,7 +5,7 @@ struct RouteOptionsView: View {
     @Bindable var app: AppModel
     @State var model: RouteOptionsModel
     var onClose: () -> Void
-    var onStart: (RouteOption, RideChoice) -> Void
+    var onStart: (RouteOption, RideChoice, [AvoidedRoad]) -> Void
     var onEditRules: () -> Void
     /// Plan when the screen appears (snapshot tests show a fixed state instead).
     var plansOnAppear = true
@@ -169,7 +169,7 @@ struct RouteOptionsView: View {
     private var start: some View {
         let ready = app.pack.isReady && model.chosen != nil
         return PrimaryButton(title: "Start", icon: .navigation, isEnabled: ready, casing: true) {
-            if let option = model.chosen { onStart(option, model.fastestSelected ? .fastest : .best) }
+            if let option = model.chosen { onStart(option, model.fastestSelected ? .fastest : .best, model.options?.avoided ?? []) }
         }
         .accessibilityLabel(ready ? "Start riding to \(model.destination.name)"
                                   : app.pack.isReady ? "Start, dimmed" : "Start, dimmed, routes start when the download is done")

@@ -60,7 +60,7 @@ struct RootView: View {
             if let place = app.destination {
                 RouteOptionsView(app: app, model: RouteOptionsModel(destination: place),
                                  onClose: { app.destination = nil },
-                                 onStart: { app.start($0, choice: $1, to: place) },
+                                 onStart: { app.start($0, choice: $1, avoided: $2, to: place) },
                                  onEditRules: { app.destination = nil; tab = .you })
                     .id(place.id + app.state.rideType.rawValue)
                     .transition(.move(edge: .bottom))
@@ -68,8 +68,7 @@ struct RootView: View {
         }
         .fullScreenCover(isPresented: Binding(get: { app.ride != nil }, set: { if !$0 { app.ride?.end() } })) {
             if let ride = app.ride {
-                RidingView(session: ride, styleURL: (try? VelixMapStyle.url(MapStyleKind(app.mapStyle), scheme == .dark ? .night : .day))
-                           ?? URL(fileURLWithPath: "/"))
+                RidingView(session: ride, app: app)
             }
         }
     }

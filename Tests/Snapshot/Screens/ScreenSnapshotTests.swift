@@ -106,7 +106,7 @@ final class ScreenSnapshotTests: XCTestCase {
             a.litStreetsOnly = lit
             let m = RouteOptionsModel(destination: place, state: state)
             m.whyExpanded = why
-            return RouteOptionsView(app: a, model: m, onClose: {}, onStart: { _, _ in }, onEditRules: {}, plansOnAppear: false)
+            return RouteOptionsView(app: a, model: m, onClose: {}, onStart: { _, _, _ in }, onEditRules: {}, plansOnAppear: false)
         }
         check(s3(.options(AppSamples.options())), named: "S3a-bestFastest")
         check(s3(.options(AppSamples.options()), why: true), named: "S3b-why")
@@ -119,6 +119,42 @@ final class ScreenSnapshotTests: XCTestCase {
         check(s3(.options(AppSamples.options(rideType: .cargo)), rideType: .cargo), named: "S3i-cargo")
         let mb = Int64(1_000_000)
         check(s3(.options(AppSamples.options()), pack: .downloading(received: 132 * mb, total: 220 * mb)), named: "S3-downloading")
+    }
+
+    // MARK: S4 Riding
+
+    func testS4Riding() {
+        func s4(_ name: String, at position: Double = 420, camera: RideCamera = RideCamera(),
+                _ edit: (inout RideScreenState.Ride) -> Void = { _ in }) {
+            var r = AppSamples.ride(at: position)
+            edit(&r)
+            r.chevron = camera.showsChevron
+            let state = RideScreenState(r)
+            let target = state.rider.map { camera.follow(at: $0, course: state.course) }
+            check(RidingScreen(state: state, camera: camera, voice: .all, target: target), named: name, testName: "testS4Riding")
+        }
+        var threeD = RideCamera(); threeD.cycleView()
+        var north = threeD; north.cycleView()
+        var overview = RideCamera(); overview.toggleOverview(at: Date())
+        var panned = north; panned.userPanned(at: Date())
+
+        s4("S4a-2d")
+        s4("S4b-3d", camera: threeD)
+        s4("S4c-north", camera: north)
+        s4("S4d-overview", camera: overview)
+        s4("S4e-approaching", at: 545) { $0.turn?.meters = 40 }
+        s4("S4f-avoided", at: 510) {
+            $0.turn = RideTurn(maneuver: .left, meters: 50, street: "Via Paolo Mascagni", then: .init(maneuver: .right, street: "Via Sirtori"),
+                               secondsLeft: 18 * 60, metersLeft: 4400)
+        }
+        s4("S4g-rerouting") { $0.rerouting = true }
+        s4("S4h-weakGPS", at: 1100) {
+            $0.gps = .weak
+            $0.turn = RideTurn(maneuver: .slightRight, meters: 120, street: "Piazza Ascoli", then: .init(maneuver: .slightRight, street: "Via Pascoli"),
+                               secondsLeft: 12 * 60, metersLeft: 2900)
+        }
+        s4("S4i-arriving", at: 1740) { $0.arriving = true }
+        s4("S4j-panned", camera: panned)
     }
 
     // MARK: S8 You

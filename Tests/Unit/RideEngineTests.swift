@@ -231,3 +231,96 @@ struct PlannedRouteProviderTests {
         #expect(flag.set)
     }
 }
+
+struct RideCameraTests {
+    private let t0 = Date(timeIntervalSince1970: 1_000_000)
+    private func at(_ s: TimeInterval) -> Date { t0.addingTimeInterval(s) }
+
+    @Test func viewCyclesAndSetsTheFollowCamera() {
+        var c = RideCamera()
+        let here = LatLon(lat: 45.47, lon: 9.2)
+        #expect(c.follow(at: here, course: 90) == MapCamera(center: here, zoom: 16.6, bearing: 90, anchor: 0.62))
+        c.cycleView()
+        #expect(c.view == .threeD)
+        #expect(c.follow(at: here, course: 90).pitch == 50)
+        c.cycleView()
+        #expect(c.view == .north)
+        #expect(c.follow(at: here, course: 90).bearing == 0)
+        #expect(!c.showsChevron)                       // North up: the map puck rotates instead
+        c.cycleView()
+        #expect(c.view == .twoD && c.showsChevron)
+    }
+
+    @Test func overviewGoesBackToFollowAfterTenSecondsOrASecondTap() {
+        var c = RideCamera()
+        c.toggleOverview(at: at(0))
+        #expect(c.isOverview && !c.isFollowing)
+        let early = c.tick(at: at(9))
+        #expect(!early)
+        let due = c.tick(at: at(10))
+        #expect(due)
+        #expect(c.isFollowing)
+        c.toggleOverview(at: at(20))
+        c.toggleOverview(at: at(21))
+        #expect(c.isFollowing)
+    }
+
+    @Test func aPanPausesFollowUntilRecenterOrTenSeconds() {
+        var c = RideCamera()
+        c.cycleView()                                   // 3D
+        c.userPanned(at: at(0))
+        #expect(c.isPanned && !c.showsChevron)
+        c.cycleView()                                   // the view control while panned only resumes
+        #expect(c.isFollowing && c.view == .threeD)
+        c.userPanned(at: at(5))
+        let resumed = c.tick(at: at(15))
+        #expect(resumed)
+        #expect(c.isFollowing)
+        c.userPanned(at: at(20))
+        c.recenter()
+        #expect(c.isFollowing)
+    }
+}
+
+struct RideScreenStateTests {
+    private func h(_ type: HazardType, _ at: Double, length: Double = 0) -> RouteHazard {
+        RouteHazard(type: type, distanceAlong: at, lengthM: length, street: nil, detail: "", osm: "w1")
+    }
+
+    @Test func hazardsBehindTheRiderAreDropped() {
+        let ahead = RideScreenState.hazardsAhead([h(.tram, 100), h(.cobbles, 150, length: 200), h(.steps, 600)], from: 200)
+        #expect(ahead.map(\.type) == [.cobbles, .steps])
+        #expect(ahead[0].distanceAlong == 0 && ahead[0].lengthM == 150)   // the cobbles still under the wheels
+        #expect(ahead[1].distanceAlong == 400)
+        // Just passed (within 4 m) stays a moment longer.
+        #expect(RideScreenState.hazardsAhead([h(.tram, 198)], from: 200).count == 1)
+    }
+
+    @Test func avoidedRoadsShowOnlyNearTheRider() {
+        let piave = AvoidedRoad(name: "Viale Piave", meters: 400, reason: "Rails along lane",
+                                shape: [LatLon(lat: 45.4740, lon: 9.2050), LatLon(lat: 45.4700, lon: 9.2060)])
+        let near = RideScreenState.avoidedNear(LatLon(lat: 45.4720, lon: 9.2080), [piave])       // ≈ 160 m from the line
+        #expect(near.map(\.reason) == ["Skipping Viale Piave: rails"])
+        #expect(RideScreenState.avoidedNear(LatLon(lat: 45.4800, lon: 9.2200), [piave]).isEmpty)   // ≈ 1.4 km
+        #expect(AvoidedRoad(name: "Steps", meters: 120, reason: "Steps", shape: []).ridingTag == "Skipping steps")
+    }
+
+    @Test func thePillShowsWhatIsUnderTheWheelsAndForHowLong() {
+        let shape = [LatLon(lat: 45.47, lon: 9.20), LatLon(lat: 45.47, lon: 9.2064), LatLon(lat: 45.47, lon: 9.2128)]
+        var a = RouteAnalysis(shape: shape)
+        a.edges = [RouteEdge(wayId: 1, lengthKm: 0.25, roadClass: "residential", beginShapeIndex: 0, endShapeIndex: 1),
+                   RouteEdge(wayId: 2, lengthKm: 0.25, roadClass: "secondary", beginShapeIndex: 1, endShapeIndex: 2)]
+        let run = RideScreenState.roadType(a, at: 340)
+        #expect(run?.category == .quiet)
+        #expect(abs((run?.meters ?? 0) - 160) < 5)
+        #expect(RideScreenState.roadType(a, at: 600)?.category == .mixed)
+    }
+}
+
+struct RideTurnTests {
+    @Test func unnamedWaysShowNoStreet() {
+        #expect(RideTurn.street("Turn right.") == nil)
+        #expect(RideTurn.street("Viale Giovanni Brahms") == "Viale Giovanni Brahms")
+        #expect(RideTurn.street(" ") == nil)
+    }
+}
