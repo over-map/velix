@@ -16,7 +16,9 @@ struct MapRouteModel: Equatable, Sendable {
     var endName: String?
     var puck: LatLon?
     var heading: Double = 0
-    /// Riding: the share of Best already ridden, faded out on the map (a line-gradient; the line itself stays whole).
+    /// Riding: the stretch of Best around the rider (drawn after `best`, which then holds the rest), and the share of it
+    /// already ridden, faded out on the map (a line-gradient).
+    var near: [LatLon]?
     var travelled: Double?
 
     /// Marker collision priority (docs/DECISIONS.md, 15 Oct): lower draws first and wins.
@@ -65,6 +67,7 @@ struct MapRouteModel: Equatable, Sendable {
         for a in avoided { f.append(line(a.shape, ["role": "avoided"])) }
         for alt in alternatives { f.append(line(alt, ["role": "alt"])) }
         if best.count > 1 { f.append(line(best, ["role": "best"])) }
+        if let near, near.count > 1 { f.append(line(near, ["role": "best-near"])) }
         for t in tubes { f.append(line(t, ["role": "tube"])) }
         return collection(f)
     }

@@ -131,12 +131,23 @@ struct RideScreenState: Equatable {
         var map = MapRouteModel(best: full, avoided: Self.avoidedNear(r.rider, r.avoided),
                                 hazards: Self.hazardsAhead(r.option.analysis.hazards, from: r.track.position),
                                 endName: r.destination.name)
-        // The line stays whole (no upload per fix); its ridden part fades at the rider.
-        map.travelled = r.track.length > 0 ? r.track.position / r.track.length : nil
+        // Best stays put between re-cuts every 200 m; the near stretch around the rider fades its ridden part at the
+        // rider (a paint change per fix, no upload).
+        let w = Self.nearWindow(r.track)
+        map.best = w.length < r.track.length - w.start ? RuleChecker.trimmed(full, from: w.start + w.length, to: r.track.length) : []
+        map.near = RuleChecker.trimmed(full, from: w.start, to: min(r.track.length, w.start + w.length))
+        map.travelled = min(1, max(0, (r.track.position - w.start) / max(1, min(w.length, r.track.length - w.start))))
         map.start = nil
         map.end = r.destination.location
         if !r.chevron, let rider = r.rider { map.puck = rider; map.heading = r.heading }
         self.map = map
+    }
+
+    /// The near stretch: from the last 200 m mark behind the rider, 400 m long (MapLibre's 256-step gradient ramp
+    /// then cuts within ≈ 1.6 m, under the chevron).
+    static let nearStep = 200.0
+    static func nearWindow(_ track: RouteTrack) -> (start: Double, length: Double) {
+        ((track.position / nearStep).rounded(.down) * nearStep, 2 * nearStep)
     }
 
     /// The route's hazards not yet passed (until 4 m beyond their end), measured along the whole route.

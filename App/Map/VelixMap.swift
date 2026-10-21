@@ -228,8 +228,8 @@ struct VelixMap: UIViewRepresentable {
         private var link: CADisplayLink?
         private weak var map: MLNMapView?
 
-        /// Fades the ridden part of Best: a step on line-progress, clear before the rider and the layer's own colour
-        /// after. A paint change only, so it follows the rider without re-uploading the route. While tracking it glides
+        /// Fades the ridden part of Best's near stretch: a step on line-progress, clear before the rider and the layer's
+        /// own colour after. A paint change only, so it follows the rider without re-uploading the route. While tracking it glides
         /// to each new fix over the camera's 1 s, so the cut stays under the chevron instead of running ahead of it.
         private func setTravelled(_ share: Double?, in map: MLNMapView) {
             guard share != travelled else { return }
@@ -259,7 +259,7 @@ struct VelixMap: UIViewRepresentable {
         private func drawTravelled(_ share: Double?) {
             shown = share
             guard let style = map?.style else { return }
-            for id in ["route-best-halo", "route-best-casing", "route-best"] {
+            for id in ["route-best-near-halo", "route-best-near-casing", "route-best-near"] {
                 guard let layer = style.layer(withIdentifier: id) as? MLNLineStyleLayer else { continue }
                 guard let share, let color = layer.lineColor.constantValue as? UIColor else { layer.lineGradient = nil; continue }
                 let at = NSNumber(value: min(max(share, 0.0001), 0.9999))

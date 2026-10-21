@@ -295,10 +295,13 @@ struct RideScreenStateTests {
         #expect(RideScreenState.hazardsAhead([h(.tram, 198)], from: 200).count == 1)
     }
 
-    @MainActor @Test func theRouteStaysWholeAndFadesBehindTheRider() {
+    @MainActor @Test func theStretchNearTheRiderFadesBehindIt() {
         let state = RideScreenState(AppSamples.ride(at: 420))
-        #expect(state.map.best == AppSamples.rideOption().analysis.shape)    // no upload per fix
-        #expect(abs((state.map.travelled ?? 0) - 420 / 1780) < 0.01)
+        #expect(abs(Geo.length(state.map.near ?? []) - 400) < 1)           // 400 → 800 m: re-cut every 200 m only
+        let length = Geo.length(AppSamples.rideOption().analysis.shape)
+        #expect(abs(Geo.length(state.map.best) - (length - 800)) < 1)       // the rest, to the end
+        #expect(abs((state.map.travelled ?? 0) - 20 / 400) < 0.01)
+        #expect(RideScreenState(AppSamples.ride(at: 590)).map.near == state.map.near)
     }
 
     @Test func avoidedRoadsShowOnlyNearTheRider() {

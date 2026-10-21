@@ -244,9 +244,15 @@ function style(name, mode) {
   halo('route-alt-halo', role('alt'), (z) => interp(W.routeCase, z) + 3);
   route('route-alt-casing', 'line', { filter: role('alt'), layout: lineLayout, paint: { 'line-color': T.altCase, 'line-width': w('routeCase') } });
   route('route-alt', 'line', { filter: role('alt'), layout: lineLayout, paint: { 'line-color': T.routeAlt, 'line-width': w('route') } });
+  // While riding, Best is split: the stretch around the rider ('best-near', ≈ 400 m) carries the ridden-part fade (a
+  // line-gradient set at runtime: its 256-step ramp is fine enough only on a short line), the rest stays 'best'.
+  // Casings first, so the two pieces join without a casing cap across the line.
   halo('route-best-halo', role('best'), (z) => interp(W.routeCase, z) + 3);
+  halo('route-best-near-halo', role('best-near'), (z) => interp(W.routeCase, z) + 3);
   route('route-best-casing', 'line', { filter: role('best'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': w('routeCase') } });
+  route('route-best-near-casing', 'line', { filter: role('best-near'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': w('routeCase') } });
   route('route-best', 'line', { filter: role('best'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': w('route') } });
+  route('route-best-near', 'line', { filter: role('best-near'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': w('route') } });
   // Train leg drawn as a route with ink ties; metro leg: casing, white core, dashed line colour.
   route('leg-train-casing', 'line', { filter: role('leg-train'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': w('routeCase') } });
   route('leg-train', 'line', { filter: role('leg-train'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': w('route') } });
