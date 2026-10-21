@@ -388,3 +388,26 @@ struct RideActivityContentTests {
         }
     }
 }
+
+@MainActor
+struct LockScreenWakeTests {
+    private let tram = HazardTracker.Next(index: 0, hazard: RouteHazard(type: .tram, distanceAlong: 0, lengthM: 0, street: nil, detail: "", osm: "n1"),
+                                          distance: 35, approaching: true)
+
+    @Test func aCloseHazardWakesTheScreenFirst() {
+        var s = RideActivityAttributes.ContentState.sample
+        RideSession.addHazard(tram, to: &s)
+        let w = RideSession.wake(s, hazard: tram, toTurn: 40, step: 7)
+        #expect(w?.key == "hazard-tram-n1")
+        #expect(w?.title == "Tram rails" && w?.body == "Cross straight · 40 m")   // distances round to 10 m
+    }
+
+    @Test func aTurnWakesItWithin100MetresButStraightOnDoesNot() {
+        var s = RideActivityAttributes.ContentState.sample           // left, "160 m", Via Nino Bixio
+        #expect(RideSession.wake(s, hazard: nil, toTurn: 160, step: 7) == nil)
+        s.distance = "100 m"
+        #expect(RideSession.wake(s, hazard: nil, toTurn: 100, step: 7)?.title == "Turn left in 100 m")
+        s.maneuver = .straight
+        #expect(RideSession.wake(s, hazard: nil, toTurn: 80, step: 7) == nil)
+    }
+}

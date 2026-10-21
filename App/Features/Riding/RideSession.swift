@@ -50,6 +50,8 @@ final class RideSession {
     private var activity: Activity<RideActivityAttributes>?
     private var lastActivityPosition = -Double.infinity
     private var lastActivityKey = ""
+    /// Wakes already sent (a hazard or a turn lights the screen once).
+    private var alertedWakes = Set<String>()
 
     /// Within this of the destination the screen shows "Arriving" (S4i).
     static let arrivingWithin = 150.0
@@ -255,13 +257,46 @@ final class RideSession {
         if let n = nextHazard {
             Self.addHazard(n, to: &state)
         }
+        // With the phone locked the screen goes dark after a few seconds: light it up for a close hazard and a turn
+        // coming (the alert carries a silent sound; the voice and the haptic already speak).
+        let wake = UIApplication.shared.applicationState == .active ? nil
+            : Self.wake(state, hazard: nextHazard, toTurn: nav.currentProgress?.distanceToNextManeuver, step: nav.remainingSteps?.count)
+        let alert = wake.flatMap { alertedWakes.contains($0.key) ? nil : $0 }
+        if let alert { alertedWakes.insert(alert.key) }
         let key = "\(state.maneuver)|\(state.street)|\(state.hazard?.title ?? "")|\(state.nextHazard?.glyph.rawValue ?? "")"
-        guard key != lastActivityKey || abs(track.position - lastActivityPosition) >= Self.activityStep else { return }
+        guard alert != nil || key != lastActivityKey || abs(track.position - lastActivityPosition) >= Self.activityStep else { return }
         lastActivityKey = key
         lastActivityPosition = track.position
-        Task {
-            for a in Activity<RideActivityAttributes>.activities { await a.update(.init(state: state, staleDate: nil)) }
+        let config = alert.map {
+            AlertConfiguration(title: LocalizedStringResource(stringLiteral: $0.title), body: LocalizedStringResource(stringLiteral: $0.body),
+                               sound: .named(Self.silentSound))
         }
+        Task {
+            for a in Activity<RideActivityAttributes>.activities {
+                await a.update(.init(state: state, staleDate: nil), alertConfiguration: config)
+            }
+        }
+    }
+
+    /// A reason to light up the locked screen, once each.
+    struct Wake: Equatable {
+        var key: String
+        var title: String
+        var body: String
+    }
+
+    static let silentSound = "velix-silent.caf"
+    /// A turn wakes the screen this far before it (P8: turns re-announced at 100 m).
+    static let wakeBeforeTurn = 100.0
+
+    /// A hazard under 50 m (P5 L2), else a turn within 100 m; not "straight on".
+    static func wake(_ state: RideActivityAttributes.ContentState, hazard: HazardTracker.Next?, toTurn: Double?, step: Int?) -> Wake? {
+        if let h = state.hazard, let n = hazard {
+            return Wake(key: "hazard-\(HazardTracker.key(n.hazard))", title: h.title, body: "\(h.advice) · \(h.distance)")
+        }
+        guard let d = toTurn, d <= wakeBeforeTurn, state.maneuver != .straight, let step else { return nil }
+        let title = state.maneuver == .arrive ? "Arriving" : "\(state.maneuver.spoken) in \(state.distance)"
+        return Wake(key: "turn-\(step)-\(state.street)", title: title, body: state.street)
     }
 
     /// Close: the hazard leads (L2, D2, D5). Further: the footer line (L1, D4 "Tram rails in 160 m").

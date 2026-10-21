@@ -38,6 +38,8 @@ struct VelixMap: UIViewRepresentable {
     /// Fit these points above the sheets (S3 route options); overrides `camera` while set.
     var fit: [LatLon]?
     var motion: MapCameraMotion = .standard
+    /// Riding: coarser tiles far from the camera in the pitched 3D view (see ``Coordinator/applyDetail(on:)``).
+    var riding = false
     /// The rider moved the map (S1b: the Recenter button appears).
     var onUserPan: () -> Void = {}
 
@@ -50,6 +52,7 @@ struct VelixMap: UIViewRepresentable {
         map.compassView.isHidden = true
         map.attributionButton.isHidden = !showsAttribution
         context.coordinator.state = self
+        context.coordinator.applyDetail(on: map)
         context.coordinator.loadStyle(on: map)
         context.coordinator.applyCamera(on: map, animated: false)
         return map
@@ -59,6 +62,7 @@ struct VelixMap: UIViewRepresentable {
         let c = context.coordinator
         let old = c.state
         c.state = self
+        if old?.riding != riding { c.applyDetail(on: map) }
         if old?.style != style || old?.mode != mode { c.loadStyle(on: map) } else { c.applyStyleState(on: map) }
         if old?.camera != camera || old?.insets != insets || old?.fit != fit { c.applyCamera(on: map, animated: old != nil) }
     }
@@ -74,6 +78,15 @@ struct VelixMap: UIViewRepresentable {
             styleKey = nil
             shapes = [:]
             do { map.styleURL = try VelixMapStyle.url(s.style, s.mode) } catch { print("VelixMap: \(error)") }
+        }
+
+        /// Riding: tiles far from the camera at lower zooms once pitched beyond 30°, and sooner (scale 1.5). MapLibre's
+        /// own threshold is above the 50° 3D view, so it loaded and drew full-detail tiles out to the horizon (most of
+        /// them under the banner), which dropped frames on the iPhone 11 at the start and after unlocking.
+        func applyDetail(on map: MLNMapView) {
+            guard state?.riding == true else { return }
+            map.tileLodPitchThreshold = 30 * .pi / 180
+            map.tileLodScale = 1.5
         }
 
         func applyCamera(on map: MLNMapView, animated: Bool) {

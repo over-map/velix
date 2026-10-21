@@ -111,7 +111,8 @@ struct RidingScreen: View {
         if liveMap, let target {
             VelixMap(style: mapStyle, mode: scheme == .dark ? .night : .day, bikeLanes: bikeLanes, transitLines: transitLines,
                      route: state.map, camera: target, insets: camera.isOverview ? Self.overviewInsets : .zero,
-                     fit: camera.isOverview && state.ahead.count > 1 ? state.ahead : nil, motion: motion, onUserPan: onPan)
+                     fit: camera.isOverview && state.ahead.count > 1 ? state.ahead : nil, motion: motion,
+                     riding: true, onUserPan: onPan)
         } else {
             Color.velix.surface2
         }
