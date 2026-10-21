@@ -36,13 +36,6 @@
    },
    "lineMetrics": true
   },
-  "velix-arrows": {
-   "type": "geojson",
-   "data": {
-    "type": "FeatureCollection",
-    "features": []
-   }
-  },
   "velix-hazards": {
    "type": "geojson",
    "data": {
@@ -7829,20 +7822,6 @@
      20,
      20
     ]
-   }
-  },
-  {
-   "id": "route-arrows",
-   "type": "symbol",
-   "source": "velix-arrows",
-   "minzoom": 15.8,
-   "layout": {
-    "symbol-placement": "line",
-    "symbol-spacing": 70,
-    "icon-image": "arrow-night",
-    "icon-allow-overlap": true,
-    "icon-ignore-placement": true,
-    "icon-rotation-alignment": "map"
    }
   },
   {

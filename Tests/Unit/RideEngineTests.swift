@@ -295,23 +295,10 @@ struct RideScreenStateTests {
         #expect(RideScreenState.hazardsAhead([h(.tram, 198)], from: 200).count == 1)
     }
 
-    @Test func theRouteAheadMovesInStepsUnderTheRider() {
-        let shape = [LatLon(lat: 45.47, lon: 9.20), LatLon(lat: 45.47, lon: 9.2128)]
-        var t = RouteTrack(shape: shape)
-        t.update(t.point(at: 101))
-        let a = RideScreenState.trimmed(t)
-        t.update(t.point(at: 104))
-        #expect(RideScreenState.trimmed(t) == a)                    // same 15 m step: the map gets nothing new
-        #expect(abs(Geo.distance(shape[0], a[0]) - 90) < 0.5)
-        t.update(t.point(at: 106))
-        #expect(RideScreenState.trimmed(t) != a)
-    }
-
     @MainActor @Test func theRouteStaysWholeAndFadesBehindTheRider() {
         let state = RideScreenState(AppSamples.ride(at: 420))
         #expect(state.map.best == AppSamples.rideOption().analysis.shape)    // no upload per fix
         #expect(abs((state.map.travelled ?? 0) - 420 / 1780) < 0.01)
-        #expect(state.map.arrows?.count == 3)                                // from the 405 m step: the turn, the end
     }
 
     @Test func avoidedRoadsShowOnlyNearTheRider() {

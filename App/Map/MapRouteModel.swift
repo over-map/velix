@@ -18,8 +18,6 @@ struct MapRouteModel: Equatable, Sendable {
     var heading: Double = 0
     /// Riding: the share of Best already ridden, faded out on the map (a line-gradient; the line itself stays whole).
     var travelled: Double?
-    /// Riding: the route ahead for the direction arrows (a gradient can't hide symbols); Best otherwise.
-    var arrows: [LatLon]?
 
     /// Marker collision priority (docs/DECISIONS.md, 15 Oct): lower draws first and wins.
     static let rank: [HazardType: Int] = [.tram: 1, .along: 2, .steps: 3, .gap: 4, .lane: 5, .cobbles: 6, .dismount: 7,
@@ -69,11 +67,6 @@ struct MapRouteModel: Equatable, Sendable {
         if best.count > 1 { f.append(line(best, ["role": "best"])) }
         for t in tubes { f.append(line(t, ["role": "tube"])) }
         return collection(f)
-    }
-
-    func arrowsGeoJSON() -> Data {
-        let l = arrows ?? best
-        return collection(l.count > 1 ? [line(l, ["role": "arrows"])] : [])
     }
 
     func hazardsGeoJSON() -> Data {

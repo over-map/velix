@@ -62,7 +62,7 @@ struct MapTests {
 
     @MainActor @Test func runtimeImagesExistForEveryNameTheStylesUse() {
         for name in ["trees-day", "hz-stripe-night", "hz-tram-day", "cnt-12-night", "poi-food-day", "poi-bike-night",
-                     "metro-M1.red.0,M3.yellow.0-day", "rail-night", "start-day", "end-night", "arrow-day", "puck-34", "ev-EV5"] {
+                     "metro-M1.red.0,M3.yellow.0-day", "rail-night", "start-day", "end-night", "puck-34", "ev-EV5"] {
             #expect(MapImages.image(named: name) != nil, "\(name)")
         }
         MapImages.avoidedTexts = ["a0": "Cobbles 300 m"]

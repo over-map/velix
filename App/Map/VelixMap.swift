@@ -78,6 +78,8 @@ struct VelixMap: UIViewRepresentable {
             styleKey = nil
             shapes = [:]
             travelled = nil
+            shown = nil
+            glide = nil
             do { map.styleURL = try VelixMapStyle.url(s.style, s.mode) } catch { print("VelixMap: \(error)") }
         }
 
@@ -212,8 +214,7 @@ struct VelixMap: UIViewRepresentable {
             MapImages.avoidedTexts = Dictionary(uniqueKeysWithValues: (s.route?.avoided ?? []).map { ($0.id, $0.reason) })
             let r = s.route
             setShape("velix-route", r?.routeGeoJSON(), in: style)
-            setShape("velix-arrows", r?.arrowsGeoJSON(), in: style)
-            setTravelled(r?.travelled, in: style)
+            setTravelled(r?.travelled, in: map)
             setShape("velix-hazards", r?.hazardsGeoJSON(), in: style)
             var markers = r ?? MapRouteModel(best: [])
             if markers.puck == nil, let user = s.userLocation { markers.puck = user; markers.heading = s.userHeading ?? 0 }
@@ -221,12 +222,43 @@ struct VelixMap: UIViewRepresentable {
         }
 
         private var travelled: Double?
+        /// The share drawn now, and the glide towards the latest one.
+        private var shown: Double?
+        private var glide: (from: Double, to: Double, start: CFTimeInterval)?
+        private var link: CADisplayLink?
+        private weak var map: MLNMapView?
 
         /// Fades the ridden part of Best: a step on line-progress, clear before the rider and the layer's own colour
-        /// after. A paint change only, so it can follow every fix without re-uploading the route.
-        private func setTravelled(_ share: Double?, in style: MLNStyle) {
+        /// after. A paint change only, so it follows the rider without re-uploading the route. While tracking it glides
+        /// to each new fix over the camera's 1 s, so the cut stays under the chevron instead of running ahead of it.
+        private func setTravelled(_ share: Double?, in map: MLNMapView) {
             guard share != travelled else { return }
             travelled = share
+            self.map = map
+            guard let share, let from = shown, state?.motion == .track, share > from, share - from < 0.05 else {
+                glide = nil
+                drawTravelled(share)
+                return
+            }
+            glide = (from, share, CACurrentMediaTime())
+            if link == nil {
+                let l = CADisplayLink(target: self, selector: #selector(stepGlide))
+                l.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30)
+                l.add(to: .main, forMode: .common)
+                link = l
+            }
+        }
+
+        @objc private func stepGlide() {
+            guard let g = glide else { link?.invalidate(); link = nil; return }
+            let t = min(1, (CACurrentMediaTime() - g.start) / (Self.duration(.track) ?? 1))
+            drawTravelled(g.from + (g.to - g.from) * t)
+            if t >= 1 { glide = nil }
+        }
+
+        private func drawTravelled(_ share: Double?) {
+            shown = share
+            guard let style = map?.style else { return }
             for id in ["route-best-halo", "route-best-casing", "route-best"] {
                 guard let layer = style.layer(withIdentifier: id) as? MLNLineStyleLayer else { continue }
                 guard let share, let color = layer.lineColor.constantValue as? UIColor else { layer.lineGradient = nil; continue }
