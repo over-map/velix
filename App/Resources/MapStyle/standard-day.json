@@ -34,7 +34,14 @@
     "type": "FeatureCollection",
     "features": []
    },
-   "lineMetrics": false
+   "lineMetrics": true
+  },
+  "velix-arrows": {
+   "type": "geojson",
+   "data": {
+    "type": "FeatureCollection",
+    "features": []
+   }
   },
   "velix-hazards": {
    "type": "geojson",
@@ -7827,16 +7834,8 @@
   {
    "id": "route-arrows",
    "type": "symbol",
-   "source": "velix-route",
+   "source": "velix-arrows",
    "minzoom": 15.8,
-   "filter": [
-    "==",
-    [
-     "get",
-     "role"
-    ],
-    "best"
-   ],
    "layout": {
     "symbol-placement": "line",
     "symbol-spacing": 70,

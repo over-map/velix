@@ -126,19 +126,22 @@ struct RideScreenState: Equatable {
         }
 
         // Placed on the whole route, so the hazards' coordinates stay the same from fix to fix (the map only
-        // re-uploads what changed), and the route trimmed in 15 m steps, under the rider's marker.
+        // re-uploads what changed).
         let full = r.track.shape
         var map = MapRouteModel(best: full, avoided: Self.avoidedNear(r.rider, r.avoided),
                                 hazards: Self.hazardsAhead(r.option.analysis.hazards, from: r.track.position),
                                 endName: r.destination.name)
-        map.best = Self.trimmed(r.track)
+        // The line stays whole (no upload per fix); its ridden part fades exactly at the rider, and only the arrows
+        // move to the route ahead, in 15 m steps.
+        map.travelled = r.track.length > 0 ? r.track.position / r.track.length : nil
+        map.arrows = Self.trimmed(r.track)
         map.start = nil
         map.end = r.destination.location
         if !r.chevron, let rider = r.rider { map.puck = rider; map.heading = r.heading }
         self.map = map
     }
 
-    /// The map's route ahead: cut at the last 15 m step behind the rider, so it changes every few fixes, not every one.
+    /// The arrows' route ahead: cut at the last 15 m step behind the rider, so it changes every few fixes, not every one.
     static let trimStep = 15.0
     static func trimmed(_ track: RouteTrack) -> [LatLon] {
         guard track.shape.count > 1 else { return track.shape }

@@ -307,6 +307,13 @@ struct RideScreenStateTests {
         #expect(RideScreenState.trimmed(t) != a)
     }
 
+    @MainActor @Test func theRouteStaysWholeAndFadesBehindTheRider() {
+        let state = RideScreenState(AppSamples.ride(at: 420))
+        #expect(state.map.best == AppSamples.rideOption().analysis.shape)    // no upload per fix
+        #expect(abs((state.map.travelled ?? 0) - 420 / 1780) < 0.01)
+        #expect(state.map.arrows?.count == 3)                                // from the 405 m step: the turn, the end
+    }
+
     @Test func avoidedRoadsShowOnlyNearTheRider() {
         let piave = AvoidedRoad(name: "Viale Piave", meters: 400, reason: "Rails along lane",
                                 shape: [LatLon(lat: 45.4740, lon: 9.2050), LatLon(lat: 45.4700, lon: 9.2060)])

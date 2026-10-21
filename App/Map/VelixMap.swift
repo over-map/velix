@@ -77,6 +77,7 @@ struct VelixMap: UIViewRepresentable {
             loaded = false
             styleKey = nil
             shapes = [:]
+            travelled = nil
             do { map.styleURL = try VelixMapStyle.url(s.style, s.mode) } catch { print("VelixMap: \(error)") }
         }
 
@@ -211,10 +212,27 @@ struct VelixMap: UIViewRepresentable {
             MapImages.avoidedTexts = Dictionary(uniqueKeysWithValues: (s.route?.avoided ?? []).map { ($0.id, $0.reason) })
             let r = s.route
             setShape("velix-route", r?.routeGeoJSON(), in: style)
+            setShape("velix-arrows", r?.arrowsGeoJSON(), in: style)
+            setTravelled(r?.travelled, in: style)
             setShape("velix-hazards", r?.hazardsGeoJSON(), in: style)
             var markers = r ?? MapRouteModel(best: [])
             if markers.puck == nil, let user = s.userLocation { markers.puck = user; markers.heading = s.userHeading ?? 0 }
             setShape("velix-markers", markers.markersGeoJSON(), in: style)
+        }
+
+        private var travelled: Double?
+
+        /// Fades the ridden part of Best: a step on line-progress, clear before the rider and the layer's own colour
+        /// after. A paint change only, so it can follow every fix without re-uploading the route.
+        private func setTravelled(_ share: Double?, in style: MLNStyle) {
+            guard share != travelled else { return }
+            travelled = share
+            for id in ["route-best-halo", "route-best-casing", "route-best"] {
+                guard let layer = style.layer(withIdentifier: id) as? MLNLineStyleLayer else { continue }
+                guard let share, let color = layer.lineColor.constantValue as? UIColor else { layer.lineGradient = nil; continue }
+                let at = NSNumber(value: min(max(share, 0.0001), 0.9999))
+                layer.lineGradient = NSExpression(format: "mgl_step:from:stops:($lineProgress, %@, %@)", UIColor.clear, [at: color])
+            }
         }
 
         private func setShape(_ id: String, _ data: Data?, in style: MLNStyle) {

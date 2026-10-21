@@ -259,7 +259,9 @@ function style(name, mode) {
     paint: { 'line-color': ['get', 'color'], 'line-width': w('leg'), 'line-dasharray': dash([10, 4], (z) => interp(W.leg, z)) } });
   route('hazard-tube', 'line', { filter: role('tube'), layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: { 'line-pattern': `hz-stripe-${mode}`, 'line-width': w('tube') } });
-  route('route-arrows', 'symbol', { minzoom: 15.8, filter: role('best'),
+  // Arrows have their own source: while riding the app trims them to the route ahead, and the Best line stays whole
+  // (its travelled part is faded by a line-gradient on line-progress, set at runtime).
+  add({ id: 'route-arrows', type: 'symbol', source: 'velix-arrows', minzoom: 15.8,
     layout: { 'symbol-placement': 'line', 'symbol-spacing': 70, 'icon-image': `arrow-${mode}`, 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-rotation-alignment': 'map' } });
 
   // ---- stations, places, POIs ----
@@ -335,7 +337,8 @@ function style(name, mode) {
     sources: {
       omt: { type: 'vector', url: 'pmtiles://velix-pack/basemap.pmtiles', attribution: '© OpenMapTiles © OpenStreetMap contributors' },
       velix: { type: 'vector', url: 'pmtiles://velix-pack/overlays.pmtiles' },
-      'velix-route': { ...empty, lineMetrics: false },
+      'velix-route': { ...empty, lineMetrics: true },
+      'velix-arrows': empty,
       'velix-hazards': { ...empty, cluster: true, clusterRadius: 44, clusterMaxZoom: 14 },
       'velix-markers': empty,
     },
