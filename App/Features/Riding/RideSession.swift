@@ -44,6 +44,8 @@ final class RideSession {
     private let provider: PlannedRouteProvider
     private(set) var core: FerrostarCore?
     private(set) var log: RideLog?
+    /// The ride as GPX, written when it ends (S6 Share GPX).
+    private(set) var gpx: URL?
     private var cancellables = Set<AnyCancellable>()
     private var activity: Activity<RideActivityAttributes>?
     private var lastActivityPosition = -Double.infinity
@@ -126,6 +128,7 @@ final class RideSession {
         self.arrived = arrived
         log?.event(.end(arrived ? "arrived" : "ended"))
         log?.close()
+        gpx = try? log?.gpx(name: "Velix · \(destination.name)")
         core?.stopNavigation()
         core = nil
         cancellables.removeAll()
@@ -249,11 +252,10 @@ final class RideSession {
     private func updateActivity() {
         guard activity != nil, let nav = navigationState else { return }
         var state = Self.content(nav, destination: destination, fallbackMeters: 0)
-        if let n = nextHazard, n.approaching {
-            state.hazard = .init(glyph: n.hazard.type.glyph, title: HazardPrompt.title(n.hazard),
-                                 advice: HazardPrompt.advice(n.hazard), distance: Self.distance(n.distance))
+        if let n = nextHazard {
+            Self.addHazard(n, to: &state)
         }
-        let key = "\(state.maneuver)|\(state.street)|\(state.hazard?.title ?? "")"
+        let key = "\(state.maneuver)|\(state.street)|\(state.hazard?.title ?? "")|\(state.nextHazard?.glyph.rawValue ?? "")"
         guard key != lastActivityKey || abs(track.position - lastActivityPosition) >= Self.activityStep else { return }
         lastActivityKey = key
         lastActivityPosition = track.position
@@ -262,15 +264,28 @@ final class RideSession {
         }
     }
 
+    /// Close: the hazard leads (L2, D2, D5). Further: the footer line (L1, D4 "Tram rails in 160 m").
+    static func addHazard(_ n: HazardTracker.Next, to state: inout RideActivityAttributes.ContentState) {
+        let title = HazardPrompt.title(n.hazard), distance = Self.distance(n.distance)
+        if n.approaching {
+            state.hazard = .init(glyph: n.hazard.type.glyph, title: title, advice: HazardPrompt.short(n.hazard),
+                                 longAdvice: HazardPrompt.advice(n.hazard), distance: distance)
+        }
+        state.nextHazard = .init(glyph: n.hazard.type.glyph, text: "\(title) in \(distance)")
+    }
+
     static func content(_ nav: NavigationState?, destination: Place, fallbackMeters: Double) -> RideActivityAttributes.ContentState {
         let progress = nav?.currentProgress
         let instruction = nav?.currentVisualInstruction?.primaryContent
         let remaining = progress?.durationRemaining ?? fallbackMeters / 4.2
         let arrival = Date().addingTimeInterval(remaining)
         let clock = arrival.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
-        return .init(maneuver: Maneuver(type: instruction?.maneuverType, modifier: instruction?.maneuverModifier),
+        let maneuver = Maneuver(type: instruction?.maneuverType, modifier: instruction?.maneuverModifier)
+        // An unnamed way reads as the turn, like the riding banner.
+        let street = instruction.map { RideTurn.street($0.text) ?? maneuver.spoken } ?? destination.name
+        return .init(maneuver: maneuver,
                      distance: distance(progress?.distanceToNextManeuver ?? fallbackMeters),
-                     street: instruction?.text ?? destination.name, arrival: clock,
+                     street: street, arrival: clock,
                      minutesLeft: "\(max(1, Int((remaining / 60).rounded()))) min",
                      distanceLeft: Format.km(progress?.distanceRemaining ?? fallbackMeters))
     }

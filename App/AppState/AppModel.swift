@@ -70,6 +70,8 @@ final class AppModel {
     var destination: Place?
     /// The ride in progress (Start).
     var ride: RideSession?
+    /// S6, after a ride that ended by itself at the door (not after End).
+    var summary: RideSummaryModel?
 
     /// Open route options for a place (Home, Work, a search result): tap 1 of the commute.
     func choose(_ place: Place) {
@@ -82,7 +84,8 @@ final class AppModel {
         let rules = state.ruleSet(for: state.rideType, litStreetsOnly: litStreetsOnly)
         let session = RideSession(destination: place, option: option, avoided: avoided, rules: rules, choice: choice,
                                   planner: engine.loadedPlanner)
-        session.onEnd = { [weak self] _ in
+        session.onEnd = { [weak self] session in
+            if session.arrived { self?.summary = RideSummaryModel(session) }
             self?.ride = nil
             self?.litStreetsOnly = false     // "For the next ride only" (S8)
         }

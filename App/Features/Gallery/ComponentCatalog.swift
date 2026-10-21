@@ -131,32 +131,53 @@ enum ComponentCatalog {
             OnTrainCard(minutes: "6 min", station: "Monza", arrival: "08:28", nextStop: "Sesto S. Giovanni", thenStop: "Monza",
                         bikeCarriages: [true, true, false, false, false, false], note: "Bike space in the first 2 carriages · exit on the right")
         },
-        e("LiveActivity", "lockScreen") {
-            LiveActivityLockScreen(state: .sample).background(Color.velix.surface, in: RoundedRectangle(cornerRadius: 22))
-                .velixElevation(VelixElevations.e1, in: RoundedRectangle(cornerRadius: 22))
+        // P5 L1–L2, D1–D5 (the lock-screen tint is the activity background: surface at 92 %, or hazard).
+        e("LiveActivity", "L1-lockScreen") {
+            LiveActivityLockScreen(state: .sample).background(RideActivityAttributes.ContentState.sample.lockScreenBackground,
+                                                              in: RoundedRectangle(cornerRadius: 24))
+                .velixElevation(VelixElevations.e1, in: RoundedRectangle(cornerRadius: 24))
         },
-        e("LiveActivity", "lockScreenHazard") {
-            LiveActivityLockScreen(state: .sampleHazard).background(Color.velix.hazard, in: RoundedRectangle(cornerRadius: 22))
+        e("LiveActivity", "L1-lockScreenClear") {
+            LiveActivityLockScreen(state: .sampleClear).background(Color.velix.surface.opacity(0.92), in: RoundedRectangle(cornerRadius: 24))
+                .velixElevation(VelixElevations.e1, in: RoundedRectangle(cornerRadius: 24))
         },
-        e("LiveActivity", "island", width: nil) {
+        e("LiveActivity", "L2-lockScreenHazard") {
+            LiveActivityLockScreen(state: .sampleHazard).background(Color.velix.hazard, in: RoundedRectangle(cornerRadius: 24))
+        },
+        e("LiveActivity", "D1-D3-island", width: nil) {
             HStack(spacing: 12) {
                 DynamicIslandFrame {
                     HStack { LiveActivityCompactLeading(state: .sample); Spacer(); LiveActivityCompactTrailing(state: .sample) }
                 }
-                DynamicIslandFrame(width: 37, padding: EdgeInsets()) { LiveActivityMinimal(state: .sample) }
                 DynamicIslandFrame {
                     HStack { LiveActivityCompactLeading(state: .sampleHazard); Spacer(); LiveActivityCompactTrailing(state: .sampleHazard) }
                 }
+                DynamicIslandFrame(width: 37, padding: EdgeInsets()) { LiveActivityMinimal(state: .sampleHazard) }
             }
         },
-        e("LiveActivity", "expanded") {
-            DynamicIslandFrame(width: 361, height: nil, cornerRadius: 44, padding: EdgeInsets(top: 18, leading: 22, bottom: 18, trailing: 22)) {
+        e("LiveActivity", "D4-expanded") {
+            DynamicIslandFrame(width: 371, height: nil, cornerRadius: 44, padding: EdgeInsets(top: 18, leading: 22, bottom: 16, trailing: 22)) {
                 LiveActivityExpanded(state: .sample)
             }
         },
-        e("RideSummary", "synced") { RideSummary(km: "5.4", minutes: "23", climb: "38") },
-        e("RideSummary", "notConnected") { SyncRow(icon: .activity, name: "Strava", sync: .notConnected, divider: false) },
-        e("RideSummary", "dataIssue") { DataIssueRow(issue: "Cobbles not mapped on Via Pascoli") },
+        e("LiveActivity", "D5-expandedHazard") {
+            DynamicIslandFrame(width: 371, height: nil, cornerRadius: 44, padding: EdgeInsets(top: 18, leading: 22, bottom: 16, trailing: 22)) {
+                LiveActivityExpanded(state: .sampleHazard)
+            }
+        },
+        // P7 S6a–S6c sheet content.
+        e("RideSummary", "S6a-synced") {
+            RideSummary(arrived: "08:42", place: "Politecnico", option: "Calmest for city", km: "5.4", minutes: "21", climb: "8",
+                        connections: .synced, gpx: URL(fileURLWithPath: "/tmp/ride.gpx"))
+        },
+        e("RideSummary", "S6b-notConnected") {
+            RideSummary(arrived: "08:42", place: "Politecnico", option: "Calmest for city", km: "5.4", minutes: "21", climb: "8",
+                        gpx: URL(fileURLWithPath: "/tmp/ride.gpx"))
+        },
+        e("RideSummary", "S6c-dataIssue") {
+            RideSummary(arrived: "08:42", place: "Politecnico", option: "Calmest for city", km: "5.4", minutes: "21", climb: "8",
+                        connections: .synced, issue: RideSummary.sampleIssue, gpx: URL(fileURLWithPath: "/tmp/ride.gpx"))
+        },
         e("RouteListCard", "selected") { RouteListCard(model: .sample, selected: true) },
         e("RouteListCard", "unselected") { RouteListCard(model: .sample) },
         e("FilterChips", "fitsCity", width: 425) {
