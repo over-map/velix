@@ -17,6 +17,9 @@ final class RideLog: @unchecked Sendable {
     private let lock = NSLock()
     private var handle: FileHandle?
     private(set) var stats = RideStats()
+    /// The ride as ridden, a point every 10 m (the S6 map).
+    private(set) var ridden: [LatLon] = []
+    static let riddenStep = 10.0
 
     init(directory: URL = URL.documentsDirectory.appending(path: "rides"), started: Date = Date()) {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -30,6 +33,10 @@ final class RideLog: @unchecked Sendable {
     func fix(_ l: CLLocation) {
         lock.lock(); defer { lock.unlock() }
         stats.add(l)
+        let p = LatLon(lat: l.coordinate.latitude, lon: l.coordinate.longitude)
+        if l.horizontalAccuracy >= 0, l.horizontalAccuracy <= 30, ridden.last.map({ Geo.distance($0, p) >= Self.riddenStep }) ?? true {
+            ridden.append(p)
+        }
         write(["t": l.timestamp.timeIntervalSince1970, "lat": l.coordinate.latitude, "lon": l.coordinate.longitude,
                "acc": l.horizontalAccuracy, "alt": l.altitude, "v": l.speed, "c": l.course])
     }
@@ -50,6 +57,34 @@ final class RideLog: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         try? handle?.close()
         handle = nil
+    }
+
+    /// The ride as GPX 1.1 (S6 Share GPX: the fixes only, no events), written next to the log.
+    func gpx(name: String) throws -> URL {
+        let lines = try String(contentsOf: url, encoding: .utf8).split(separator: "\n").map(String.init)
+        let out = url.deletingPathExtension().appendingPathExtension("gpx")
+        try Self.gpx(lines: lines, name: name).write(to: out, atomically: true, encoding: .utf8)
+        return out
+    }
+
+    static func gpx(lines: [String], name: String) -> String {
+        let time = Date.ISO8601FormatStyle()
+        var pts = ""
+        for line in lines {
+            guard let o = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any], o["e"] == nil,
+                  let lat = o["lat"] as? Double, let lon = o["lon"] as? Double, let t = o["t"] as? Double else { continue }
+            let ele = (o["alt"] as? Double).map { "<ele>\(String(format: "%.1f", $0))</ele>" } ?? ""
+            pts += "<trkpt lat=\"\(lat)\" lon=\"\(lon)\">\(ele)<time>\(Date(timeIntervalSince1970: t).formatted(time))</time></trkpt>\n"
+        }
+        let safe = name.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
+        return """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <gpx version="1.1" creator="Velix" xmlns="http://www.topografix.com/GPX/1/1">
+        <trk><name>\(safe)</name><type>cycling</type><trkseg>
+        \(pts)</trkseg></trk>
+        </gpx>
+
+        """
     }
 
     private func write(_ object: [String: Any]) {

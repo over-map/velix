@@ -157,6 +157,18 @@ final class ScreenSnapshotTests: XCTestCase {
         s4("S4j-panned", camera: panned)
     }
 
+    // MARK: S6 Ride summary
+
+    func testS6Summary() {
+        let model = RideSummaryModel(arrived: Calendar.current.date(bySettingHour: 8, minute: 42, second: 0, of: Date(timeIntervalSince1970: 1_791_000_000))!,
+                                     place: "Politecnico", rideType: .city, option: "Calmest for city", meters: 5400,
+                                     movingSeconds: 21 * 60, climb: 8, track: AppSamples.rideOption().analysis.shape,
+                                     gpx: URL(fileURLWithPath: "/tmp/ride.gpx"))
+        check(RideSummaryView(model: model, connections: .synced), named: "S6a-synced")
+        check(RideSummaryView(model: model), named: "S6b-notConnected")
+        check(RideSummaryView(model: model, connections: .synced, issue: RideSummary.sampleIssue), named: "S6c-dataIssue")
+    }
+
     // MARK: S8 You
 
     func testS8You() {

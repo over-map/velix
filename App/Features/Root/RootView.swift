@@ -66,9 +66,15 @@ struct RootView: View {
                     .transition(.move(edge: .bottom))
             }
         }
-        .fullScreenCover(isPresented: Binding(get: { app.ride != nil }, set: { if !$0 { app.ride?.end() } })) {
+        // The ride, then its summary in the same cover (S4 → S6 without a flash of the Ride map).
+        .fullScreenCover(isPresented: Binding(get: { app.ride != nil || app.summary != nil },
+                                              set: { if !$0 { app.ride?.end(); app.summary = nil } })) {
             if let ride = app.ride {
                 RidingView(session: ride, app: app)
+            } else if let summary = app.summary {
+                RideSummaryView(model: summary, mapStyle: MapStyleKind(app.mapStyle),
+                                onConnect: { app.summary = nil; tab = .you },
+                                onDone: { app.summary = nil })
             }
         }
     }

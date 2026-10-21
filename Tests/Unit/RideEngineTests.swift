@@ -324,3 +324,56 @@ struct RideTurnTests {
         #expect(RideTurn.street(" ") == nil)
     }
 }
+
+struct RideRecordTests {
+    @Test func gpxHasTheFixesAndNotTheEvents() {
+        let lines = [#"{"t":1791000000,"e":"start","to":"Politecnico","m":4400}"#,
+                     #"{"t":1791000001,"lat":45.47,"lon":9.2,"acc":5,"alt":120.4,"v":5,"c":90}"#,
+                     #"{"t":1791000002,"lat":45.47005,"lon":9.2,"acc":5,"alt":121,"v":5,"c":90}"#,
+                     #"{"t":1791000003,"e":"end","s":"arrived"}"#]
+        let gpx = RideLog.gpx(lines: lines, name: "Velix · Politecnico & co")
+        #expect(gpx.components(separatedBy: "<trkpt").count - 1 == 2)
+        #expect(gpx.contains(#"<trkpt lat="45.47" lon="9.2"><ele>120.4</ele><time>2026-10-03T04:00:01Z</time>"#))
+        #expect(gpx.contains("<name>Velix · Politecnico &amp; co</name>"))
+    }
+
+    @Test func theRiddenTrackKeepsAPointEveryTenMetres() throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "velix-log-\(UUID().uuidString)")
+        let log = RideLog(directory: dir)
+        let t0 = Date()
+        for i in 0 ..< 30 {   // 1.1 m apart: 33 m in all
+            log.fix(CLLocation(coordinate: .init(latitude: 45.47 + Double(i) * 0.00001, longitude: 9.2), altitude: 120,
+                               horizontalAccuracy: 5, verticalAccuracy: 5, course: 0, speed: 5, timestamp: t0.addingTimeInterval(Double(i))))
+        }
+        log.close()
+        #expect(log.ridden.count == 4)
+        let url = try log.gpx(name: "test")
+        #expect(try String(contentsOf: url, encoding: .utf8).components(separatedBy: "<trkpt").count - 1 == 30)
+    }
+}
+
+@MainActor
+struct RideActivityContentTests {
+    private func next(_ d: Double, approaching: Bool) -> HazardTracker.Next {
+        HazardTracker.Next(index: 0, hazard: RouteHazard(type: .tram, distanceAlong: 0, lengthM: 0, street: nil, detail: "", osm: "n1"),
+                           distance: d, approaching: approaching)
+    }
+
+    @Test func farHazardsGoInTheFooterAndCloseOnesLead() {
+        var far = RideActivityAttributes.ContentState.sampleClear
+        RideSession.addHazard(next(160, approaching: false), to: &far)
+        #expect(far.hazard == nil)
+        #expect(far.nextHazard?.text == "Tram rails in 160 m")      // P5 L1
+        var close = RideActivityAttributes.ContentState.sampleClear
+        RideSession.addHazard(next(35, approaching: true), to: &close)
+        #expect(close.hazard?.advice == "Cross straight")            // P5 L2
+        #expect(close.hazard?.longAdvice == "Cross straight, at a right angle")
+    }
+
+    @Test func lockScreenAdviceStaysShort() {
+        for type in HazardType.allCases {
+            let h = RouteHazard(type: type, distanceAlong: 0, lengthM: 300, street: nil, detail: "", osm: "w1")
+            #expect(HazardPrompt.short(h).count <= 18, "\(type): \(HazardPrompt.short(h))")
+        }
+    }
+}

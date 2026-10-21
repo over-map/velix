@@ -68,6 +68,22 @@ enum HazardPrompt {
         }
     }
 
+    /// Lock-screen advice, one short line next to a 40 pt distance (P5 L2 "Cross straight").
+    static func short(_ h: RouteHazard) -> String {
+        switch h.type {
+        case .tram: "Cross straight"
+        case .along: "Keep clear"
+        case .cobbles: "Rough for \(metres(h.lengthM))"
+        case .lane: "Take the lane"
+        case .dismount: "Walk \(metres(h.lengthM))"
+        case .steps: "Carry your bike"
+        case .gap: "Slow down"
+        case .descent: "Brake early"
+        case .climb: "Shift down early"
+        case .door: "Ride out wider"
+        }
+    }
+
     static func voice(_ h: RouteHazard) -> String {
         switch h.type {
         case .tram: "Tram rails ahead. Cross straight."
