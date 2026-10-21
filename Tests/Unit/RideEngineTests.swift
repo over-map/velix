@@ -246,7 +246,7 @@ struct RideCameraTests {
         c.cycleView()
         #expect(c.view == .north)
         #expect(c.follow(at: here, course: 90).bearing == 0)
-        #expect(!c.showsChevron)                       // North up: the map puck rotates instead
+        #expect(!c.showsChevron && c.drawsRider)       // North up: the dot and cone, on screen too
         c.cycleView()
         #expect(c.view == .twoD && c.showsChevron)
     }
@@ -269,7 +269,7 @@ struct RideCameraTests {
         var c = RideCamera()
         c.cycleView()                                   // 3D
         c.userPanned(at: at(0))
-        #expect(c.isPanned && !c.showsChevron)
+        #expect(c.isPanned && !c.showsChevron && !c.drawsRider)
         c.cycleView()                                   // the view control while panned only resumes
         #expect(c.isFollowing && c.view == .threeD)
         c.userPanned(at: at(5))
@@ -290,10 +290,21 @@ struct RideScreenStateTests {
     @Test func hazardsBehindTheRiderAreDropped() {
         let ahead = RideScreenState.hazardsAhead([h(.tram, 100), h(.cobbles, 150, length: 200), h(.steps, 600)], from: 200)
         #expect(ahead.map(\.type) == [.cobbles, .steps])
-        #expect(ahead[0].distanceAlong == 0 && ahead[0].lengthM == 150)   // the cobbles still under the wheels
-        #expect(ahead[1].distanceAlong == 400)
+        #expect(ahead[0].distanceAlong == 150)                             // the cobbles still under the wheels
         // Just passed (within 4 m) stays a moment longer.
         #expect(RideScreenState.hazardsAhead([h(.tram, 198)], from: 200).count == 1)
+    }
+
+    @Test func theRouteAheadMovesInStepsUnderTheRider() {
+        let shape = [LatLon(lat: 45.47, lon: 9.20), LatLon(lat: 45.47, lon: 9.2128)]
+        var t = RouteTrack(shape: shape)
+        t.update(t.point(at: 101))
+        let a = RideScreenState.trimmed(t)
+        t.update(t.point(at: 104))
+        #expect(RideScreenState.trimmed(t) == a)                    // same 15 m step: the map gets nothing new
+        #expect(abs(Geo.distance(shape[0], a[0]) - 90) < 0.5)
+        t.update(t.point(at: 106))
+        #expect(RideScreenState.trimmed(t) != a)
     }
 
     @Test func avoidedRoadsShowOnlyNearTheRider() {

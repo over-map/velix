@@ -71,6 +71,8 @@ struct VelixMap: UIViewRepresentable {
         func loadStyle(on map: MLNMapView) {
             guard let s = state else { return }
             loaded = false
+            styleKey = nil
+            shapes = [:]
             do { map.styleURL = try VelixMapStyle.url(s.style, s.mode) } catch { print("VelixMap: \(error)") }
         }
 
@@ -174,15 +176,24 @@ struct VelixMap: UIViewRepresentable {
             MainActor.assumeIsolated { MapImages.image(named: imageName) }
         }
 
+        /// What was last handed to the style, so an update that changes nothing costs nothing: re-setting a source
+        /// makes MapLibre re-place every symbol on it, which shows as dropped frames while riding (once a fix).
+        private var styleKey: String?
+        private var shapes: [String: Data] = [:]
+
         func applyStyleState(on map: MLNMapView) {
             guard loaded, let s = state, let style = map.style else { return }
-            let ids = style.layers.map(\.identifier)
-            for (id, on) in VelixMapStyle.visibility(bikeLanes: s.bikeLanes, transitLines: s.transitLines, layerIDs: ids) {
-                style.layer(withIdentifier: id)?.isVisible = on
-            }
-            // P3: train & metro at 60 % while a route is shown.
-            for id in ids where id.hasPrefix("overlay-train") || id.hasPrefix("overlay-metro") {
-                (style.layer(withIdentifier: id) as? MLNLineStyleLayer)?.lineOpacity = NSExpression(forConstantValue: s.route == nil ? 1 : 0.6)
+            let key = "\(s.bikeLanes)|\(s.transitLines)|\(s.route == nil)"
+            if key != styleKey {
+                styleKey = key
+                let ids = style.layers.map(\.identifier)
+                for (id, on) in VelixMapStyle.visibility(bikeLanes: s.bikeLanes, transitLines: s.transitLines, layerIDs: ids) {
+                    style.layer(withIdentifier: id)?.isVisible = on
+                }
+                // P3: train & metro at 60 % while a route is shown.
+                for id in ids where id.hasPrefix("overlay-train") || id.hasPrefix("overlay-metro") {
+                    (style.layer(withIdentifier: id) as? MLNLineStyleLayer)?.lineOpacity = NSExpression(forConstantValue: s.route == nil ? 1 : 0.6)
+                }
             }
             MapImages.avoidedTexts = Dictionary(uniqueKeysWithValues: (s.route?.avoided ?? []).map { ($0.id, $0.reason) })
             let r = s.route
@@ -196,7 +207,10 @@ struct VelixMap: UIViewRepresentable {
         private func setShape(_ id: String, _ data: Data?, in style: MLNStyle) {
             guard let source = style.source(withIdentifier: id) as? MLNShapeSource else { return }
             let empty = Data(#"{"type":"FeatureCollection","features":[]}"#.utf8)
-            source.shape = try? MLNShape(data: data ?? empty, encoding: String.Encoding.utf8.rawValue)
+            let data = data ?? empty
+            guard shapes[id] != data else { return }
+            shapes[id] = data
+            source.shape = try? MLNShape(data: data, encoding: String.Encoding.utf8.rawValue)
         }
     }
 }

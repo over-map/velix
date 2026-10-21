@@ -125,24 +125,31 @@ struct RideScreenState: Equatable {
                           km: String(format: "%.1f", meters / 1000))
         }
 
-        var map = MapRouteModel(best: ahead, avoided: Self.avoidedNear(r.rider, r.avoided),
+        // Placed on the whole route, so the hazards' coordinates stay the same from fix to fix (the map only
+        // re-uploads what changed), and the route trimmed in 15 m steps, under the rider's marker.
+        let full = r.track.shape
+        var map = MapRouteModel(best: full, avoided: Self.avoidedNear(r.rider, r.avoided),
                                 hazards: Self.hazardsAhead(r.option.analysis.hazards, from: r.track.position),
                                 endName: r.destination.name)
+        map.best = Self.trimmed(r.track)
         map.start = nil
         map.end = r.destination.location
         if !r.chevron, let rider = r.rider { map.puck = rider; map.heading = r.heading }
         self.map = map
     }
 
-    /// The route's hazards from the rider on, measured from the rider (the map draws the route ahead only).
+    /// The map's route ahead: cut at the last 15 m step behind the rider, so it changes every few fixes, not every one.
+    static let trimStep = 15.0
+    static func trimmed(_ track: RouteTrack) -> [LatLon] {
+        guard track.shape.count > 1 else { return track.shape }
+        let cut = (track.position / trimStep).rounded(.down) * trimStep
+        let i = track.along.firstIndex { $0 > cut } ?? track.shape.count - 1
+        return [track.point(at: cut)] + track.shape[i...]
+    }
+
+    /// The route's hazards not yet passed (until 4 m beyond their end), measured along the whole route.
     static func hazardsAhead(_ hazards: [RouteHazard], from position: Double) -> [RouteHazard] {
-        hazards.compactMap { h in
-            let end = h.distanceAlong + max(h.lengthM, 0)
-            guard end > position - hazardsBehind else { return nil }
-            let start = max(0, h.distanceAlong - position)
-            let length = h.lengthM > 1 ? end - max(h.distanceAlong, position) : h.lengthM
-            return RouteHazard(type: h.type, distanceAlong: start, lengthM: max(0, length), street: h.street, detail: h.detail, osm: h.osm)
-        }
+        hazards.filter { $0.distanceAlong + max($0.lengthM, 0) > position - hazardsBehind }
     }
 
     /// Avoided roads within 300 m of the rider, tagged "Skipping Viale Piave: rails" (P5 S4f).

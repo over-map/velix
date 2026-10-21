@@ -12,7 +12,7 @@ struct RidingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let state = session.screen(chevron: camera.showsChevron)
+        let state = session.screen(chevron: camera.drawsRider)
         RidingScreen(state: state, camera: camera, voice: session.voice.mode, mapStyle: MapStyleKind(app.mapStyle),
                      bikeLanes: app.bikeLanes, transitLines: app.transitLines, target: target(state), motion: motion,
                      onVoice: { session.voice.cycle() },
@@ -117,7 +117,8 @@ struct RidingScreen: View {
         }
     }
 
-    /// The rider at the camera's anchor while following: the P3 chevron (2D, 3D) and the weak-GPS halo.
+    /// The rider at the camera's anchor while following: the P3 chevron (2D, 3D) or the dot and cone (North up), and
+    /// the weak-GPS halo.
     @ViewBuilder private var rider: some View {
         if camera.isFollowing, let target {
             GeometryReader { g in
@@ -127,7 +128,7 @@ struct RidingScreen: View {
                             .overlay { Circle().strokeBorder(Color.velix.casing.opacity(0.35), lineWidth: 2) }
                             .frame(width: Self.haloSize, height: Self.haloSize)
                     }
-                    if camera.showsChevron { RiderChevron() }
+                    if camera.showsChevron { RiderChevron() } else { RiderPuck(course: state.course) }
                 }
                 .position(x: g.size.width / 2, y: g.size.height * target.anchor)
             }
@@ -182,6 +183,43 @@ struct RiderChevron: View {
             p.addLine(to: CGPoint(x: r.maxX, y: r.maxY))
             p.addLine(to: CGPoint(x: r.midX, y: r.minY + r.height * 31 / 40))
             p.addLine(to: CGPoint(x: r.minX, y: r.maxY))
+            p.closeSubpath()
+            return p
+        }
+    }
+}
+
+/// The North-up rider (P3 puck, z16+: cone 46): the dot stays at the anchor and the cone turns with the course,
+/// gliding over the fix interval the shortest way round.
+struct RiderPuck: View {
+    let course: Double
+    @State private var angle: Double?
+
+    var body: some View {
+        ZStack {
+            Cone().fill(Color.velix.accent.opacity(0.42)).frame(width: 92, height: 92)
+                .rotationEffect(.degrees(angle ?? course))
+            Circle().fill(Color.white).frame(width: 24, height: 24)
+            Circle().fill(Color.velix.accent).frame(width: 20, height: 20)
+                .overlay { Circle().strokeBorder(Color.velix.casing, lineWidth: 3) }
+            NavigationArrow().fill(Color.velix.accentInk).frame(width: 8, height: 9).rotationEffect(.degrees(angle ?? course))
+        }
+        .accessibilityHidden(true)
+        .onChange(of: course) { _, new in
+            let from = angle ?? new
+            let delta = (new - from).truncatingRemainder(dividingBy: 360)
+            let shortest = delta > 180 ? delta - 360 : delta < -180 ? delta + 360 : delta
+            withAnimation(.linear(duration: 1)) { angle = from + shortest }
+        }
+    }
+
+    /// A 57° wedge from the centre, pointing up (MapImages.puck: ±0.5 rad).
+    struct Cone: Shape {
+        func path(in r: CGRect) -> Path {
+            var p = Path()
+            let c = CGPoint(x: r.midX, y: r.midY)
+            p.move(to: c)
+            p.addArc(center: c, radius: r.width / 2, startAngle: .radians(-.pi / 2 - 0.5), endAngle: .radians(-.pi / 2 + 0.5), clockwise: false)
             p.closeSubpath()
             return p
         }
