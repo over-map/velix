@@ -128,7 +128,7 @@ final class ScreenSnapshotTests: XCTestCase {
                 _ edit: (inout RideScreenState.Ride) -> Void = { _ in }) {
             var r = AppSamples.ride(at: position)
             edit(&r)
-            r.chevron = camera.showsChevron
+            r.chevron = camera.drawsRider
             let state = RideScreenState(r)
             let target = state.rider.map { camera.follow(at: $0, course: state.course) }
             check(RidingScreen(state: state, camera: camera, voice: .all, target: target), named: name, testName: "testS4Riding")

@@ -244,9 +244,15 @@ function style(name, mode) {
   halo('route-alt-halo', role('alt'), (z) => interp(W.routeCase, z) + 3);
   route('route-alt-casing', 'line', { filter: role('alt'), layout: lineLayout, paint: { 'line-color': T.altCase, 'line-width': w('routeCase') } });
   route('route-alt', 'line', { filter: role('alt'), layout: lineLayout, paint: { 'line-color': T.routeAlt, 'line-width': w('route') } });
+  // While riding, Best is split: the stretch around the rider ('best-near', ≈ 400 m) carries the ridden-part fade (a
+  // line-gradient set at runtime: its 256-step ramp is fine enough only on a short line), the rest stays 'best'.
+  // Casings first, so the two pieces join without a casing cap across the line.
   halo('route-best-halo', role('best'), (z) => interp(W.routeCase, z) + 3);
+  halo('route-best-near-halo', role('best-near'), (z) => interp(W.routeCase, z) + 3);
   route('route-best-casing', 'line', { filter: role('best'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': w('routeCase') } });
+  route('route-best-near-casing', 'line', { filter: role('best-near'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': w('routeCase') } });
   route('route-best', 'line', { filter: role('best'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': w('route') } });
+  route('route-best-near', 'line', { filter: role('best-near'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': w('route') } });
   // Train leg drawn as a route with ink ties; metro leg: casing, white core, dashed line colour.
   route('leg-train-casing', 'line', { filter: role('leg-train'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': w('routeCase') } });
   route('leg-train', 'line', { filter: role('leg-train'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': w('route') } });
@@ -259,8 +265,7 @@ function style(name, mode) {
     paint: { 'line-color': ['get', 'color'], 'line-width': w('leg'), 'line-dasharray': dash([10, 4], (z) => interp(W.leg, z)) } });
   route('hazard-tube', 'line', { filter: role('tube'), layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: { 'line-pattern': `hz-stripe-${mode}`, 'line-width': w('tube') } });
-  route('route-arrows', 'symbol', { minzoom: 15.8, filter: role('best'),
-    layout: { 'symbol-placement': 'line', 'symbol-spacing': 70, 'icon-image': `arrow-${mode}`, 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-rotation-alignment': 'map' } });
+  // No direction arrows on the route (docs/DECISIONS.md, 21 Oct: Filippo).
 
   // ---- stations, places, POIs ----
   const stationName = (minzoom, id, vis) => vel('velix_stations', id, 'symbol', { minzoom, filter: ['==', ['get', 'mode'], 'metro'],
@@ -335,7 +340,7 @@ function style(name, mode) {
     sources: {
       omt: { type: 'vector', url: 'pmtiles://velix-pack/basemap.pmtiles', attribution: '© OpenMapTiles © OpenStreetMap contributors' },
       velix: { type: 'vector', url: 'pmtiles://velix-pack/overlays.pmtiles' },
-      'velix-route': { ...empty, lineMetrics: false },
+      'velix-route': { ...empty, lineMetrics: true },
       'velix-hazards': { ...empty, cluster: true, clusterRadius: 44, clusterMaxZoom: 14 },
       'velix-markers': empty,
     },

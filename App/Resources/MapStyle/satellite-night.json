@@ -34,7 +34,7 @@
     "type": "FeatureCollection",
     "features": []
    },
-   "lineMetrics": false
+   "lineMetrics": true
   },
   "velix-hazards": {
    "type": "geojson",
@@ -5008,6 +5008,62 @@
    }
   },
   {
+   "id": "route-best-near-halo",
+   "type": "line",
+   "source": "velix-route",
+   "filter": [
+    "==",
+    [
+     "get",
+     "role"
+    ],
+    "best-near"
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#FFFFFF",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     8,
+     3.91,
+     9,
+     4.61,
+     10,
+     5.83,
+     11,
+     8,
+     12,
+     9.2,
+     13,
+     11,
+     14,
+     13,
+     15,
+     16,
+     16,
+     18.8,
+     17,
+     23,
+     18,
+     26.2,
+     19,
+     31,
+     20,
+     31
+    ]
+   }
+  },
+  {
    "id": "route-best-casing",
    "type": "line",
    "source": "velix-route",
@@ -5064,6 +5120,62 @@
    }
   },
   {
+   "id": "route-best-near-casing",
+   "type": "line",
+   "source": "velix-route",
+   "filter": [
+    "==",
+    [
+     "get",
+     "role"
+    ],
+    "best-near"
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#021624",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     8,
+     0.91,
+     9,
+     1.61,
+     10,
+     2.83,
+     11,
+     5,
+     12,
+     6.2,
+     13,
+     8,
+     14,
+     10,
+     15,
+     13,
+     16,
+     15.8,
+     17,
+     20,
+     18,
+     23.2,
+     19,
+     28,
+     20,
+     28
+    ]
+   }
+  },
+  {
    "id": "route-best",
    "type": "line",
    "source": "velix-route",
@@ -5074,6 +5186,62 @@
      "role"
     ],
     "best"
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#DBF227",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     8,
+     0.55,
+     9,
+     0.96,
+     10,
+     1.7,
+     11,
+     3,
+     12,
+     3.8,
+     13,
+     5,
+     14,
+     6.6,
+     15,
+     9,
+     16,
+     11,
+     17,
+     14,
+     18,
+     16.4,
+     19,
+     20,
+     20,
+     20
+    ]
+   }
+  },
+  {
+   "id": "route-best-near",
+   "type": "line",
+   "source": "velix-route",
+   "filter": [
+    "==",
+    [
+     "get",
+     "role"
+    ],
+    "best-near"
    ],
    "layout": {
     "line-cap": "round",
@@ -5728,28 +5896,6 @@
      20,
      20
     ]
-   }
-  },
-  {
-   "id": "route-arrows",
-   "type": "symbol",
-   "source": "velix-route",
-   "minzoom": 15.8,
-   "filter": [
-    "==",
-    [
-     "get",
-     "role"
-    ],
-    "best"
-   ],
-   "layout": {
-    "symbol-placement": "line",
-    "symbol-spacing": 70,
-    "icon-image": "arrow-night",
-    "icon-allow-overlap": true,
-    "icon-ignore-placement": true,
-    "icon-rotation-alignment": "map"
    }
   },
   {

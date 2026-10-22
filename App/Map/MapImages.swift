@@ -23,7 +23,6 @@ enum MapImages {
         case "rail": return railTile(pal)
         case "start": return start(pal)
         case "end": return end(pal)
-        case "arrow": return arrow(pal)
         case "puck": return puck(CGFloat(Int(parts.last ?? "34") ?? 34), pal)
         case "avoided": return avoidedTexts[parts.dropFirst().joined(separator: "-")].flatMap { swiftUI(AvoidedTag(reason: $0), mode) }
         case "ev": return euroVelo(parts.dropFirst().joined(separator: "-"))
@@ -134,14 +133,6 @@ enum MapImages {
             c.setFillColor(p.casing.cgColor); c.fillEllipse(in: r)
             c.setStrokeColor(UIColor.white.cgColor); c.setLineWidth(2); c.strokeEllipse(in: r)
             c.setFillColor(p.accent.cgColor); c.fillEllipse(in: r.insetBy(dx: 11 * 0.58, dy: 11 * 0.58))
-        }
-    }
-
-    /// Direction chevron on the route (z15.8+), 2 pt accent-ink stroke, pointing right (along the line).
-    private static func arrow(_ p: MapPalette) -> UIImage {
-        draw(CGSize(width: 10, height: 10)) { c in
-            c.setStrokeColor(p.accentInk.cgColor); c.setLineWidth(2); c.setLineCap(.round); c.setLineJoin(.round)
-            c.move(to: CGPoint(x: 2, y: 1.4)); c.addLine(to: CGPoint(x: 6.6, y: 5)); c.addLine(to: CGPoint(x: 2, y: 8.6)); c.strokePath()
         }
     }
 

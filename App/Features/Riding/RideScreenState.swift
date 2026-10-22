@@ -125,24 +125,34 @@ struct RideScreenState: Equatable {
                           km: String(format: "%.1f", meters / 1000))
         }
 
-        var map = MapRouteModel(best: ahead, avoided: Self.avoidedNear(r.rider, r.avoided),
+        // Placed on the whole route, so the hazards' coordinates stay the same from fix to fix (the map only
+        // re-uploads what changed).
+        let full = r.track.shape
+        var map = MapRouteModel(best: full, avoided: Self.avoidedNear(r.rider, r.avoided),
                                 hazards: Self.hazardsAhead(r.option.analysis.hazards, from: r.track.position),
                                 endName: r.destination.name)
+        // Best stays put between re-cuts every 200 m; the near stretch around the rider fades its ridden part at the
+        // rider (a paint change per fix, no upload).
+        let w = Self.nearWindow(r.track)
+        map.best = w.length < r.track.length - w.start ? RuleChecker.trimmed(full, from: w.start + w.length, to: r.track.length) : []
+        map.near = RuleChecker.trimmed(full, from: w.start, to: min(r.track.length, w.start + w.length))
+        map.travelled = min(1, max(0, (r.track.position - w.start) / max(1, min(w.length, r.track.length - w.start))))
         map.start = nil
         map.end = r.destination.location
         if !r.chevron, let rider = r.rider { map.puck = rider; map.heading = r.heading }
         self.map = map
     }
 
-    /// The route's hazards from the rider on, measured from the rider (the map draws the route ahead only).
+    /// The near stretch: from the last 200 m mark behind the rider, 400 m long (MapLibre's 256-step gradient ramp
+    /// then cuts within ≈ 1.6 m, under the chevron).
+    static let nearStep = 200.0
+    static func nearWindow(_ track: RouteTrack) -> (start: Double, length: Double) {
+        ((track.position / nearStep).rounded(.down) * nearStep, 2 * nearStep)
+    }
+
+    /// The route's hazards not yet passed (until 4 m beyond their end), measured along the whole route.
     static func hazardsAhead(_ hazards: [RouteHazard], from position: Double) -> [RouteHazard] {
-        hazards.compactMap { h in
-            let end = h.distanceAlong + max(h.lengthM, 0)
-            guard end > position - hazardsBehind else { return nil }
-            let start = max(0, h.distanceAlong - position)
-            let length = h.lengthM > 1 ? end - max(h.distanceAlong, position) : h.lengthM
-            return RouteHazard(type: h.type, distanceAlong: start, lengthM: max(0, length), street: h.street, detail: h.detail, osm: h.osm)
-        }
+        hazards.filter { $0.distanceAlong + max($0.lengthM, 0) > position - hazardsBehind }
     }
 
     /// Avoided roads within 300 m of the rider, tagged "Skipping Viale Piave: rails" (P5 S4f).

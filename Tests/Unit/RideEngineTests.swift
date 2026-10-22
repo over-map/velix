@@ -246,7 +246,7 @@ struct RideCameraTests {
         c.cycleView()
         #expect(c.view == .north)
         #expect(c.follow(at: here, course: 90).bearing == 0)
-        #expect(!c.showsChevron)                       // North up: the map puck rotates instead
+        #expect(!c.showsChevron && c.drawsRider)       // North up: the dot and cone, on screen too
         c.cycleView()
         #expect(c.view == .twoD && c.showsChevron)
     }
@@ -269,7 +269,7 @@ struct RideCameraTests {
         var c = RideCamera()
         c.cycleView()                                   // 3D
         c.userPanned(at: at(0))
-        #expect(c.isPanned && !c.showsChevron)
+        #expect(c.isPanned && !c.showsChevron && !c.drawsRider)
         c.cycleView()                                   // the view control while panned only resumes
         #expect(c.isFollowing && c.view == .threeD)
         c.userPanned(at: at(5))
@@ -290,10 +290,18 @@ struct RideScreenStateTests {
     @Test func hazardsBehindTheRiderAreDropped() {
         let ahead = RideScreenState.hazardsAhead([h(.tram, 100), h(.cobbles, 150, length: 200), h(.steps, 600)], from: 200)
         #expect(ahead.map(\.type) == [.cobbles, .steps])
-        #expect(ahead[0].distanceAlong == 0 && ahead[0].lengthM == 150)   // the cobbles still under the wheels
-        #expect(ahead[1].distanceAlong == 400)
+        #expect(ahead[0].distanceAlong == 150)                             // the cobbles still under the wheels
         // Just passed (within 4 m) stays a moment longer.
         #expect(RideScreenState.hazardsAhead([h(.tram, 198)], from: 200).count == 1)
+    }
+
+    @MainActor @Test func theStretchNearTheRiderFadesBehindIt() {
+        let state = RideScreenState(AppSamples.ride(at: 420))
+        #expect(abs(Geo.length(state.map.near ?? []) - 400) < 1)           // 400 → 800 m: re-cut every 200 m only
+        let length = Geo.length(AppSamples.rideOption().analysis.shape)
+        #expect(abs(Geo.length(state.map.best) - (length - 800)) < 1)       // the rest, to the end
+        #expect(abs((state.map.travelled ?? 0) - 20 / 400) < 0.01)
+        #expect(RideScreenState(AppSamples.ride(at: 590)).map.near == state.map.near)
     }
 
     @Test func avoidedRoadsShowOnlyNearTheRider() {
@@ -375,5 +383,28 @@ struct RideActivityContentTests {
             let h = RouteHazard(type: type, distanceAlong: 0, lengthM: 300, street: nil, detail: "", osm: "w1")
             #expect(HazardPrompt.short(h).count <= 18, "\(type): \(HazardPrompt.short(h))")
         }
+    }
+}
+
+@MainActor
+struct LockScreenWakeTests {
+    private let tram = HazardTracker.Next(index: 0, hazard: RouteHazard(type: .tram, distanceAlong: 0, lengthM: 0, street: nil, detail: "", osm: "n1"),
+                                          distance: 35, approaching: true)
+
+    @Test func aCloseHazardWakesTheScreenFirst() {
+        var s = RideActivityAttributes.ContentState.sample
+        RideSession.addHazard(tram, to: &s)
+        let w = RideSession.wake(s, hazard: tram, toTurn: 40, step: 7)
+        #expect(w?.key == "hazard-tram-n1")
+        #expect(w?.title == "Tram rails" && w?.body == "Cross straight · 40 m")   // distances round to 10 m
+    }
+
+    @Test func aTurnWakesItWithin100MetresButStraightOnDoesNot() {
+        var s = RideActivityAttributes.ContentState.sample           // left, "160 m", Via Nino Bixio
+        #expect(RideSession.wake(s, hazard: nil, toTurn: 160, step: 7) == nil)
+        s.distance = "100 m"
+        #expect(RideSession.wake(s, hazard: nil, toTurn: 100, step: 7)?.title == "Turn left in 100 m")
+        s.maneuver = .straight
+        #expect(RideSession.wake(s, hazard: nil, toTurn: 80, step: 7) == nil)
     }
 }

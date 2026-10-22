@@ -18,8 +18,11 @@ struct RideCamera: Equatable, Sendable {
     var isPanned: Bool { pannedAt != nil }
     /// The camera tracks the rider (not overview, not panned).
     var isFollowing: Bool { !isOverview && !isPanned }
-    /// Heading up with the P3 chevron at the anchor (2D and 3D follow); North up keeps the map puck, which rotates.
+    /// Heading up with the P3 chevron at the anchor (2D and 3D follow); North up shows the dot and cone, rotating.
     var showsChevron: Bool { isFollowing && view != .north }
+    /// While following, the screen draws the rider at the anchor (smooth: the camera glides, the marker stays put);
+    /// panned or in the overview, the map puck does.
+    var drawsRider: Bool { isFollowing }
 
     /// View control: 2D → 3D → North (P5 "Each control cycles on tap"); it also ends an overview or a pan.
     mutating func cycleView() {

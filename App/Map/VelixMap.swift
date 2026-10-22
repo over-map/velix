@@ -38,6 +38,8 @@ struct VelixMap: UIViewRepresentable {
     /// Fit these points above the sheets (S3 route options); overrides `camera` while set.
     var fit: [LatLon]?
     var motion: MapCameraMotion = .standard
+    /// Riding: coarser tiles far from the camera in the pitched 3D view (see ``Coordinator/applyDetail(on:)``).
+    var riding = false
     /// The rider moved the map (S1b: the Recenter button appears).
     var onUserPan: () -> Void = {}
 
@@ -50,6 +52,7 @@ struct VelixMap: UIViewRepresentable {
         map.compassView.isHidden = true
         map.attributionButton.isHidden = !showsAttribution
         context.coordinator.state = self
+        context.coordinator.applyDetail(on: map)
         context.coordinator.loadStyle(on: map)
         context.coordinator.applyCamera(on: map, animated: false)
         return map
@@ -59,6 +62,7 @@ struct VelixMap: UIViewRepresentable {
         let c = context.coordinator
         let old = c.state
         c.state = self
+        if old?.riding != riding { c.applyDetail(on: map) }
         if old?.style != style || old?.mode != mode { c.loadStyle(on: map) } else { c.applyStyleState(on: map) }
         if old?.camera != camera || old?.insets != insets || old?.fit != fit { c.applyCamera(on: map, animated: old != nil) }
     }
@@ -71,7 +75,21 @@ struct VelixMap: UIViewRepresentable {
         func loadStyle(on map: MLNMapView) {
             guard let s = state else { return }
             loaded = false
+            styleKey = nil
+            shapes = [:]
+            travelled = nil
+            shown = nil
+            glide = nil
             do { map.styleURL = try VelixMapStyle.url(s.style, s.mode) } catch { print("VelixMap: \(error)") }
+        }
+
+        /// Riding: tiles far from the camera at lower zooms once pitched beyond 30°, and sooner (scale 1.5). MapLibre's
+        /// own threshold is above the 50° 3D view, so it loaded and drew full-detail tiles out to the horizon (most of
+        /// them under the banner), which dropped frames on the iPhone 11 at the start and after unlocking.
+        func applyDetail(on map: MLNMapView) {
+            guard state?.riding == true else { return }
+            map.tileLodPitchThreshold = 30 * .pi / 180
+            map.tileLodScale = 1.5
         }
 
         func applyCamera(on map: MLNMapView, animated: Bool) {
@@ -174,29 +192,88 @@ struct VelixMap: UIViewRepresentable {
             MainActor.assumeIsolated { MapImages.image(named: imageName) }
         }
 
+        /// What was last handed to the style, so an update that changes nothing costs nothing: re-setting a source
+        /// makes MapLibre re-place every symbol on it, which shows as dropped frames while riding (once a fix).
+        private var styleKey: String?
+        private var shapes: [String: Data] = [:]
+
         func applyStyleState(on map: MLNMapView) {
             guard loaded, let s = state, let style = map.style else { return }
-            let ids = style.layers.map(\.identifier)
-            for (id, on) in VelixMapStyle.visibility(bikeLanes: s.bikeLanes, transitLines: s.transitLines, layerIDs: ids) {
-                style.layer(withIdentifier: id)?.isVisible = on
-            }
-            // P3: train & metro at 60 % while a route is shown.
-            for id in ids where id.hasPrefix("overlay-train") || id.hasPrefix("overlay-metro") {
-                (style.layer(withIdentifier: id) as? MLNLineStyleLayer)?.lineOpacity = NSExpression(forConstantValue: s.route == nil ? 1 : 0.6)
+            let key = "\(s.bikeLanes)|\(s.transitLines)|\(s.route == nil)"
+            if key != styleKey {
+                styleKey = key
+                let ids = style.layers.map(\.identifier)
+                for (id, on) in VelixMapStyle.visibility(bikeLanes: s.bikeLanes, transitLines: s.transitLines, layerIDs: ids) {
+                    style.layer(withIdentifier: id)?.isVisible = on
+                }
+                // P3: train & metro at 60 % while a route is shown.
+                for id in ids where id.hasPrefix("overlay-train") || id.hasPrefix("overlay-metro") {
+                    (style.layer(withIdentifier: id) as? MLNLineStyleLayer)?.lineOpacity = NSExpression(forConstantValue: s.route == nil ? 1 : 0.6)
+                }
             }
             MapImages.avoidedTexts = Dictionary(uniqueKeysWithValues: (s.route?.avoided ?? []).map { ($0.id, $0.reason) })
             let r = s.route
             setShape("velix-route", r?.routeGeoJSON(), in: style)
+            setTravelled(r?.travelled, in: map)
             setShape("velix-hazards", r?.hazardsGeoJSON(), in: style)
             var markers = r ?? MapRouteModel(best: [])
             if markers.puck == nil, let user = s.userLocation { markers.puck = user; markers.heading = s.userHeading ?? 0 }
             setShape("velix-markers", markers.markersGeoJSON(), in: style)
         }
 
+        private var travelled: Double?
+        /// The share drawn now, and the glide towards the latest one.
+        private var shown: Double?
+        private var glide: (from: Double, to: Double, start: CFTimeInterval)?
+        private var link: CADisplayLink?
+        private weak var map: MLNMapView?
+
+        /// Fades the ridden part of Best's near stretch: a step on line-progress, clear before the rider and the layer's
+        /// own colour after. A paint change only, so it follows the rider without re-uploading the route. While tracking it glides
+        /// to each new fix over the camera's 1 s, so the cut stays under the chevron instead of running ahead of it.
+        private func setTravelled(_ share: Double?, in map: MLNMapView) {
+            guard share != travelled else { return }
+            travelled = share
+            self.map = map
+            guard let share, let from = shown, state?.motion == .track, share > from, share - from < 0.05 else {
+                glide = nil
+                drawTravelled(share)
+                return
+            }
+            glide = (from, share, CACurrentMediaTime())
+            if link == nil {
+                let l = CADisplayLink(target: self, selector: #selector(stepGlide))
+                l.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30)
+                l.add(to: .main, forMode: .common)
+                link = l
+            }
+        }
+
+        @objc private func stepGlide() {
+            guard let g = glide else { link?.invalidate(); link = nil; return }
+            let t = min(1, (CACurrentMediaTime() - g.start) / (Self.duration(.track) ?? 1))
+            drawTravelled(g.from + (g.to - g.from) * t)
+            if t >= 1 { glide = nil }
+        }
+
+        private func drawTravelled(_ share: Double?) {
+            shown = share
+            guard let style = map?.style else { return }
+            for id in ["route-best-near-halo", "route-best-near-casing", "route-best-near"] {
+                guard let layer = style.layer(withIdentifier: id) as? MLNLineStyleLayer else { continue }
+                guard let share, let color = layer.lineColor.constantValue as? UIColor else { layer.lineGradient = nil; continue }
+                let at = NSNumber(value: min(max(share, 0.0001), 0.9999))
+                layer.lineGradient = NSExpression(format: "mgl_step:from:stops:($lineProgress, %@, %@)", UIColor.clear, [at: color])
+            }
+        }
+
         private func setShape(_ id: String, _ data: Data?, in style: MLNStyle) {
             guard let source = style.source(withIdentifier: id) as? MLNShapeSource else { return }
             let empty = Data(#"{"type":"FeatureCollection","features":[]}"#.utf8)
-            source.shape = try? MLNShape(data: data ?? empty, encoding: String.Encoding.utf8.rawValue)
+            let data = data ?? empty
+            guard shapes[id] != data else { return }
+            shapes[id] = data
+            source.shape = try? MLNShape(data: data, encoding: String.Encoding.utf8.rawValue)
         }
     }
 }
