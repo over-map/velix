@@ -19,14 +19,14 @@
     "unpacked_bytes": {"type": "integer", "minimum": 1},
     "budget_bytes": {"type": "integer", "minimum": 1},
     "files": {
-      "type": "array", "minItems": 6,
+      "type": "array", "minItems": 7,
       "items": {
         "type": "object", "additionalProperties": false,
         "required": ["name", "asset", "role", "bytes", "sha256", "unpacked_bytes", "unpacked_sha256"],
         "properties": {
           "name": {"type": "string"},
           "asset": {"type": "string", "pattern": "\\.xz$"},
-          "role": {"enum": ["routing_tiles", "hazards", "routes", "transit", "basemap", "overlays"]},
+          "role": {"enum": ["routing_tiles", "hazards", "routes", "transit", "basemap", "overlays", "city"]},
           "bytes": {"type": "integer", "minimum": 1},
           "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "unpacked_bytes": {"type": "integer", "minimum": 1},

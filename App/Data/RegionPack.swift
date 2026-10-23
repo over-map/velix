@@ -30,10 +30,13 @@ enum RegionPack {
     }
 
     /// Map tiles (M5): `basemap.pmtiles` and `overlays.pmtiles`, installed or side-loaded into Documents.
-    static var basemap: URL? { mapFile(.basemap, sideloaded: "basemap.pmtiles") }
-    static var overlays: URL? { mapFile(.overlays, sideloaded: "overlays.pmtiles") }
+    static var basemap: URL? { packFile(.basemap, sideloaded: "basemap.pmtiles") }
+    static var overlays: URL? { packFile(.overlays, sideloaded: "overlays.pmtiles") }
+    /// Bike + transit (M8): the Trenord and ATM timetable, and the city area.
+    static var transit: URL? { packFile(.transit, sideloaded: "transit.sqlite") }
+    static var city: URL? { packFile(.city, sideloaded: "city.geojson") }
 
-    private static func mapFile(_ role: RegionPackManifest.File.Role, sideloaded name: String) -> URL? {
+    private static func packFile(_ role: RegionPackManifest.File.Role, sideloaded name: String) -> URL? {
         let side = URL.documentsDirectory.appending(path: name)
         if preferSideloaded, FileManager.default.fileExists(atPath: side.path) { return side }
         if let installed = try? RegionPackInstaller.current()?.file(role), FileManager.default.fileExists(atPath: installed.path) {
