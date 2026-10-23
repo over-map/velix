@@ -98,6 +98,13 @@ final class AppModel {
         }
     }
 
+    /// Start bike + transit (S3e). Until riding with transit lands (M8c), this rides the first stage, to the station.
+    func startTransit(_ plan: TransitPlan, to place: Place) {
+        let station = plan.departure.board
+        start(plan.rideIn, choice: .best, to: Place(id: "station-\(station.id)", name: TransitCopy.short(station), subtitle: place.name,
+                                                    kind: .station, lat: station.location.lat, lon: station.location.lon))
+    }
+
     /// The map style for the current ride type (remembered per type).
     var mapStyle: MapStyleSheet.Style {
         get { _ = styleTick; return mapPreference.style(for: state.rideType) }

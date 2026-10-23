@@ -125,8 +125,6 @@ struct TransitPlan: Sendable {
     let rule: BikeRule
     let stops: [TransitStopTime]
     let rideOut: RouteOption
-    /// The next runs of the same pair (S3e "Next trains").
-    let later: [TransitDeparture]
     /// When the plan was made (the rider leaves now).
     let planned: Date
 
@@ -149,7 +147,9 @@ struct TransitPlanner: Sendable {
     /// Candidates tried with real bike legs before giving up.
     static let tries = 2
 
-    func plan(from origin: LatLon, to destination: LatLon, rules: RuleSet, at now: Date) async -> TransitPlan? {
+    /// The best connection: the first run still caught after the real ride in, then the next runs of the same pair
+    /// (S3e "Next trains": up to three choices). Empty when no direct connection with bikes works.
+    func plans(from origin: LatLon, to destination: LatLon, rules: RuleSet, at now: Date) async -> [TransitPlan] {
         let candidates = DirectPlanner.candidates(store, from: origin, to: destination, at: now)
         for c in candidates.prefix(Self.tries) {
             guard let rideIn = try? await Self.best(planner.plan(from: origin, to: c.departure.board.location, heading: nil, rules: rules)),
@@ -157,13 +157,20 @@ struct TransitPlanner: Sendable {
             else { continue }
             // The real ride in may be longer than the estimate: take the first run of the same pair still caught.
             let ready = now.addingTimeInterval(rideIn.seconds + DirectPlanner.boarding(c.departure.route.mode))
-            let runs = [c.departure] + DirectPlanner.later(store, than: c.departure, count: 4)
-            guard let index = runs.firstIndex(where: { $0.departs >= ready }) else { continue }
-            let d = runs[index]
-            return TransitPlan(rideIn: rideIn, departure: d, rule: store.bikeRule(for: d), stops: store.stopTimes(of: d),
-                               rideOut: rideOut, later: Array(runs.dropFirst(index + 1).prefix(2)), planned: now)
+            let runs = ([c.departure] + DirectPlanner.later(store, than: c.departure, count: 4)).filter { $0.departs >= ready }
+            guard !runs.isEmpty else { continue }
+            return runs.prefix(Self.choices).map { d in
+                TransitPlan(rideIn: rideIn, departure: d, rule: store.bikeRule(for: d), stops: store.stopTimes(of: d),
+                            rideOut: rideOut, planned: now)
+            }
         }
-        return nil
+        return []
+    }
+
+    static let choices = 3
+
+    func plan(from origin: LatLon, to destination: LatLon, rules: RuleSet, at now: Date) async -> TransitPlan? {
+        await plans(from: origin, to: destination, rules: rules, at: now).first
     }
 
     private static func best(_ plan: RoutePlan) -> RouteOption? {

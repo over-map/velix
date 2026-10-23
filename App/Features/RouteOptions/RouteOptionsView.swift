@@ -6,11 +6,14 @@ struct RouteOptionsView: View {
     @State var model: RouteOptionsModel
     var onClose: () -> Void
     var onStart: (RouteOption, RideChoice, [AvoidedRoad]) -> Void
+    /// Start with bike + transit (S3e).
+    var onStartTransit: (TransitPlan) -> Void = { _ in }
     var onEditRules: () -> Void
     /// Plan when the screen appears (snapshot tests show a fixed state instead).
     var plansOnAppear = true
     @Environment(\.colorScheme) private var scheme
     @Environment(\.liveMap) private var liveMap
+    @Environment(\.openURL) private var openURL
     @State private var sheetHeight: CGFloat = 480
 
     var body: some View {
@@ -94,6 +97,12 @@ struct RouteOptionsView: View {
         case .computing:
             RouteCardSkeleton()
             RouteCardSkeleton()
+        case .options where model.transitSelected:
+            // S3e: the bike routes fold into one row; the transit card takes the space.
+            if let text = model.bikeOnlyText { BikeOnlyRow(text: text) { model.transitSelected = false } }
+            if let card = model.transitCard, let p = model.transitPlan {
+                TransitCard(model: card, selectedDeparture: $model.departureIndex) { openURL(TransitCopy.ticket(p).url) }
+            }
         case let .options(o):
             let cards = model.cards
             if let best = cards.first {
@@ -111,6 +120,13 @@ struct RouteOptionsView: View {
             }
             if cards.count > 1, !model.whyExpanded {
                 RouteCard(model: cards[1]) { model.fastestSelected = true }
+            }
+            // S3d: one row under the bike routes when a trigger fires.
+            if let row = model.transitRow, !model.whyExpanded {
+                TransitSuggestionRow(mode: row.mode, title: row.title, subtitle: row.subtitle) {
+                    model.departureIndex = 0
+                    model.transitSelected = true
+                }
             }
             if !model.hazardRows.isEmpty || !model.avoidedRows.isEmpty {
                 WhyThisRoute(expanded: $model.whyExpanded, hazards: model.hazardRows, avoided: model.avoidedRows)
@@ -169,6 +185,7 @@ struct RouteOptionsView: View {
     private var start: some View {
         let ready = app.pack.isReady && model.chosen != nil
         return PrimaryButton(title: "Start", icon: .navigation, isEnabled: ready, casing: true) {
+            if model.transitSelected, let p = model.transitPlan { return onStartTransit(p) }
             if let option = model.chosen { onStart(option, model.fastestSelected ? .fastest : .best, model.options?.avoided ?? []) }
         }
         .accessibilityLabel(ready ? "Start riding to \(model.destination.name)"
