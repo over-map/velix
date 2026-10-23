@@ -145,3 +145,33 @@ struct TransitTriggerTests {
         #expect(!square.contains(TransitFixture.villaReale))
     }
 }
+
+@MainActor
+struct TransitCopyTests {
+    @Test func theP4StringsFromAPlan() throws {
+        let p = try #require(AppSamples.monzaTransit().first)
+        let dest = AppSamples.villaReale
+        #expect(TransitCopy.rowTitle(p) == "Long ride? Hop on the train with your bike")
+        #expect(TransitCopy.rowSubtitle(p, bikeSeconds: 52 * 60, destination: dest)
+                == "**21 min faster** · ride to Centrale, train to Monza, ride into the park")
+        #expect(TransitCopy.cardSubtitle(p) == "13 min by bike · arrive 08:36")
+        #expect(TransitCopy.trainLine(p) == "Trenord R 10834 · 08:16 → Monza 08:27")
+        #expect(TransitCopy.detail(p, destination: dest)
+                == "Ride 7 min to Centrale · platform planned: check the board · bikes allowed · ride 6 min into the park")
+        #expect(TransitCopy.bikeOnly(best: 52 * 60, fastest: 45 * 60) == "Bike only · **52 min** Best · 45 min Fastest")
+        #expect(TransitCopy.segments(p).map(\.label) == ["Ride 7", "Wait 4", "Train 11", "", "Ride 6"])   // "Out 3" unlabelled
+        #expect(TransitCopy.minutes(p.seconds) == 31)
+    }
+
+    @Test func theModelOffersTheCardAndTheNextTrains() throws {
+        let m = RouteOptionsModel(destination: AppSamples.villaReale, state: .options(AppSamples.monzaOptions()),
+                                  transit: AppSamples.monzaTransit())
+        #expect(m.transitRow?.title == "Long ride? Hop on the train with your bike")
+        m.transitSelected = true
+        #expect(m.transitCard?.departures == ["08:16", "08:46", "09:16"])
+        m.departureIndex = 1
+        #expect(m.transitCard?.train == "Trenord R 10838 · 08:46 → Monza 08:57")
+        #expect(m.mapRoute?.legs.first?.line.count == 3)
+        #expect(m.mapRoute?.rides.count == 1)
+    }
+}

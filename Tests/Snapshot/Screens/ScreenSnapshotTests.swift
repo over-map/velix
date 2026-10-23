@@ -101,11 +101,13 @@ final class ScreenSnapshotTests: XCTestCase {
 
     func testS3RouteOptions() {
         func s3(_ state: RouteOptionsModel.State, rideType: RideType = .city, why: Bool = false, lit: Bool = false,
-                pack: PackService.State = .ready(.sideloaded), place: Place = AppSamples.politecnico) -> some View {
+                pack: PackService.State = .ready(.sideloaded), place: Place = AppSamples.politecnico,
+                transit: [TransitPlan] = [], transitSelected: Bool = false) -> some View {
             let a = app(pack: pack, rideType: rideType)
             a.litStreetsOnly = lit
-            let m = RouteOptionsModel(destination: place, state: state)
+            let m = RouteOptionsModel(destination: place, state: state, transit: transit)
             m.whyExpanded = why
+            m.transitSelected = transitSelected
             return RouteOptionsView(app: a, model: m, onClose: {}, onStart: { _, _, _ in }, onEditRules: {}, plansOnAppear: false)
         }
         check(s3(.options(AppSamples.options())), named: "S3a-bestFastest")
@@ -114,6 +116,10 @@ final class ScreenSnapshotTests: XCTestCase {
                  place: Place(id: "c", name: "Milano Centrale", subtitle: "", kind: .station, lat: 45.4859, lon: 9.204)), named: "S3c-single")
         check(s3(.blocked(rule: .noCobbles, rideType: .cargo, closest: nil), rideType: .cargo,
                  place: Place(id: "d", name: "Piazza del Duomo", subtitle: "", kind: .poi, lat: 45.4641, lon: 9.1919)), named: "S3f-blocked")
+        check(s3(.options(AppSamples.monzaOptions()), place: AppSamples.villaReale, transit: AppSamples.monzaTransit()),
+              named: "S3d-transitRow")
+        check(s3(.options(AppSamples.monzaOptions()), place: AppSamples.villaReale, transit: AppSamples.monzaTransit(), transitSelected: true),
+              named: "S3e-transitCard")
         check(s3(.computing), named: "S3g-computing")
         check(s3(.options(AppSamples.options(lit: true)), lit: true), named: "S3h-lit")
         check(s3(.options(AppSamples.options(rideType: .cargo)), rideType: .cargo), named: "S3i-cargo")
