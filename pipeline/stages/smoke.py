@@ -93,6 +93,12 @@ def main() -> int:
     rules = dict(tr.execute("SELECT operator, count(*) FROM bike_rules GROUP BY operator"))
     check(rules.get("atm", 0) > 0 and rules.get("trenord", 0) > 0, f"bike rules per operator: {rules}")
 
+    # City area (M8 "destination outside the city" trigger): Porta Venezia in, Villa Reale (Monza) out.
+    from shapely.geometry import Point, shape
+    city = shape(json.loads((out / "city.geojson").read_text())["features"][0]["geometry"])
+    check(city.contains(Point(9.2050, 45.4746)) and not city.contains(Point(9.2740, 45.5885)),
+          "city area holds Porta Venezia, not Villa Reale")
+
     log(f"{len(fails)} failures")
     return 1 if fails else 0
 

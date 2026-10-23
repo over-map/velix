@@ -9,7 +9,9 @@ from common import load_config, log, out_dir, sha256, write_json
 
 FILES = [("valhalla_tiles.tar", "routing_tiles"), ("hazards.sqlite", "hazards"),
          ("routes.sqlite", "routes"), ("transit.sqlite", "transit"),
-         ("basemap.pmtiles", "basemap"), ("overlays.pmtiles", "overlays")]
+         ("basemap.pmtiles", "basemap"), ("overlays.pmtiles", "overlays"),
+         # The city area (config region.city_area_relation): the "destination outside the city" transit trigger (M8).
+         ("city.geojson", "city")]
 
 
 def main():

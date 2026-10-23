@@ -7,6 +7,8 @@ struct RegionPackManifest: Codable, Equatable, Sendable {
             case routingTiles = "routing_tiles", hazards, routes, transit
             /// OpenMapTiles vector tiles (PMTiles, uncompressed tiles) and the Velix overlay tiles (M5).
             case basemap, overlays
+            /// The city area polygon (GeoJSON, M8): "destination outside the city" suggests bike + transit.
+            case city
         }
 
         let name: String

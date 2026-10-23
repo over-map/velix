@@ -6,6 +6,8 @@ final class EngineHost {
     private var engine: ValhallaOnDeviceProvider?
     private var hazards: HazardStore?
     private var loading: Task<RoutePlanner, Error>?
+    private var transit: TransitStore?
+    private var city: CityArea?
 
     enum Failure: Error { case noPack }
 
@@ -35,10 +37,27 @@ final class EngineHost {
         return RoutePlanner(engine: engine, hazards: hazards)
     }
 
+    /// Bike + transit (M8): the timetable and the bike planner, or nil when the pack has no timetable.
+    func transitPlanner() async throws -> TransitPlanner? {
+        let planner = try await planner()
+        if transit == nil, let url = RegionPack.transit {
+            transit = try await Task.detached(priority: .userInitiated) { try TransitStore(path: url) }.value
+        }
+        return transit.map { TransitPlanner(store: $0, planner: planner) }
+    }
+
+    /// The city area (destination outside it: suggest transit), or nil when the pack has none.
+    var cityArea: CityArea? {
+        if city == nil, let url = RegionPack.city, let data = try? Data(contentsOf: url) { city = try? CityArea(geoJSON: data) }
+        return city
+    }
+
     /// Drop the engine (after installing a new pack).
     func reset() {
         engine = nil
         hazards = nil
+        transit = nil
+        city = nil
         loading?.cancel()
         loading = nil
     }

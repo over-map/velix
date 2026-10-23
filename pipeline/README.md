@@ -21,6 +21,7 @@ These files are the GitHub Release assets. The app downloads them one by one and
 | `hazards.sqlite.xz` | `hazards` table + `hazards_rtree`: tram, along, cobbles, steps, gap, dismount, lane (with heading), door; `ways` table: lighting and paths per way id (schema 2, see `stages/hazards.py`) |
 | `routes.sqlite.xz` | OSM cycle-route relations (`route=bicycle|mtb`), merged geometry as polyline6, EuroVelo number |
 | `transit.sqlite.xz` | Trenord rail + ATM metro GTFS subset for 60 days, and `bike_rules` from `config/bikes_allowed_rules.yml` |
+| `city.geojson.xz` | The city area (`region.city_area_relation`, Comune di Milano): the app suggests bike + transit when the destination is outside it |
 | `basemap.pmtiles.xz` | OpenMapTiles-schema vector tiles z0–14 for the map (planetiler), tiles uncompressed inside the PMTiles so xz compresses across them |
 | `overlays.pmtiles.xz` | Velix overlay tiles: `velix_cycling`, `velix_routes`, `velix_transit`, `velix_stations` (see `stages/overlays.py`) |
 
