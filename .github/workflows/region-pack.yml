@@ -77,9 +77,9 @@ jobs:
           name: pack-lombardy
           path: build/pack
 
-      - name: Unpack tiles and hazards
+      - name: Unpack tiles, hazards, timetable and city area
         run: |
-          xz -d -T0 build/pack/valhalla_tiles.tar.xz build/pack/hazards.sqlite.xz
+          xz -d -T0 build/pack/valhalla_tiles.tar.xz build/pack/hazards.sqlite.xz build/pack/transit.sqlite.xz build/pack/city.geojson.xz
           ls -lh build/pack
 
       - name: Generate project
