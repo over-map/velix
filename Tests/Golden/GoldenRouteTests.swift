@@ -58,12 +58,14 @@ enum GoldenPack {
 
     static let outDir: URL? = ProcessInfo.processInfo.environment["VELIX_GOLDEN_OUT"].map { URL(filePath: $0) }
 
-    /// One untimed plan across the region first: the first requests read the tiles from disk (CI took 6 s for a
-    /// 2.4 km plan that takes 0.3 s warm), which isn't what the 5 s planning check is about.
+    /// One untimed plan per trip first: the first requests in an area read its tiles from disk (CI took 6 s for a
+    /// 2.4 km plan that takes 0.3 s warm, and 7.9 s for Bergamo's first plan on a freshly unpacked pack), which isn't
+    /// what the 5 s planning check is about.
     static let warmUp = Task<Void, Never> {
         guard let p = try? planner?.get() else { return }
-        _ = try? await p.plan(from: GoldenTrip.all[6].from, to: GoldenTrip.all[6].to, rules: .defaults(for: .city))
-        _ = try? await p.plan(from: GoldenTrip.all[7].from, to: GoldenTrip.all[7].to, rules: .defaults(for: .ebike))
+        for trip in GoldenTrip.all {
+            _ = try? await p.plan(from: trip.from, to: trip.to, rules: .defaults(for: .city))
+        }
     }
 }
 
