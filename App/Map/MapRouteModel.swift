@@ -86,7 +86,9 @@ struct MapRouteModel: Equatable, Sendable {
         if best.count > 1 { f.append(line(best, ["role": "best"])) }
         for r in rides where r.count > 1 { f.append(line(r, ["role": "best"])) }
         for l in legs where l.line.count > 1 {
-            f.append(line(l.line, l.metro ? ["role": "leg-metro", "color": l.color ?? "#C8102E"] : ["role": "leg-train"]))
+            // A metro leg takes its line colour from the GTFS; without one it is drawn like a train leg.
+            if l.metro, let color = l.color { f.append(line(l.line, ["role": "leg-metro", "color": color])) }
+            else { f.append(line(l.line, ["role": "leg-train"])) }
         }
         if let near, near.count > 1 { f.append(line(near, ["role": "best-near"])) }
         for t in tubes { f.append(line(t, ["role": "tube"])) }
