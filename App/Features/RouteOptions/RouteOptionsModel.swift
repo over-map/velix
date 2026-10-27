@@ -20,10 +20,15 @@ final class RouteOptionsModel {
     private(set) var state: State = .computing
     var fastestSelected = false
     var whyExpanded = false
+    /// Bike + transit (M8): the first run still caught and the next ones of the same pair, when a trigger fires.
+    private(set) var transit: [TransitPlan] = []
+    var transitSelected = false
+    var departureIndex = 0
 
-    init(destination: Place, state: State = .computing) {
+    init(destination: Place, state: State = .computing, transit: [TransitPlan] = []) {
         self.destination = destination
         self.state = state
+        self.transit = transit
     }
 
     func plan(app: AppModel) async {
@@ -33,7 +38,9 @@ final class RouteOptionsModel {
         do {
             let planner = try await app.engine.planner()
             switch try await planner.plan(from: origin, to: destination.location, heading: app.location.travelHeading, rules: app.rules) {
-            case let .options(o): state = .options(o)
+            case let .options(o):
+                state = .options(o)
+                await planTransit(app: app, from: origin, bike: o)
             case let .noRouteMeetsRules(rule, type, closest, _): state = .blocked(rule: rule, rideType: type, closest: closest)
             case .noRoute: state = .noRoute
             }
@@ -42,6 +49,51 @@ final class RouteOptionsModel {
         } catch {
             state = .failed("Velix couldn’t plan this route.")
         }
+    }
+
+    /// In the background, after the bike routes are on screen: one direct connection, kept only when a trigger
+    /// fires (BRIEF §8: a suggestion, never a third card).
+    private func planTransit(app: AppModel, from origin: LatLon, bike: RouteOptions) async {
+        transit = []
+        transitSelected = false
+        departureIndex = 0
+        guard let planner = try? await app.engine.transitPlanner() else { return }
+        let plans = await planner.plans(from: origin, to: destination.location, rules: app.rules, at: AppClock.now)
+        guard let first = plans.first else { return }
+        let outside = app.engine.cityArea.map { !$0.contains(destination.location) } ?? false
+        let b = bike.best
+        if TransitTrigger.shows(bike: .init(seconds: b.seconds, meters: b.meters, climb: b.analysis.climbM), transit: first,
+                                destinationOutsideCity: outside) {
+            transit = plans
+        }
+    }
+
+    // MARK: Bike + transit (P4 S3d, S3e)
+
+    var transitPlan: TransitPlan? { transit.indices.contains(departureIndex) ? transit[departureIndex] : transit.first }
+
+    var transitRow: (mode: TransitMode, title: String, subtitle: String)? {
+        guard let p = transit.first, let o = options else { return nil }
+        return (Self.mode(p), TransitCopy.rowTitle(p), TransitCopy.rowSubtitle(p, bikeSeconds: o.best.seconds, destination: destination))
+    }
+
+    var transitCard: TransitCard.Model? {
+        guard let p = transitPlan else { return nil }
+        let ticket = TransitCopy.ticket(p)
+        return TransitCard.Model(title: TransitCopy.cardTitle(p), subtitle: TransitCopy.cardSubtitle(p),
+                                 minutes: TransitCopy.minutes(p.seconds), segments: TransitCopy.segments(p),
+                                 departures: transit.map { TransitCopy.clock($0.departure.departs) },
+                                 train: TransitCopy.trainLine(p), detail: TransitCopy.detail(p, destination: destination),
+                                 ticketsLabel: ticket.label, footnote: TransitCopy.footnote)
+    }
+
+    var bikeOnlyText: String? {
+        options.map { TransitCopy.bikeOnly(best: $0.best.seconds, fastest: $0.fastest?.seconds) }
+    }
+
+    static func mode(_ p: TransitPlan) -> TransitMode {
+        p.departure.route.mode == .metro
+            ? .metro(MetroBadge.family(TransitCopy.metroFamily(p.departure.route), name: p.departure.route.shortName)) : .train
     }
 
     // MARK: What the sheet shows
@@ -91,6 +143,7 @@ final class RouteOptionsModel {
 
     /// The map: both routes, the avoided roads and Best's hazards; the blocked attempt as an alternative.
     var mapRoute: MapRouteModel? {
+        if transitSelected, let p = transitPlan { return MapRouteModel(transit: p, endName: destination.name) }
         switch state {
         case let .options(o):
             if fastestSelected, let f = o.fastest {
@@ -110,10 +163,11 @@ final class RouteOptionsModel {
 
     /// Points to fit the camera on.
     var fitPoints: [LatLon] {
+        if transitSelected, let p = transitPlan { return p.rideIn.analysis.shape + p.stops.map(\.stop.location) + p.rideOut.analysis.shape }
         switch state {
-        case let .options(o): o.best.analysis.shape + (o.fastest?.analysis.shape ?? [])
-        case let .blocked(_, _, closest?): closest.analysis.shape
-        default: []
+        case let .options(o): return o.best.analysis.shape + (o.fastest?.analysis.shape ?? [])
+        case let .blocked(_, _, closest?): return closest.analysis.shape
+        default: return []
         }
     }
 

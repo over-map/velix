@@ -58,11 +58,20 @@ enum ComponentCatalog {
         e("WhyThisRoute", "expanded") {
             WhyThisRoute(expanded: .constant(true), hazards: sampleHazards, avoided: sampleAvoided)
         },
-        e("TransitSuggestionRow", "train") { TransitSuggestionRow(mode: .train, title: "Bike + train · 52 min", subtitle: "26 min faster than Best") },
-        e("TransitSuggestionRow", "metro") { TransitSuggestionRow(mode: .metro(.m1), title: "Bike + M1 · 31 min", subtitle: "12 min faster than Best") },
-        e("TransitSuggestionRow", "pressed") {
-            TransitSuggestionRow(mode: .train, title: "Bike + train · 52 min", subtitle: "26 min faster than Best").buttonStyle(SurfaceRowStyle(pressed: true))
+        e("TransitSuggestionRow", "train") {
+            TransitSuggestionRow(mode: .train, title: "Long ride? Hop on the train with your bike",
+                                 subtitle: "**21 min faster** · ride to Centrale, train to Monza, ride into the park")
         },
+        e("TransitSuggestionRow", "metro") {
+            TransitSuggestionRow(mode: .metro(.m1), title: "Long ride? Hop on the metro with your bike",
+                                 subtitle: "**12 min faster** · ride to P.ta Venezia, M1 to Sesto 1 Maggio FS, ride to Parco Nord")
+        },
+        e("TransitSuggestionRow", "pressed") {
+            TransitSuggestionRow(mode: .train, title: "Long ride? Hop on the train with your bike",
+                                 subtitle: "**21 min faster** · ride to Centrale, train to Monza, ride into the park")
+                .buttonStyle(SurfaceRowStyle(pressed: true, outline: Color.velix.transitTrain, outlineWidth: 1.5, cornerRadius: 16))
+        },
+        e("TransitSuggestionRow", "bikeOnly") { BikeOnlyRow(text: "Bike only · **52 min** Best · 45 min Fastest") },
         e("TransitCard", "selected") { TransitCard(model: .sample, selectedDeparture: .constant(0)) },
         e("PrimaryButton", "start") { PrimaryButton(title: "Start", icon: .navigation) },
         e("PrimaryButton", "disabled") { PrimaryButton(title: "Start", icon: .navigation, isEnabled: false, disabledNote: "Milan map downloading · 64%. First route after download.") },

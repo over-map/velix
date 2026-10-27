@@ -61,6 +61,7 @@ struct RootView: View {
                 RouteOptionsView(app: app, model: RouteOptionsModel(destination: place),
                                  onClose: { app.destination = nil },
                                  onStart: { app.start($0, choice: $1, avoided: $2, to: place) },
+                                 onStartTransit: { app.startTransit($0, to: place) },
                                  onEditRules: { app.destination = nil; tab = .you })
                     .id(place.id + app.state.rideType.rawValue)
                     .transition(.move(edge: .bottom))

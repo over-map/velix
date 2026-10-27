@@ -55,40 +55,70 @@ struct TransitModeTile: View {
     }
 }
 
-/// TransitSuggestionRow (P2 §08, S3): "Bike + train · 52 min, 26 min faster than Best" under the route cards.
+/// TransitSuggestionRow (P4 S3d): one row under the bike routes, outlined in train slate. The subtitle leads with the
+/// saving in bold ("**21 min faster** · ride to Centrale, train to Monza, ride into the park").
 struct TransitSuggestionRow: View {
     let mode: TransitMode
     let title: String
+    /// Markdown: the bold lead.
     let subtitle: String
     var action: () -> Void = {}
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: CGFloat.velix.s) {
+            HStack(spacing: 12) {
                 TransitModeTile(mode: mode)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(title).velixType(.rowTitle).foregroundStyle(Color.velix.ink)
-                    Text(subtitle).velixType(.rowSubtitle).foregroundStyle(Color.velix.ink2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).velixType(VelixType.rowTitle.sized(16, lineHeight: 20)).foregroundStyle(Color.velix.ink)
+                    Text((try? AttributedString(markdown: subtitle)) ?? AttributedString(subtitle))
+                        .velixType(VelixType.rowSubtitle.sized(14, lineHeight: 19)).foregroundStyle(Color.velix.ink2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 VelixIconView(.chevronRight, size: 20).foregroundStyle(Color.velix.ink)
             }
-            .padding(.horizontal, CGFloat.velix.s).padding(.vertical, 10)
+            .padding(.horizontal, 12).padding(.vertical, 10)
         }
-        .buttonStyle(SurfaceRowStyle())
+        .buttonStyle(SurfaceRowStyle(outline: Color.velix.transitTrain, outlineWidth: 1.5, cornerRadius: 16))
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// "Bike only · **52 min** Best · 45 min Fastest" (P4 S3e): the bike routes, folded while bike + transit is chosen.
+struct BikeOnlyRow: View {
+    /// Markdown: the bold Best time.
+    let text: String
+    var action: () -> Void = {}
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text((try? AttributedString(markdown: text)) ?? AttributedString(text))
+                    .velixType(VelixType.body.sized(14, lineHeight: 18)).foregroundStyle(Color.velix.ink2)
+                Spacer(minLength: 0)
+                VelixIconView(.chevronDown, size: 18).foregroundStyle(Color.velix.ink)
+            }
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.velix.line, lineWidth: 1))
+        }
+        .buttonStyle(VelixPressStyle())
+        .accessibilityHint("Shows the bike routes")
     }
 }
 
 /// Bordered surface row that turns surface-2 while pressed (P2 "Pressed").
 struct SurfaceRowStyle: ButtonStyle {
     var pressed = false
+    var outline = Color.velix.line
+    var outlineWidth: CGFloat = 1
+    var cornerRadius = CGFloat.velix.radius.card
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(configuration.isPressed || pressed ? Color.velix.surface2 : Color.velix.surface,
-                        in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.card))
-            .overlay(RoundedRectangle(cornerRadius: CGFloat.velix.radius.card).strokeBorder(Color.velix.line, lineWidth: 1))
+                        in: RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(outline, lineWidth: outlineWidth))
     }
 }
 
@@ -169,33 +199,39 @@ struct TransitLegList: View {
     }
 }
 
-/// TransitCard (P2 §08, S3): the bike + transit option, with the trip bar, next departures, legs and the ticket link.
+/// TransitCard (P4 S3e): the bike + transit option. Trip bar, next trains, the run and what to do, one ticket link.
 struct TransitCard: View {
     struct Model {
         var title: String
         var subtitle: String
         var minutes: Int
         var segments: [TripBar.Segment]
+        /// "08:16", "08:46", "09:16"
         var departures: [String]
-        var legs: [TransitLegList.Leg]
+        /// "Trenord R 10834 · 08:16 → Monza 08:27"
+        var train: String
+        /// "Ride 7 min to Centrale · platform planned: check the board · bikes allowed · ride 6 min into the park"
+        var detail: String
         var ticketsLabel: String?
+        var footnote: String?
     }
     let model: Model
     @Binding var selectedDeparture: Int
     var onTickets: () -> Void = {}
 
     var body: some View {
-        VStack(alignment: .leading, spacing: CGFloat.velix.s) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(model.title).velixType(.cardTitle).foregroundStyle(Color.velix.ink)
                     Text(model.subtitle).velixType(VelixType.body.sized(13, lineHeight: 17)).foregroundStyle(Color.velix.ink3)
                 }
                 Spacer(minLength: CGFloat.velix.xs)
-                Text("\(model.minutes) min").velixType(.numberL).foregroundStyle(Color.velix.ink)
+                Text("\(model.minutes) min").velixType(VelixType.numberL.sized(30, lineHeight: 30)).foregroundStyle(Color.velix.ink)
             }
+            .accessibilityElement(children: .combine)
             TripBar(segments: model.segments)
-            HStack(spacing: CGFloat.velix.xs) {
+            HStack(spacing: 8) {
                 SectionLabel("Next trains")
                 ForEach(Array(model.departures.enumerated()), id: \.offset) { i, time in
                     Button { selectedDeparture = i } label: {
@@ -203,7 +239,7 @@ struct TransitCard: View {
                             .foregroundStyle(i == selectedDeparture ? Color.velix.surface : Color.velix.ink)
                             .padding(.horizontal, CGFloat.velix.s).frame(height: 36)
                             .background(i == selectedDeparture ? Color.velix.ink : Color.velix.surface2,
-                                        in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.chip))
+                                        in: RoundedRectangle(cornerRadius: 8))
                             .frame(minHeight: CGFloat.velix.touch.min)
                     }
                     .buttonStyle(VelixPressStyle())
@@ -211,23 +247,34 @@ struct TransitCard: View {
                     .accessibilityAddTraits(i == selectedDeparture ? .isSelected : [])
                 }
             }
-            TransitLegList(legs: model.legs)
-            if let tickets = model.ticketsLabel {
-                Button(action: onTickets) {
-                    HStack(spacing: 6) {
-                        Text(tickets).underline()
-                        VelixIconView(.externalLink, size: 16)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.train).velixType(VelixType.rowTitle.sized(15, lineHeight: 20)).foregroundStyle(Color.velix.ink)
+                Text(model.detail).velixType(VelixType.body.sized(14, lineHeight: 19)).foregroundStyle(Color.velix.ink2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
+            HStack {
+                if let tickets = model.ticketsLabel {
+                    Button(action: onTickets) {
+                        HStack(spacing: 6) {
+                            Text(tickets).underline()
+                            VelixIconView(.externalLink, size: 16)
+                        }
+                        .velixType(VelixType.label.sized(15, lineHeight: 19)).foregroundStyle(Color.velix.ink)
+                        .frame(minHeight: CGFloat.velix.touch.min)
                     }
-                    .velixType(.label).foregroundStyle(Color.velix.ink)
-                    .frame(minHeight: CGFloat.velix.touch.min)
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(.isLink)
                 }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(.isLink)
+                Spacer(minLength: 0)
+                if let footnote = model.footnote {
+                    Text(footnote).velixType(VelixType.body.sized(12, lineHeight: 15)).foregroundStyle(Color.velix.ink3)
+                }
             }
         }
-        .padding(.horizontal, 14).padding(.top, CGFloat.velix.s).padding(.bottom, 4)
-        .background(Color.velix.surface, in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.card))
-        .overlay(RoundedRectangle(cornerRadius: CGFloat.velix.radius.card).strokeBorder(Color.velix.ink, lineWidth: 2))
+        .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 4)
+        .background(Color.velix.surface, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.velix.ink, lineWidth: 2))
         .velixElevation(VelixElevations.e2)
     }
 }
@@ -286,23 +333,24 @@ struct OnTrainCard: View {
 }
 
 extension TransitCard.Model {
-    /// P2 sample (Milan → Monza).
+    /// P4 S3e sample (Porta Venezia → Villa Reale, Monza; P4's illustrative timetable).
     static let sample = TransitCard.Model(
-        title: "Bike + train", subtitle: "5.5 km by bike · arrive 09:26", minutes: 52,
-        segments: [.init(kind: .ride, minutes: 9, label: "Ride 9"), .init(kind: .wait, minutes: 6, label: "Wait 6"),
-                   .init(kind: .train, minutes: 16, label: "Train 16"), .init(kind: .ride, minutes: 14, label: "Ride 14")],
-        departures: ["08:12", "08:27", "08:42"],
-        legs: [.init(mode: .ride, title: "Ride 9 min to Milano Centrale", detail: "2.1 km · bike parking at Piazza Duca d’Aosta"),
-               .init(mode: .train, title: "Train 08:12 → Monza 08:28", detail: "Regional · bike allowed · platform on arrival"),
-               .init(mode: .ride, title: "Ride 14 min to Villa Reale", detail: "3.4 km")],
-        ticketsLabel: "Tickets on Trenord")
+        title: "Bike + train", subtitle: "13 min by bike · arrive 08:36", minutes: 31,
+        segments: [.init(kind: .ride, minutes: 7, label: "Ride 7"), .init(kind: .wait, minutes: 4, label: "Wait 4"),
+                   .init(kind: .train, minutes: 11, label: "Train 11"), .init(kind: .wait, minutes: 3, label: ""),
+                   .init(kind: .ride, minutes: 6, label: "Ride 6")],
+        departures: ["08:16", "08:46", "09:16"],
+        train: "Trenord R 10834 · 08:16 → Monza 08:27",
+        detail: "Ride 7 min to Centrale · platform planned: check the board · bikes allowed · ride 6 min into the park",
+        ticketsLabel: "Ticket · Trenord", footnote: TransitCopy.footnote)
 }
 
 #Preview {
     ScrollView {
         VStack(spacing: 16) {
-            TransitSuggestionRow(mode: .train, title: "Bike + train · 52 min", subtitle: "26 min faster than Best")
-            TransitSuggestionRow(mode: .metro(.m1), title: "Bike + M1 · 31 min", subtitle: "12 min faster than Best")
+            TransitSuggestionRow(mode: .train, title: "Long ride? Hop on the train with your bike",
+                                 subtitle: "**21 min faster** · ride to Centrale, train to Monza, ride into the park")
+            BikeOnlyRow(text: "Bike only · **52 min** Best · 45 min Fastest")
             TransitCard(model: .sample, selectedDeparture: .constant(0))
             OnTrainCard(minutes: "6 min", station: "Monza", arrival: "08:28", nextStop: "Sesto S. Giovanni", thenStop: "Monza",
                         bikeCarriages: [true, true, false, false, false, false], note: "Bike space in the first 2 carriages · exit on the right")

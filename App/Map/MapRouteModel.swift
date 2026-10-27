@@ -4,6 +4,8 @@ import Foundation
 struct MapRouteModel: Equatable, Sendable {
     struct Avoided: Equatable, Sendable { var id: String; var shape: [LatLon]; var reason: String }
     struct HazardPoint: Equatable, Sendable { var type: HazardType; var at: LatLon }
+    /// A train or metro leg (styles: `leg-train`, `leg-metro` with the line colour), through its stops.
+    struct Leg: Equatable, Sendable { var metro: Bool; var line: [LatLon]; var color: String? }
 
     var best: [LatLon]
     var alternatives: [[LatLon]] = []
@@ -16,6 +18,9 @@ struct MapRouteModel: Equatable, Sendable {
     var endName: String?
     var puck: LatLon?
     var heading: Double = 0
+    /// Bike + transit: the ride after the train (drawn like Best) and the train or metro leg.
+    var rides: [[LatLon]] = []
+    var legs: [Leg] = []
     /// Riding: the stretch of Best around the rider (drawn after `best`, which then holds the rest), and the share of it
     /// already ridden, faded out on the map (a line-gradient).
     var near: [LatLon]?
@@ -60,6 +65,18 @@ struct MapRouteModel: Equatable, Sendable {
                   hazards: options.best.analysis.hazards, endName: endName)
     }
 
+    /// Bike + transit (P4 S3e): both rides in accent with their hazards, the run through its stops.
+    init(transit p: TransitPlan, endName: String? = nil) {
+        self.init(best: p.rideIn.analysis.shape, hazards: p.rideIn.analysis.hazards, endName: endName)
+        let out = MapRouteModel(best: p.rideOut.analysis.shape, hazards: p.rideOut.analysis.hazards)
+        rides = [p.rideOut.analysis.shape]
+        tubes += out.tubes
+        hazards += out.hazards
+        end = p.rideOut.analysis.shape.last
+        legs = [Leg(metro: p.departure.route.mode == .metro, line: p.stops.map(\.stop.location),
+                    color: p.departure.route.mode == .metro ? p.departure.route.color.map { "#\($0)" } : nil)]
+    }
+
     // MARK: GeoJSON
 
     func routeGeoJSON() -> Data {
@@ -67,6 +84,12 @@ struct MapRouteModel: Equatable, Sendable {
         for a in avoided { f.append(line(a.shape, ["role": "avoided"])) }
         for alt in alternatives { f.append(line(alt, ["role": "alt"])) }
         if best.count > 1 { f.append(line(best, ["role": "best"])) }
+        for r in rides where r.count > 1 { f.append(line(r, ["role": "best"])) }
+        for l in legs where l.line.count > 1 {
+            // A metro leg takes its line colour from the GTFS; without one it is drawn like a train leg.
+            if l.metro, let color = l.color { f.append(line(l.line, ["role": "leg-metro", "color": color])) }
+            else { f.append(line(l.line, ["role": "leg-train"])) }
+        }
         if let near, near.count > 1 { f.append(line(near, ["role": "best-near"])) }
         for t in tubes { f.append(line(t, ["role": "tube"])) }
         return collection(f)
