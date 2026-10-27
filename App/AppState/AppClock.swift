@@ -1,15 +1,26 @@
 import Foundation
 
 /// The time the app plans with (timetables, late / missed). Debug builds take `-fake-time 08:05` (today, Rome time)
-/// or `-fake-time 2026-11-05T08:05`, and run on from there, so the Monza scenario can be tried at any hour.
+/// or `-fake-time 2026-11-05T08:05`, and run on from there, so the Monza scenario can be tried at any hour;
+/// `-time-scale 4` runs the clock (and the simulated ride, ``RideLocationProvider``) four times as fast.
 enum AppClock {
-    static var now: Date { Date().addingTimeInterval(offset) }
+    static var now: Date { launch.addingTimeInterval(offset + Date().timeIntervalSince(launch) * scale) }
+
+    private static let launch = Date()
+
+    static let scale: Double = {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-time-scale"), i + 1 < args.count, let s = Double(args[i + 1]), s > 0 { return s }
+        #endif
+        return 1
+    }()
 
     private static let offset: TimeInterval = {
         #if DEBUG
         let args = ProcessInfo.processInfo.arguments
         if let i = args.firstIndex(of: "-fake-time"), i + 1 < args.count, let fake = parse(args[i + 1], today: Date()) {
-            return fake.timeIntervalSince(Date())
+            return fake.timeIntervalSince(launch)
         }
         #endif
         return 0

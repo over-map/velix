@@ -5,6 +5,8 @@ import SwiftUI
 struct RidingView: View {
     @Bindable var session: RideSession
     @Bindable var app: AppModel
+    /// Bike + transit (P6): the stages on top of the ride.
+    var transit: TransitRide?
     @State private var camera = RideCamera()
     @State private var motion = MapCameraMotion.track
     /// The camera while panned: held so the map stays where the rider put it.
@@ -12,7 +14,7 @@ struct RidingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let state = session.screen(chevron: camera.drawsRider)
+        let state = screen
         RidingScreen(state: state, camera: camera, voice: session.voice.mode, mapStyle: MapStyleKind(app.mapStyle),
                      bikeLanes: app.bikeLanes, transitLines: app.transitLines, target: target(state), motion: motion,
                      onVoice: { session.voice.cycle() },
@@ -20,7 +22,7 @@ struct RidingView: View {
                      onOverview: { change { camera.toggleOverview(at: Date()) } },
                      onRecenter: { change { camera.recenter() } },
                      onPan: { if !camera.isPanned { held = target(state) }; camera.userPanned(at: Date()) },
-                     onEnd: { session.end() })
+                     onEnd: { if let transit { transit.end() } else { session.end() } })
             .onChange(of: session.here) { motion = .track }
             .task {
                 // Overview and pan go back to follow after 10 s (P5 S4d, S4j).
@@ -30,6 +32,13 @@ struct RidingView: View {
                     if next.tick(at: Date()) { change { camera = next } }
                 }
             }
+    }
+
+    /// The ride, with the bike + transit stages on top when it is one (P6).
+    private var screen: RideScreenState {
+        var state = session.screen(chevron: camera.drawsRider, now: AppClock.now)
+        transit?.decorate(&state)
+        return state
     }
 
     /// A tap on a control: the camera moves at the view-change pace (a cut with Reduce Motion), then tracks again.
@@ -69,10 +78,34 @@ struct RidingScreen: View {
     /// The overview fits the rest of the trip between the banner and the ETA bar (design/p4/maps.js rOver: 250 / 120,
     /// plus 20 so the ends clear them; VelixMap adds 40 all round).
     static let overviewInsets = UIEdgeInsets(top: 230, left: 0, bottom: 100, right: 0)
+    /// P6 S5d map: top 110, bottom 470 (VelixMap adds 40).
+    static let trainInsets = UIEdgeInsets(top: 70, left: 0, bottom: 430, right: 0)
     /// The weak-GPS halo around the rider (P5 S4h).
     static let haloSize: CGFloat = 116
 
     var body: some View {
+        if let train = state.onTrain { onTrain(train) } else { riding }
+    }
+
+    /// P6 S5d: the strip on top, the countdown sheet at the bottom, the whole trip on the map.
+    private func onTrain(_ card: OnTrainCard) -> some View {
+        ZStack {
+            map.ignoresSafeArea()
+            VStack(spacing: 0) {
+                if let stage = state.stage {
+                    stage.padding(12)
+                        .background(Color.velix.surface, in: RoundedRectangle(cornerRadius: 20))
+                        .velixElevation(VelixElevations.e1, in: RoundedRectangle(cornerRadius: 20))
+                        .padding(.horizontal, 10)
+                }
+                Spacer()
+            }
+            VStack { Spacer(); card }.ignoresSafeArea(edges: .bottom)
+        }
+        .dynamicTypeSize(...DynamicTypeSize.velixRidingCap)
+    }
+
+    private var riding: some View {
         ZStack {
             map.ignoresSafeArea()
             rider.ignoresSafeArea().allowsHitTesting(false)
@@ -109,9 +142,12 @@ struct RidingScreen: View {
 
     @ViewBuilder private var map: some View {
         if liveMap, let target {
+            // The overview, and the train stage (P6 S5d: the whole trip between the strip and the sheet), fit the trip.
+            let train = state.onTrain != nil
             VelixMap(style: mapStyle, mode: scheme == .dark ? .night : .day, bikeLanes: bikeLanes, transitLines: transitLines,
-                     route: state.map, camera: target, insets: camera.isOverview ? Self.overviewInsets : .zero,
-                     fit: camera.isOverview && state.ahead.count > 1 ? state.ahead : nil, motion: motion,
+                     route: state.map, camera: target,
+                     insets: train ? Self.trainInsets : camera.isOverview ? Self.overviewInsets : .zero,
+                     fit: (camera.isOverview || train) && state.ahead.count > 1 ? state.ahead : nil, motion: motion,
                      riding: true, onUserPan: onPan)
         } else {
             Color.velix.surface2
@@ -144,7 +180,8 @@ struct RidingScreen: View {
             RerouteBanner()
         case let .turn(turn, pill, pillDistance):
             ManeuverBanner(maneuver: turn.maneuver, distance: RideSession.distance(turn.meters), street: turn.street,
-                           then: turn.then.map { ($0.maneuver, $0.street) }, roadType: pill, roadTypeDistance: pillDistance)
+                           then: turn.then.map { ($0.maneuver, $0.street) }, roadType: pill, roadTypeDistance: pillDistance,
+                           stage: state.stage)
         }
     }
 
@@ -153,6 +190,8 @@ struct RidingScreen: View {
     @ViewBuilder private var bottomCard: some View {
         if camera.isOverview {
             EmptyView()     // S4d: the whole trip, every hazard on the map, no card
+        } else if let n = state.notice {
+            TransitNotice(kind: n.kind, title: n.title, message: n.message)   // P6: the hazard card's slot, for 8 s
         } else if state.weakGPS {
             NoticeBanner.weakGPS()
         } else if let h = state.hazard {

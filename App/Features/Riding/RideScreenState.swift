@@ -56,6 +56,11 @@ struct RideScreenState: Equatable {
     var top: Top
     var hazard: Hazard?
     var eta: EtaBar.State
+    /// Bike + transit (P6): the stage strip in the banner, a late / missed notice, the on-train sheet.
+    var stage: StageStrip? = nil
+    var notice: Notice? = nil
+    var onTrain: OnTrainCard? = nil
+    struct Notice: Equatable { var kind: TransitNotice.Kind; var title: String; var message: String }
     var weakGPS: Bool
     var map: MapRouteModel
     /// The rest of the trip, for the overview (S4d).

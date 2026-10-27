@@ -18,6 +18,32 @@ struct RideActivityAttributes: ActivityAttributes {
         var hazard: Hazard?
         /// The next hazard at any distance, for the footer line (P5 L1 / D4 "Tram rails in 160 m").
         var nextHazard: NextHazard?
+        /// Bike + transit (P6): on the train, the countdown to the stop (L3, D6).
+        var train: Train?
+        /// Late or missed (P6 D7), with the spare time at the station ("2 min to spare").
+        var notice: Notice?
+        var spare: String?
+    }
+
+    struct Train: Codable, Hashable {
+        /// "Monza"
+        var station: String
+        /// "Next: Sesto San Giovanni"
+        var next: String
+        /// "6"
+        var minutes: String
+        /// "Bike carriage at the front"
+        var carriage: String
+        /// Final arrival, "08:36"
+        var arrival: String
+        var metro: Bool = false
+    }
+
+    struct Notice: Codable, Hashable {
+        /// "Running late"
+        var title: String
+        /// "Fastest route to catch the 08:16. +120 m cobbles."
+        var message: String
     }
 
     struct NextHazard: Codable, Hashable {
@@ -51,6 +77,15 @@ extension RideActivityAttributes.ContentState {
                                    minutesLeft: "18 min", distanceLeft: "4.4 km",
                                    hazard: .init(glyph: .hazardTram, title: "Tram rails", advice: "Cross straight",
                                                  longAdvice: "Cross straight, at a right angle", distance: "35 m"))
+    /// P6 L3 / D6: on the train.
+    static let sampleTrain = Self(maneuver: .straight, distance: "", street: "", arrival: "08:36", minutesLeft: "15 min", distanceLeft: "2.0 km",
+                                  train: .init(station: "Monza", next: "Next: Sesto San Giovanni", minutes: "6",
+                                               carriage: "Bike carriage at the front", arrival: "08:36"))
+    /// P6 D7: running late, switched to Fastest.
+    static let sampleLate = Self(maneuver: .left, distance: "370 m", street: "Via Boscovich", arrival: "08:14", minutesLeft: "4 min",
+                                 distanceLeft: "1.2 km",
+                                 notice: .init(title: "Running late", message: "Fastest route to catch the 08:16. +120 m cobbles."),
+                                 spare: "2 min to spare")
     /// No hazard left on the route: the footer carries the trip.
     static let sampleClear = Self(maneuver: .right, distance: "200 m", street: "Via Ampère", arrival: "08:42",
                                   minutesLeft: "11 min", distanceLeft: "2.6 km")

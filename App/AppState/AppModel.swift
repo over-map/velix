@@ -72,6 +72,8 @@ final class AppModel {
     var ride: RideSession?
     /// S6, after a ride that ended by itself at the door (not after End).
     var summary: RideSummaryModel?
+    /// The bike + transit stages of the ride in progress (P6), if it is one.
+    var transit: TransitRide?
 
     /// Open route options for a place (Home, Work, a search result): tap 1 of the commute.
     func choose(_ place: Place) {
@@ -98,11 +100,24 @@ final class AppModel {
         }
     }
 
-    /// Start bike + transit (S3e). Until riding with transit lands (M8c), this rides the first stage, to the station.
+    /// Start bike + transit (S3e → P6 S5): ride to the station, the train, ride on, as one ride.
     func startTransit(_ plan: TransitPlan, to place: Place) {
-        let station = plan.departure.board
-        start(plan.rideIn, choice: .best, to: Place(id: "station-\(station.id)", name: TransitCopy.short(station), subtitle: place.name,
-                                                    kind: .station, lat: station.location.lat, lon: station.location.lon))
+        let rules = state.ruleSet(for: state.rideType, litStreetsOnly: litStreetsOnly)
+        let trip = TransitRide(plan: plan, destination: place, rules: rules, planner: engine.loadedTransitPlanner)
+        trip.session.onEnd = { [weak self] session in
+            if session.arrived { self?.summary = RideSummaryModel(session) }
+            self?.ride = nil
+            self?.transit = nil
+            self?.litStreetsOnly = false
+        }
+        do {
+            try trip.start()
+            transit = trip
+            ride = trip.session
+            destination = nil
+        } catch {
+            print("Start failed: \(error)")
+        }
     }
 
     /// The map style for the current ride type (remembered per type).

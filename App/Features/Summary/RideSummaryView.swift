@@ -22,7 +22,7 @@ struct RideSummaryModel: Identifiable, Equatable {
 
 extension RideSummaryModel {
     @MainActor
-    init(_ session: RideSession, at now: Date = Date()) {
+    init(_ session: RideSession, at now: Date = AppClock.now) {
         let stats = session.stats
         let ridden = session.log?.ridden ?? []
         self.init(arrived: now, place: session.destination.name, rideType: session.rules.rideType,

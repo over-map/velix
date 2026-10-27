@@ -16,9 +16,9 @@ import UIKit
 final class RideSession {
     enum Failure: Error { case badRoute }
 
-    let destination: Place
+    private(set) var destination: Place
     let rules: RuleSet
-    let choice: RideChoice
+    private(set) var choice: RideChoice
 
     private(set) var navigationState: NavigationState?
     private(set) var option: RouteOption
@@ -35,6 +35,20 @@ final class RideSession {
     /// Set when the ride ended at the destination (S6 opens), not by End.
     private(set) var arrived = false
     var onEnd: (RideSession) -> Void = { _ in }
+
+    // MARK: Legs (bike + transit, M8c)
+
+    /// When set, reaching the destination ends this leg instead of the ride (the station of a bike + transit trip):
+    /// navigation stops, the location, the log, the voice and the Live Activity go on.
+    var onLegEnd: (() -> Void)?
+    /// Between legs (on the train).
+    private(set) var betweenLegs = false
+    /// Every accepted fix, after the session has taken it (the transit coordinator's late check, the train stage).
+    var onFixed: (CLLocation) -> Void = { _ in }
+    /// Adds the transit stage to the Live Activity (P6 L3, D6, D7).
+    var decorateActivity: ((inout RideActivityAttributes.ContentState) -> Void)?
+    /// When the current leg started, on the app clock (the late check measures the rider's pace).
+    private(set) var legStarted = AppClock.now
 
     let voice = RideVoice()
     private let haptics = RideHaptics()
@@ -155,10 +169,16 @@ final class RideSession {
             gps = quality
             log?.event(.gps(quality == .weak ? "weak" : "good"))
         }
-        log?.fix(fix)
+        log?.fix(fix, ridden: !betweenLegs)
         let here = LatLon(lat: fix.coordinate.latitude, lon: fix.coordinate.longitude)
-        track.update(here)
         self.here = here
+        if betweenLegs {
+            course = fix.course >= 0 ? fix.course : course
+            onFixed(fix)
+            updateActivity()
+            return
+        }
+        track.update(here)
         course = Self.course(fix: fix, track: track)
         nextHazard = tracker.next(at: track.position, gps: gps)
         if let h = tracker.alert(at: track.position, gps: gps) {
@@ -168,11 +188,70 @@ final class RideSession {
         }
         if Self.hasArrived(remaining: track.remaining, position: track.position, length: track.length,
                            toDestination: Geo.distance(here, destination.location)) {
-            end(arrived: true)
+            arrive()
             return
         }
+        onFixed(fix)
         updateActivity()
     }
+
+    /// At the destination: the ride ends (S6), or the leg (bike + transit).
+    private func arrive() {
+        guard let legEnd = onLegEnd else { return end(arrived: true) }
+        guard !betweenLegs else { return }
+        betweenLegs = true
+        core?.stopNavigation()
+        navigationState = nil
+        log?.event(.end("leg"))
+        lastActivityKey = ""
+        legEnd()
+    }
+
+    /// The next leg (bike + transit stage 3): a new destination and route in the same ride.
+    func rideLeg(_ next: RouteOption, to place: Place, choice: RideChoice = .best) throws {
+        guard let core else { return }
+        destination = place
+        avoided = []
+        try startRoute(next, choice: choice, on: core)
+        betweenLegs = false
+        legStarted = AppClock.now
+        log?.event(.start(destination: place.name, meters: next.meters))
+    }
+
+    /// Swap the route of this leg (late: Fastest; time again: back to Best).
+    func switchRoute(to next: RouteOption, choice: RideChoice) {
+        guard let core, !betweenLegs else { return }
+        try? startRoute(next, choice: choice, on: core)
+        log?.event(.reroute(choice == .fastest ? "fastest" : "best"))
+    }
+
+    private func startRoute(_ next: RouteOption, choice: RideChoice, on core: FerrostarCore) throws {
+        try core.startNavigation(route: try Self.route(from: next))
+        option = next
+        self.choice = choice
+        provider.choice = choice
+        track = RouteTrack(shape: next.analysis.shape)
+        if let here { track.update(here) }
+        tracker = HazardTracker(hazards: next.analysis.hazards, alerted: tracker.alerted)
+        lastActivityKey = ""
+        #if DEBUG
+        if RideLocationProvider.simulates { location.simulate(track.shape, from: track.position) }
+        #endif
+        updateActivity()
+    }
+
+    /// The stop is coming (bike + transit): the two taps and the voice, in every voice mode but mute.
+    func buzz(_ voice: String) {
+        haptics.hazard()
+        self.voice.speakHazard(voice)
+    }
+
+    #if DEBUG
+    /// `-simulate-ride` on the train: along the stops at timetable pace, from the departure.
+    func simulateTrain(_ line: [LatLon], departs: Date, arrives: Date) {
+        location.simulate(line, departs: departs, arrives: arrives)
+    }
+    #endif
 
     /// Heading up: the GPS course while moving (≥ 2 m/s, like ``LocationService/travelHeading``), else the route's
     /// direction at the rider, so the map doesn't spin at a light.
@@ -201,7 +280,7 @@ final class RideSession {
             let off: Bool = if case .deviation(.completelyOffRoute) = deviation { true } else { false }
             policy.fix(offRoute: off, at: Date())
         }
-        if case .complete = state?.tripState { end(arrived: true) }
+        if case .complete = state?.tripState { arrive() }
     }
 
     // MARK: Rerouting (``RideCoordinator``)
@@ -251,9 +330,20 @@ final class RideSession {
     }
 
     /// Every `activityStep` metres, or at once when the maneuver, the street or the hazard changes.
-    private func updateActivity() {
-        guard activity != nil, let nav = navigationState else { return }
+    func updateActivity() {
+        guard activity != nil else { return }
+        if betweenLegs {
+            var state = Self.content(nil, destination: destination, fallbackMeters: 0)
+            decorateActivity?(&state)
+            let key = "train|\(state.train?.minutes ?? "")|\(state.notice?.title ?? "")"
+            guard key != lastActivityKey else { return }
+            lastActivityKey = key
+            Task { for a in Activity<RideActivityAttributes>.activities { await a.update(.init(state: state, staleDate: nil)) } }
+            return
+        }
+        guard let nav = navigationState else { return }
         var state = Self.content(nav, destination: destination, fallbackMeters: 0)
+        decorateActivity?(&state)
         if let n = nextHazard {
             Self.addHazard(n, to: &state)
         }
@@ -263,7 +353,7 @@ final class RideSession {
             : Self.wake(state, hazard: nextHazard, toTurn: nav.currentProgress?.distanceToNextManeuver, step: nav.remainingSteps?.count)
         let alert = wake.flatMap { alertedWakes.contains($0.key) ? nil : $0 }
         if let alert { alertedWakes.insert(alert.key) }
-        let key = "\(state.maneuver)|\(state.street)|\(state.hazard?.title ?? "")|\(state.nextHazard?.glyph.rawValue ?? "")"
+        let key = "\(state.maneuver)|\(state.street)|\(state.hazard?.title ?? "")|\(state.nextHazard?.glyph.rawValue ?? "")|\(state.notice?.title ?? "")|\(state.spare ?? "")"
         guard alert != nil || key != lastActivityKey || abs(track.position - lastActivityPosition) >= Self.activityStep else { return }
         lastActivityKey = key
         lastActivityPosition = track.position

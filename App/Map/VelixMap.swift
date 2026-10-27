@@ -92,7 +92,12 @@ struct VelixMap: UIViewRepresentable {
             map.tileLodScale = 1.5
         }
 
+        /// A fit asked for before the view had a size (a screen's first frame): applied again once the style loads.
+        private var cameraPending = false
+
         func applyCamera(on map: MLNMapView, animated: Bool) {
+            cameraPending = map.bounds.isEmpty
+
             // Timed motions (riding) glide or cut; the standard one keeps MapLibre's flight.
             let motion = state?.motion ?? .standard
             let duration = motion == .standard ? nil : animated ? Self.duration(motion) : 0
@@ -178,6 +183,7 @@ struct VelixMap: UIViewRepresentable {
             MainActor.assumeIsolated {
                 loaded = true
                 applyStyleState(on: mapView)
+                if cameraPending { applyCamera(on: mapView, animated: false) }
             }
         }
 

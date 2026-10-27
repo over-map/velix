@@ -46,6 +46,12 @@ final class EngineHost {
         return transit.map { TransitPlanner(store: $0, planner: planner) }
     }
 
+    /// The transit planner, once loaded (a bike + transit ride starts from a planned suggestion, so it is).
+    var loadedTransitPlanner: TransitPlanner? {
+        guard let planner = loadedPlanner, let transit else { return nil }
+        return TransitPlanner(store: transit, planner: planner)
+    }
+
     /// The city area (destination outside it: suggest transit), or nil when the pack has none.
     var cityArea: CityArea? {
         if city == nil, let url = RegionPack.city, let data = try? Data(contentsOf: url) { city = try? CityArea(geoJSON: data) }
