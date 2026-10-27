@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import SQLite3
 import Testing
@@ -173,5 +174,120 @@ struct TransitCopyTests {
         #expect(m.transitCard?.train == "Trenord R 10838 · 08:46 → Monza 08:57")
         #expect(m.mapRoute?.legs.first?.line.count == 3)
         #expect(m.mapRoute?.rides.count == 1)
+    }
+}
+
+struct TrainCatchTests {
+    private let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+    private func at(_ s: TimeInterval) -> Date { t0.addingTimeInterval(s) }
+    private var departs: Date { at(10 * 60) }     // the train leaves 10 min from now; boarding 3 min
+
+    @Test func paceMakesASlowRiderLateEarlier() {
+        #expect(TrainCatch.eta(remaining: 300, riddenFor: 30, plannedForRidden: 20) == 300)       // too soon to tell
+        #expect(TrainCatch.eta(remaining: 300, riddenFor: 180, plannedForRidden: 120) == 450)     // 1.5× slower
+        #expect(TrainCatch.eta(remaining: 300, riddenFor: 100, plannedForRidden: 200) == 300)     // faster: never optimistic
+        #expect(TrainCatch.eta(remaining: 300, riddenFor: 900, plannedForRidden: 100) == 600)     // at most twice
+        #expect(TrainCatch.spare(departs: departs, now: t0, eta: 360, boarding: 180) == 60)
+    }
+
+    @Test func lateSwitchesToFastestAfterTwoFixes() {
+        var c = TrainCatch()
+        // ETA 7.5 min + 3 boarding = 0.5 min late on Best; Fastest 6 min makes it.
+        #expect(c.evaluate(now: t0, departs: departs, boarding: 180, eta: 450, bestETA: 450, fastestETA: 360) == .none)
+        #expect(c.evaluate(now: at(1), departs: departs, boarding: 180, eta: 449, bestETA: 449, fastestETA: 359) == .switchToFastest)
+        #expect(c.onFastest)
+    }
+
+    @Test func missedWhenEvenFastestIsLateThenBackToBest() {
+        var c = TrainCatch()
+        _ = c.evaluate(now: t0, departs: departs, boarding: 180, eta: 600, bestETA: 600, fastestETA: 500)
+        #expect(c.evaluate(now: at(1), departs: departs, boarding: 180, eta: 600, bestETA: 600, fastestETA: 500) == .nextTrain)
+        // The next train leaves in 30 min: plenty of time, but the coordinator only goes back to Best from Fastest.
+        #expect(!c.onFastest)
+        let later = at(30 * 60)
+        #expect(c.evaluate(now: at(40), departs: later, boarding: 180, eta: 600, bestETA: 600, fastestETA: 500) == .none)
+    }
+
+    @Test func backToBestOnceThereIsTimeAgain() {
+        var c = TrainCatch()
+        _ = c.evaluate(now: t0, departs: departs, boarding: 180, eta: 450, bestETA: 450, fastestETA: 360)
+        _ = c.evaluate(now: at(1), departs: departs, boarding: 180, eta: 449, bestETA: 449, fastestETA: 359)
+        #expect(c.onFastest)
+        // Missed anyway on Fastest: next train, still on Fastest.
+        _ = c.evaluate(now: at(40), departs: departs, boarding: 180, eta: 500, bestETA: 560, fastestETA: 500)
+        #expect(c.evaluate(now: at(41), departs: departs, boarding: 180, eta: 500, bestETA: 560, fastestETA: 500) == .nextTrain)
+        #expect(c.onFastest)
+        // The 30-min-later train: Best leaves 20 min spare: back to Best after 2 fixes and 30 s.
+        let next = at(41 + 30 * 60)
+        #expect(c.evaluate(now: at(50), departs: next, boarding: 180, eta: 400, bestETA: 500, fastestETA: 400) == .none)
+        #expect(c.evaluate(now: at(72), departs: next, boarding: 180, eta: 400, bestETA: 500, fastestETA: 400) == .backToBest)
+        #expect(!c.onFastest)
+    }
+
+    @Test func oneLateFixIsNotEnough() {
+        var c = TrainCatch()
+        _ = c.evaluate(now: t0, departs: departs, boarding: 180, eta: 450, bestETA: 450, fastestETA: 360)
+        #expect(c.evaluate(now: at(1), departs: departs, boarding: 180, eta: 300, bestETA: 300, fastestETA: 250) == .none)
+    }
+}
+
+@MainActor
+struct RidingWithTransitCopyTests {
+    @Test func lateAndMissedNameTheCost() throws {
+        let plans = AppSamples.monzaTransit()
+        let p = try #require(plans.first)
+        var best = RouteAnalysis(), fastest = RouteAnalysis()
+        best.mix = [.quiet: 2000]
+        fastest.mix = [.quiet: 1800, .cobbles: 120]
+        #expect(TransitCopy.lateCost(best: best, fastest: fastest) == "120 m of cobbles")
+        let late = TransitCopy.late(p.departure, cost: "120 m of cobbles")
+        #expect(late.message == "Switched to the fastest route to catch the 08:16. It adds 120 m of cobbles.")   // P6 S5b
+        #expect(late.short == "Fastest route to catch the 08:16. +120 m cobbles.")                                // P6 D7
+        let missed = TransitCopy.missed(p.departure, next: plans[1])
+        #expect(missed.title == "You’d miss the 08:16")
+        #expect(missed.message == "Moved you to the 08:46. Arrival 09:06.")
+    }
+
+    @Test func theStationEtaCountsTheSpareTime() throws {
+        let p = try #require(AppSamples.monzaTransit().first)
+        let now = AppClock.parse("2026-10-22T08:05", today: Date())!
+        // Ride 7 min: at Centrale 08:12, train 08:16, boarding 3 → 1 min to spare, tight.
+        #expect(TransitCopy.stationEta(p, now: now, eta: 7 * 60)
+                == .transit(arrival: "08:12", at: "Centrale", train: "08:16 ·", spare: "1 min to spare", tight: true))
+        #expect(TransitCopy.stationEta(p, now: now, eta: 10 * 60)
+                == .transit(arrival: "08:15", at: "Centrale", train: "08:16 ·", spare: "Late", tight: true))
+    }
+
+    @Test func onTheTrainCountsDownToTheStop() throws {
+        let p = try #require(AppSamples.monzaTransit().first)
+        let card = TransitCopy.onTrain(p, now: AppClock.parse("2026-10-22T08:21", today: Date())!, destination: AppSamples.villaReale)
+        #expect(card.train == "Trenord R 10834 to Monza")
+        #expect(card.minutes == 6)
+        #expect(card.stopsLeft == "1 stop before yours")                    // P6 S5d: Sesto still to come
+        #expect(card.stops.map(\.state) == [.departed, .next, .end])
+        #expect(card.carriages == nil && card.carriageNote == "Carriage with the bike area")
+        let early = TransitCopy.onTrain(p, now: AppClock.parse("2026-10-22T08:13", today: Date())!, destination: AppSamples.villaReale)
+        #expect(early.stopsLeft == "Leaves at 08:16")
+        let m1 = TransitRoute(id: "atm:M1", feed: "atm", shortName: "M1", longName: "", mode: .metro, color: "E1001B")
+        #expect(BikeCarriages.positions(m1) == [false, true, false, false, true, false])
+        #expect(BikeCarriages.note([false, true, false, false, true, false]) == "Bikes in the 2nd and 5th carriage")
+    }
+}
+
+struct TrainStretchLogTests {
+    @Test func theTrainIsLoggedButNotRidden() throws {
+        let log = RideLog(directory: FileManager.default.temporaryDirectory.appending(path: "velix-log-\(UUID().uuidString)"))
+        let t0 = Date()
+        func fix(_ i: Int, _ lat: Double) -> CLLocation {
+            CLLocation(coordinate: .init(latitude: lat, longitude: 9.2), altitude: 120, horizontalAccuracy: 5, verticalAccuracy: 5,
+                       course: 0, speed: 5, timestamp: t0.addingTimeInterval(Double(i)))
+        }
+        log.fix(fix(0, 45.4800)); log.fix(fix(1, 45.48005))                 // riding: ≈ 5.6 m
+        log.fix(fix(2, 45.5000), ridden: false); log.fix(fix(3, 45.5700), ridden: false)   // the train
+        log.fix(fix(4, 45.5780)); log.fix(fix(5, 45.57805))                 // riding again: ≈ 5.6 m
+        log.close()
+        #expect(abs(log.stats.meters - 11.1) < 1)                         // not the 11 km between
+        let gpx = try String(contentsOf: try log.gpx(name: "t"), encoding: .utf8)
+        #expect(gpx.components(separatedBy: "<trkpt").count - 1 == 4)
     }
 }

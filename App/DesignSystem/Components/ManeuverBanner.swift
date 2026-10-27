@@ -9,9 +9,12 @@ struct ManeuverBanner: View {
     var then: (maneuver: Maneuver, street: String)?
     var roadType: RoadTypePill.Kind?
     var roadTypeDistance: String?
+    /// Bike + transit (P6): the stage strip on top of the banner.
+    var stage: StageStrip?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let stage { stage }
             HStack(spacing: 14) {
                 maneuver.icon(size: 48)
                     .foregroundStyle(Color.velix.accentInk)
@@ -108,32 +111,38 @@ struct ManeuverTile: View {
     }
 }
 
-/// StageStrip (P2 §08 ManeuverBanner, S5): the stages of a bike + transit trip, the current one filled.
-struct StageStrip: View {
-    enum Stage: Hashable {
-        case ride, train, metro
-        var label: String { switch self { case .ride: "Ride"; case .train: "Train"; case .metro: "Metro" } }
-        var glyph: VelixGlyph { switch self { case .ride: .rideTypeCity; case .train: .train; case .metro: .metro } }
-    }
-    let stages: [Stage]
+/// StageStrip (P6): the three stages of a bike + transit trip on top of the maneuver banner. Current in accent with
+/// the ink casing, done ticked, next outlined. Not tappable: the trip moves on by itself.
+struct StageStrip: View, Equatable {
+    /// 1, 2 or 3: ride to the station, on the train (or metro), ride.
     let current: Int
+    var metro = false
+
+    private var labels: [String] { ["Ride to station", metro ? "On the metro" : "On the train", "Ride"] }
 
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(Array(stages.enumerated()), id: \.offset) { i, stage in
-                let isCurrent = i == current
-                HStack(spacing: 6) {
-                    VelixIconView(stage.glyph, size: 18)
-                    Text(stage.label).velixType(VelixType.ridingLabel.sized(14, lineHeight: 18))
+            ForEach(Array(labels.enumerated()), id: \.offset) { i, label in
+                let stage = i + 1
+                HStack(spacing: 5) {
+                    if stage < current { VelixIconView(.check, size: 14) }
+                    Text(label).velixType(VelixType.ridingLabel.sized(13, lineHeight: 16)).lineLimit(1).minimumScaleFactor(0.8)
                 }
-                .foregroundStyle(isCurrent ? Color.velix.surface : Color.velix.ink2)
-                .frame(maxWidth: .infinity).frame(height: 36)
-                .background(isCurrent ? Color.velix.ink : Color.velix.surface, in: RoundedRectangle(cornerRadius: 10))
-                .velixElevation(isCurrent ? VelixElevations.e0 : VelixElevations.e1, in: RoundedRectangle(cornerRadius: 10))
-                .accessibilityElement(children: .combine)
-                .accessibilityAddTraits(isCurrent ? .isSelected : [])
+                .foregroundStyle(stage == current ? Color.velix.accentInk : stage < current ? Color.velix.ink2 : Color.velix.ink3)
+                .padding(.horizontal, 8)
+                .frame(maxWidth: .infinity).frame(height: 30)
+                .background(stage == current ? Color.velix.accent : stage < current ? Color.velix.surface2 : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8).strokeBorder(stage == current ? Color.velix.casing : Color.velix.line,
+                                                                   lineWidth: stage == current ? 1.5 : stage > current ? 1 : 0)
+                }
             }
         }
+        .accessibilityElement(children: .ignore)
+        // P8: "Stage 1 of 3, ride to station. Next: on the train." Not a button.
+        .accessibilityLabel("Stage \(current) of 3, \(labels[max(0, min(2, current - 1))].lowercased())."
+                            + (current < 3 ? " Next: \(labels[current].lowercased())." : ""))
     }
 }
 
@@ -143,7 +152,8 @@ struct StageStrip: View {
                        roadType: .mix(.protected), roadTypeDistance: "600 m")
         ManeuverBanner(maneuver: .arrive, distance: "80 m", street: "Politecnico, on the right")
         RerouteBanner()
-        StageStrip(stages: [.ride, .train, .ride], current: 0)
+        StageStrip(current: 1)
+        StageStrip(current: 3)
     }
     .padding().background(Color.velix.canvas)
 }

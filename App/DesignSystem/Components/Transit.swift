@@ -279,57 +279,196 @@ struct TransitCard: View {
     }
 }
 
-/// OnTrainCard (P2 §08, S5): on the train, when to get off, the next stop and where the bike carriages are.
-struct OnTrainCard: View {
-    var minutes: String
-    var station: String
+/// OnTrainCard (P6 S5d): the bottom sheet on the train. One big number (minutes to the stop), the stops, where the
+/// bikes go, the buzz before the stop and the final arrival.
+struct OnTrainCard: View, Equatable {
+    struct Stop: Hashable {
+        enum State: Hashable { case departed, next, end }
+        var name: String
+        var time: String
+        var state: State
+    }
+    /// "Trenord R 10834 to Monza"
+    var train: String
+    /// "Get off at Monza"
+    var getOff: String
+    /// "1 stop before yours"
+    var stopsLeft: String
+    var minutes: Int
+    var stops: [Stop]
+    /// Carriages from the front, true where bikes go (nil: the operator doesn't say which).
+    var carriages: [Bool]?
+    /// "Bike carriage at the front", "Carriage with the bike area"
+    var carriageNote: String
+    /// "Villa Reale 08:36"
     var arrival: String
-    var nextStop: String
-    var thenStop: String
-    /// Carriages from the front; true where bikes go.
-    var bikeCarriages: [Bool]
-    var note: String
+    var metro = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Get off in").velixType(.ridingLabel).foregroundStyle(Color.velix.ink2)
-                    Text(minutes).velixType(.ridingBigNumber).foregroundStyle(Color.velix.ink)
-                }
-                Spacer(minLength: 0)
-                VStack(alignment: .trailing, spacing: 0) {
-                    Text(station).velixType(VelixType.ridingStreet.sized(22, lineHeight: 24)).foregroundStyle(Color.velix.ink)
-                    Text(arrival).velixType(VelixType.body.sized(14, lineHeight: 18)).foregroundStyle(Color.velix.ink2)
-                }
+            header
+            countdown
+            timeline
+            bikes.padding(.top, 12).overlay(alignment: .top) { divider }
+            footer.padding(.top, 12).overlay(alignment: .top) { divider }
+        }
+        .padding(EdgeInsets(top: 18, leading: 18, bottom: 34, trailing: 18))
+        .background(Color.velix.surface, in: UnevenRoundedRectangle(topLeadingRadius: 26, topTrailingRadius: 26))
+        .velixElevation(VelixElevations.e3, in: UnevenRoundedRectangle(topLeadingRadius: 26, topTrailingRadius: 26))
+    }
+
+    private var divider: some View { Rectangle().fill(Color.velix.line).frame(height: 1) }
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            if metro { VelixIconView(VelixGlyph.metro, size: 18) } else { VelixIconView(VelixIcon.trainFront, size: 18) }
+            Text(train).lineLimit(1)
+        }
+        .velixType(VelixType.label.sized(14, lineHeight: 18))
+        .foregroundStyle(Color.velix.ink2)
+    }
+
+    private var countdown: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(getOff).velixType(VelixType.ridingStreet.sized(26, lineHeight: 29)).foregroundStyle(Color.velix.ink)
+                Text(stopsLeft).velixType(VelixType.body.sized(15, lineHeight: 19)).foregroundStyle(Color.velix.ink2)
             }
-            HStack(spacing: CGFloat.velix.xs) {
-                VelixIconView(.train, size: 20)
-                Text("Next stop **\(nextStop)** · then \(thenStop)").velixType(VelixType.body.sized(15, lineHeight: 20))
+            Spacer(minLength: 0)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("in").velixType(VelixType.ridingLabel.sized(15, lineHeight: 18)).foregroundStyle(Color.velix.ink2)
+                Text("\(minutes)").velixType(VelixType.ridingBigNumber.sized(64, lineHeight: 58))
+                Text("min").velixType(VelixType.ridingStreet.sized(24, lineHeight: 26))
             }
             .foregroundStyle(Color.velix.ink)
-            .padding(.top, CGFloat.velix.s)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .overlay(alignment: .top) { Rectangle().fill(Color.velix.line).frame(height: 1) }
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 3) {
-                    ForEach(Array(bikeCarriages.enumerated()), id: \.offset) { i, bikes in
-                        UnevenRoundedRectangle(topLeadingRadius: i == 0 ? 12 : 4, bottomLeadingRadius: 4, bottomTrailingRadius: 4, topTrailingRadius: 4)
-                            .fill(bikes ? Color.velix.ink : Color.velix.surface2)
-                            .frame(height: 26)
-                            .overlay { if bikes { VelixIconView(.bike, size: 16).foregroundStyle(Color.velix.surface) } }
-                    }
-                    VelixIconView(.arrowLeft, size: 18).foregroundStyle(Color.velix.ink).padding(.leading, 4)
-                }
-                .accessibilityHidden(true)
-                Text(note).velixType(VelixType.body.sized(14, lineHeight: 18)).foregroundStyle(Color.velix.ink2)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private var timeline: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(stops.enumerated()), id: \.offset) { i, stop in
+                stopRow(stop, first: i == 0, last: i == stops.count - 1)
             }
         }
-        .padding(CGFloat.velix.m)
-        .background(Color.velix.surface, in: RoundedRectangle(cornerRadius: 24))
-        .velixElevation(VelixElevations.e1, in: RoundedRectangle(cornerRadius: 24))
+    }
+
+    private func stopRow(_ stop: Stop, first: Bool, last: Bool) -> some View {
+        let departed = stop.state == .departed
+        let type = stop.state == .end ? VelixType.rowTitle.sized(17, lineHeight: 21) : VelixType.body.sized(16, lineHeight: 20)
+        return HStack(spacing: 12) {
+            StopDot(state: stop.state, first: first, last: last).frame(width: 20)
+            Text(stop.name + (departed ? " · departed" : "")).velixType(type)
+                .foregroundStyle(departed ? Color.velix.ink3 : Color.velix.ink)
+            Spacer(minLength: 0)
+            Text(stop.time).velixType(VelixType.label.sized(15, lineHeight: 19)).monospacedDigit()
+                .foregroundStyle(departed ? Color.velix.ink3 : Color.velix.ink2)
+        }
+        .frame(minHeight: 34)
         .accessibilityElement(children: .combine)
     }
+
+    private var bikes: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let carriages {
+                HStack(spacing: 3) {
+                    VelixIconView(.arrowLeft, size: 18).foregroundStyle(Color.velix.ink3)
+                    ForEach(Array(carriages.enumerated()), id: \.offset) { i, bikes in Carriage(front: i == 0, bikes: bikes) }
+                }
+                .accessibilityHidden(true)
+            }
+            Text(carriageNote).velixType(VelixType.rowTitle.sized(16, lineHeight: 20)).foregroundStyle(Color.velix.ink)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var footer: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 8) {
+                VelixIconView(.vibrate, size: 20)
+                Text("Velix buzzes 2 min before")
+            }
+            .velixType(VelixType.body.sized(15, lineHeight: 19))
+            .foregroundStyle(Color.velix.ink2)
+            Spacer(minLength: 0)
+            Text(arrival).velixType(VelixType.label.sized(15, lineHeight: 19)).foregroundStyle(Color.velix.ink).lineLimit(1)
+        }
+    }
+
+    /// One carriage, the front one rounded: accent with the casing and a bike where bikes go.
+    private struct Carriage: View {
+        let front: Bool
+        let bikes: Bool
+        var body: some View {
+            let shape = UnevenRoundedRectangle(topLeadingRadius: front ? 12 : 5, bottomLeadingRadius: front ? 12 : 5,
+                                               bottomTrailingRadius: 5, topTrailingRadius: 5)
+            shape.fill(bikes ? Color.velix.accent : Color.velix.surface2)
+                .overlay {
+                    if bikes {
+                        shape.strokeBorder(Color.velix.casing, lineWidth: 1.5)
+                        VelixIconView(.bike, size: 18).foregroundStyle(Color.velix.accentInk)
+                    }
+                }
+                .frame(height: 30)
+        }
+    }
+
+    /// The timeline dot and rail (train slate): departed filled, next ringed, the stop in accent with casing.
+    private struct StopDot: View {
+        let state: Stop.State
+        let first: Bool
+        let last: Bool
+        var body: some View {
+            ZStack {
+                VStack(spacing: 0) {
+                    Rectangle().fill(first ? Color.clear : Color.velix.transitTrain).frame(width: 2, height: 17)
+                    Rectangle().fill(last ? Color.clear : Color.velix.transitTrain).frame(width: 2, height: 17)
+                }
+                switch state {
+                case .departed: Circle().fill(Color.velix.transitTrain).frame(width: 10, height: 10)
+                case .next: Circle().fill(Color.velix.surface).overlay(Circle().strokeBorder(Color.velix.transitTrain, lineWidth: 2))
+                        .frame(width: 10, height: 10)
+                case .end: Circle().fill(Color.velix.accent).overlay(Circle().stroke(Color.velix.casing, lineWidth: 2)).frame(width: 14, height: 14)
+                }
+            }
+        }
+    }
+}
+
+/// Late / missed (P6 S5b, S5c): takes the hazard card's place for 8 s, in the warning colours.
+struct TransitNotice: View {
+    enum Kind: Hashable { case late, missed }
+    let kind: Kind
+    let title: String
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VelixIconView(kind == .late ? .timer : .trainFront, size: 28)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).velixType(VelixType.ridingStreet.sized(20, lineHeight: 24))
+                Text(message).velixType(VelixType.body.sized(16, lineHeight: 22)).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(Color.velix.warningInk)
+        .padding(EdgeInsets(top: 14, leading: 14, bottom: 14, trailing: 16))
+        .background(Color.velix.warningSurface, in: RoundedRectangle(cornerRadius: 20))
+        .velixElevation(VelixElevations.e2, in: RoundedRectangle(cornerRadius: 20))
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+}
+
+extension OnTrainCard {
+    /// P6 S5d sample.
+    static let sample = OnTrainCard(train: "Trenord R 10834 to Monza", getOff: "Get off at Monza", stopsLeft: "1 stop before yours",
+                                    minutes: 6,
+                                    stops: [.init(name: "Milano Centrale", time: "08:16", state: .departed),
+                                            .init(name: "Sesto San Giovanni", time: "08:23", state: .next),
+                                            .init(name: "Monza", time: "08:27", state: .end)],
+                                    carriages: [true, false, false, false, false], carriageNote: "Bike carriage at the front",
+                                    arrival: "Villa Reale 08:36")
 }
 
 extension TransitCard.Model {
@@ -352,8 +491,8 @@ extension TransitCard.Model {
                                  subtitle: "**21 min faster** · ride to Centrale, train to Monza, ride into the park")
             BikeOnlyRow(text: "Bike only · **52 min** Best · 45 min Fastest")
             TransitCard(model: .sample, selectedDeparture: .constant(0))
-            OnTrainCard(minutes: "6 min", station: "Monza", arrival: "08:28", nextStop: "Sesto S. Giovanni", thenStop: "Monza",
-                        bikeCarriages: [true, true, false, false, false, false], note: "Bike space in the first 2 carriages · exit on the right")
+            OnTrainCard.sample
+            TransitNotice(kind: .late, title: "Running late", message: "Switched to the fastest route to catch the 08:16. It adds 120 m of cobbles.")
         }
         .padding()
     }

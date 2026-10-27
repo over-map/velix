@@ -8,6 +8,8 @@ struct EtaBar: View {
         /// After three failed tries (M7a): the old route stays and the bar says so.
         case rerouting(cannotFind: Bool)
         case arriving
+        /// Bike + transit, stage 1 (P6 S5a–c): arrival at the station, the train and the spare time.
+        case transit(arrival: String, at: String, train: String, spare: String?, tight: Bool)
     }
     let state: State
     var onEnd: () -> Void = {}
@@ -28,6 +30,23 @@ struct EtaBar: View {
                     : status(.route, "New route", "Ready in a moment")
             case .arriving:
                 status(.flag, "Arriving", "Ride ends by itself")
+            case let .transit(arrival, at, train, spare, tight):
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(arrival).velixType(.ridingNumber).foregroundStyle(Color.velix.ink)
+                        Text("at \(at)").velixType(VelixType.ridingLabel.sized(17, lineHeight: 21)).foregroundStyle(Color.velix.ink)
+                            .lineLimit(1)
+                    }
+                    HStack(spacing: 6) {
+                        VelixIconView(.trainFront, size: 18)
+                        Text(train)
+                        if let spare {
+                            Text(spare).bold().foregroundStyle(tight ? Color.velix.warningInk : Color.velix.success)
+                        }
+                    }
+                    .velixType(VelixType.body.sized(15, lineHeight: 19)).foregroundStyle(Color.velix.ink2).lineLimit(1)
+                }
+                .accessibilityElement(children: .combine)
             }
             Spacer(minLength: 0)
             Button(action: onEnd) {
@@ -69,6 +88,7 @@ struct EtaBar: View {
         EtaBar(state: .rerouting(cannotFind: false))
         EtaBar(state: .rerouting(cannotFind: true))
         EtaBar(state: .arriving)
+        EtaBar(state: .transit(arrival: "08:12", at: "Centrale", train: "08:16 · platform planned ·", spare: "4 min to spare", tight: false))
     }
     .background(Color.velix.canvas)
 }

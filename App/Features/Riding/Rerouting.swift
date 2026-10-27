@@ -12,7 +12,12 @@ final class PlannedRouteProvider: CustomRouteProvider, @unchecked Sendable {
     typealias Plan = @Sendable (LatLon, LatLon, Double?) async throws -> RoutePlan
 
     private let plan: Plan
-    private let choice: RideChoice
+    private var _choice: RideChoice
+    /// Best or Fastest; a bike + transit ride switches it when late (M8c).
+    var choice: RideChoice {
+        get { lock.withLock { _choice } }
+        set { lock.withLock { _choice = newValue } }
+    }
     private let lock = NSLock()
     private var _lastOption: RouteOption?
     private var _lastAvoided: [AvoidedRoad] = []
@@ -26,7 +31,7 @@ final class PlannedRouteProvider: CustomRouteProvider, @unchecked Sendable {
     enum Failure: Error { case noDestination, noRoute }
 
     init(choice: RideChoice, plan: @escaping Plan) {
-        self.choice = choice
+        _choice = choice
         self.plan = plan
     }
 
@@ -42,6 +47,7 @@ final class PlannedRouteProvider: CustomRouteProvider, @unchecked Sendable {
             let from = LatLon(lat: userLocation.coordinates.lat, lon: userLocation.coordinates.lng)
             let heading = userLocation.courseOverGround.map { Double($0.degrees) }
             let planned = try await plan(from, LatLon(lat: to.lat, lon: to.lng), heading)
+            let choice = self.choice
             guard let option = Self.pick(planned, choice: choice) else { throw Failure.noRoute }
             let route = try RideSession.route(from: option)
             let avoided = if case let .options(o) = planned, choice == .best { o.avoided } else { [AvoidedRoad]() }

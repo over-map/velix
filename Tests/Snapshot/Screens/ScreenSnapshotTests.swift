@@ -163,6 +163,40 @@ final class ScreenSnapshotTests: XCTestCase {
         s4("S4j-panned", camera: panned)
     }
 
+    // MARK: S5 Riding with transit (P6 copy; P6's illustrative 08:16 train)
+
+    func testS5RidingWithTransit() {
+        func s5(_ name: String, at position: Double = 420, _ edit: (inout RideScreenState) -> Void) {
+            var r = AppSamples.ride(at: position)
+            r.chevron = true
+            var state = RideScreenState(r)
+            edit(&state)
+            let camera = RideCamera()
+            let target = state.rider.map { camera.follow(at: $0, course: state.course) }
+            check(RidingScreen(state: state, camera: camera, voice: .all, target: target), named: name, testName: "testS5RidingWithTransit")
+        }
+        s5("S5a-timeToSpare") {
+            $0.stage = StageStrip(current: 1)
+            $0.eta = .transit(arrival: "08:12", at: "Centrale", train: "08:16 ·", spare: "4 min to spare", tight: false)
+        }
+        s5("S5b-late") {
+            $0.stage = StageStrip(current: 1)
+            $0.notice = .init(kind: .late, title: "Running late",
+                              message: "Switched to the fastest route to catch the 08:16. It adds 120 m of cobbles.")
+            $0.eta = .transit(arrival: "08:14", at: "Centrale", train: "08:16 ·", spare: "2 min to spare", tight: true)
+        }
+        s5("S5c-missed") {
+            $0.stage = StageStrip(current: 1)
+            $0.notice = .init(kind: .missed, title: "You’d miss the 08:16", message: "Moved you to the 08:46. Arrival 09:05.")
+            $0.eta = .transit(arrival: "08:19", at: "Centrale", train: "08:46 ·", spare: "27 min to spare", tight: false)
+        }
+        s5("S5d-onTrain") {
+            $0.stage = StageStrip(current: 2)
+            $0.onTrain = OnTrainCard.sample
+        }
+        s5("S5e-rideOn", at: 1200) { $0.stage = StageStrip(current: 3) }
+    }
+
     // MARK: S6 Ride summary
 
     func testS6Summary() {

@@ -50,35 +50,59 @@ final class RideLocationProvider: NSObject, LocationProviding, CLLocationManager
     }
 
     #if DEBUG
-    /// `-simulate-ride`: ride the planned route at `simulatedSpeed`, one fix a second, through the same filtering, so
-    /// the riding screen, hazard alerts, voice and the Live Activity can be tried away from Lombardy.
+    /// `-simulate-ride`: ride the planned route at `simulatedSpeed` (`-simulate-speed 3`), one fix a second of app time
+    /// (``AppClock/scale``), so the riding screen, hazard alerts, voice, the Live Activity and the transit stages can be
+    /// tried away from Lombardy. Simulated fixes skip the jump filter (time runs faster than the fixes' timestamps).
     static var simulates: Bool { ProcessInfo.processInfo.arguments.contains("-simulate-ride") }
-    static let simulatedSpeed: CLLocationSpeed = 5
+    static let simulatedSpeed: CLLocationSpeed = {
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-simulate-speed"), i + 1 < args.count, let v = Double(args[i + 1]), v > 0 { return v }
+        return 5
+    }()
     private var simulated: (shape: [LatLon], along: [Double])?
     private var simulatedDistance = 0.0
+    /// A train run: along the line between these app times, standing at the start until the departure.
+    private var simulatedRun: (departs: Date, arrives: Date)?
     private var simulationTimer: Timer?
 
-    func simulate(_ shape: [LatLon]) {
+    func simulate(_ shape: [LatLon], from position: Double = 0) {
         simulated = (shape, RouteAnalyzer.cumulative(shape))
-        simulatedDistance = 0
+        simulatedDistance = position
+        simulatedRun = nil
+    }
+
+    func simulate(_ line: [LatLon], departs: Date, arrives: Date) {
+        simulate(line)
+        simulatedRun = (departs, arrives)
+        if simulationTimer == nil { startSimulation() }
     }
 
     private func startSimulation() {
         simulationTimer?.invalidate()
-        simulationTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        simulationTimer = Timer.scheduledTimer(withTimeInterval: 1 / AppClock.scale, repeats: true) { [weak self] _ in
             self?.simulationStep()
         }
     }
 
     private func simulationStep() {
         guard let (shape, along) = simulated, let length = along.last else { return }
-        simulatedDistance = min(simulatedDistance + Self.simulatedSpeed, length)
+        var speed = Self.simulatedSpeed
+        if let run = simulatedRun {
+            let total = max(1, run.arrives.timeIntervalSince(run.departs))
+            let share = min(1, max(0, AppClock.now.timeIntervalSince(run.departs) / total))
+            speed = length / total
+            simulatedDistance = share * length
+        } else {
+            simulatedDistance = min(simulatedDistance + Self.simulatedSpeed, length)
+        }
         let p = RuleChecker.point(at: simulatedDistance, on: shape, along: along)
         let ahead = RuleChecker.point(at: min(simulatedDistance + 5, length), on: shape, along: along)
         let fix = CLLocation(coordinate: .init(latitude: p.lat, longitude: p.lon), altitude: 120, horizontalAccuracy: 5,
-                             verticalAccuracy: 5, course: Geo.bearing(p, ahead), speed: Self.simulatedSpeed, timestamp: Date())
-        locationManager(manager, didUpdateLocations: [fix])
-        if simulatedDistance >= length { simulationTimer?.invalidate() }
+                             verticalAccuracy: 5, course: Geo.bearing(p, ahead), speed: speed, timestamp: Date())
+        lastAccepted = fix
+        lastLocation = fix.userLocation
+        onFix(fix, .good)
+        delegate?.locationManager(self, didUpdateLocations: [fix.userLocation])
     }
     #endif
 

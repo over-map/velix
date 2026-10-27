@@ -83,11 +83,13 @@ enum ComponentCatalog {
         },
         e("ManeuverBanner", "arrival", width: 405) { ManeuverBanner(maneuver: .arrive, distance: "80 m", street: "Politecnico, on the right") },
         e("ManeuverBanner", "rerouting", width: 405) { RerouteBanner() },
+        // P6 S5a: the strip on top of the banner; the three stages.
         e("ManeuverBanner", "stageStrip", width: 405) {
-            VStack(spacing: 6) {
-                StageStrip(stages: [.ride, .train, .ride], current: 0)
-                ManeuverBanner(maneuver: .left, distance: "350 m", street: "Via Vittor Pisani")
-            }
+            ManeuverBanner(maneuver: .left, distance: "60 m", street: "Viale Tunisia", then: (.right, "Via Lecco"),
+                           roadType: .mix(.painted), roadTypeDistance: "60 m", stage: StageStrip(current: 1))
+        },
+        e("ManeuverBanner", "stages", width: 405) {
+            VStack(spacing: 10) { StageStrip(current: 1); StageStrip(current: 2); StageStrip(current: 3) }
         },
         e("ManeuverBanner", "turnTypes", width: 472) {
             LazyVGrid(columns: Array(repeating: GridItem(.fixed(64), spacing: 10), count: 6), alignment: .leading, spacing: 10) {
@@ -136,9 +138,18 @@ enum ComponentCatalog {
         e("EtaBar", "rerouting", width: 425) { EtaBar(state: .rerouting(cannotFind: false)) },
         e("EtaBar", "cannotFind", width: 425) { EtaBar(state: .rerouting(cannotFind: true)) },
         e("EtaBar", "arriving", width: 425) { EtaBar(state: .arriving) },
-        e("OnTrainCard", "onTheTrain", width: 405) {
-            OnTrainCard(minutes: "6 min", station: "Monza", arrival: "08:28", nextStop: "Sesto S. Giovanni", thenStop: "Monza",
-                        bikeCarriages: [true, true, false, false, false, false], note: "Bike space in the first 2 carriages · exit on the right")
+        e("EtaBar", "transit", width: 425) {
+            EtaBar(state: .transit(arrival: "08:12", at: "Centrale", train: "08:16 · platform planned ·", spare: "4 min to spare", tight: false))
+        },
+        e("EtaBar", "transitTight", width: 425) {
+            EtaBar(state: .transit(arrival: "08:14", at: "Centrale", train: "08:16 · platform planned ·", spare: "2 min to spare", tight: true))
+        },
+        e("OnTrainCard", "onTheTrain", width: 393) { OnTrainCard.sample },
+        e("OnTrainCard", "lateNotice", width: 373) {
+            TransitNotice(kind: .late, title: "Running late", message: "Switched to the fastest route to catch the 08:16. It adds 120 m of cobbles.")
+        },
+        e("OnTrainCard", "missedNotice", width: 373) {
+            TransitNotice(kind: .missed, title: "You’d miss the 08:16", message: "Moved you to the 08:46. Arrival 09:05.")
         },
         // P5 L1–L2, D1–D5 (the lock-screen tint is the activity background: surface at 92 %, or hazard).
         e("LiveActivity", "L1-lockScreen") {
@@ -167,6 +178,21 @@ enum ComponentCatalog {
         e("LiveActivity", "D4-expanded") {
             DynamicIslandFrame(width: 371, height: nil, cornerRadius: 44, padding: EdgeInsets(top: 18, leading: 22, bottom: 16, trailing: 22)) {
                 LiveActivityExpanded(state: .sample)
+            }
+        },
+        // P6 L3, D6, D7: on the train, running late.
+        e("LiveActivity", "L3-lockScreenTrain") {
+            LiveActivityLockScreen(state: .sampleTrain).background(Color.velix.surface.opacity(0.92), in: RoundedRectangle(cornerRadius: 24))
+                .velixElevation(VelixElevations.e1, in: RoundedRectangle(cornerRadius: 24))
+        },
+        e("LiveActivity", "D6-compactTrain", width: nil) {
+            DynamicIslandFrame {
+                HStack { LiveActivityCompactLeading(state: .sampleTrain); Spacer(); LiveActivityCompactTrailing(state: .sampleTrain) }
+            }
+        },
+        e("LiveActivity", "D7-expandedLate") {
+            DynamicIslandFrame(width: 371, height: nil, cornerRadius: 44, padding: EdgeInsets(top: 18, leading: 22, bottom: 16, trailing: 22)) {
+                LiveActivityExpanded(state: .sampleLate)
             }
         },
         e("LiveActivity", "D5-expandedHazard") {

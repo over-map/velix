@@ -10,7 +10,8 @@ final class RideLog: @unchecked Sendable {
         case hazard(type: String, distance: Double, at: LatLon)
         case reroute(String)          // "requested", "accepted", "failed"
         case gps(String)              // "weak", "good"
-        case end(String)              // "arrived", "ended"
+        case end(String)              // "arrived", "ended", "leg"
+        case transit(String)          // bike + transit: "late: fastest to catch 08:43", "missed 08:43: next 09:20", …
     }
 
     let url: URL
@@ -30,8 +31,15 @@ final class RideLog: @unchecked Sendable {
         handle = try? FileHandle(forWritingTo: url)
     }
 
-    func fix(_ l: CLLocation) {
+    /// `ridden`: false on the train (bike + transit): the fix is logged, not counted as riding (S6 km, moving time).
+    func fix(_ l: CLLocation, ridden counts: Bool = true) {
         lock.lock(); defer { lock.unlock() }
+        guard counts else {
+            stats.resume()
+            write(["t": l.timestamp.timeIntervalSince1970, "lat": l.coordinate.latitude, "lon": l.coordinate.longitude,
+                   "acc": l.horizontalAccuracy, "alt": l.altitude, "v": l.speed, "c": l.course, "train": true])
+            return
+        }
         stats.add(l)
         let p = LatLon(lat: l.coordinate.latitude, lon: l.coordinate.longitude)
         if l.horizontalAccuracy >= 0, l.horizontalAccuracy <= 30, ridden.last.map({ Geo.distance($0, p) >= Self.riddenStep }) ?? true {
@@ -50,6 +58,7 @@ final class RideLog: @unchecked Sendable {
         case let .reroute(s): write(["t": t, "e": "reroute", "s": s])
         case let .gps(s): write(["t": t, "e": "gps", "s": s])
         case let .end(s): write(["t": t, "e": "end", "s": s])
+        case let .transit(s): write(["t": t, "e": "transit", "s": s])
         }
     }
 
@@ -71,7 +80,8 @@ final class RideLog: @unchecked Sendable {
         let time = Date.ISO8601FormatStyle()
         var pts = ""
         for line in lines {
-            guard let o = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any], o["e"] == nil,
+            // Fixes only (no events), and not the train's (bike + transit): the GPX is the ride.
+            guard let o = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any], o["e"] == nil, o["train"] == nil,
                   let lat = o["lat"] as? Double, let lon = o["lon"] as? Double, let t = o["t"] as? Double else { continue }
             let ele = (o["alt"] as? Double).map { "<ele>\(String(format: "%.1f", $0))</ele>" } ?? ""
             pts += "<trkpt lat=\"\(lat)\" lon=\"\(lon)\">\(ele)<time>\(Date(timeIntervalSince1970: t).formatted(time))</time></trkpt>\n"
@@ -105,6 +115,12 @@ struct RideStats: Equatable, Sendable {
     static let movingSpeed: CLLocationSpeed = 1.0
     /// Altitude changes smaller than this are GPS noise.
     static let climbStep: Double = 2
+
+    /// After a stretch not ridden (the train): the next fix starts fresh, not measured from the last one.
+    mutating func resume() {
+        last = nil
+        lastAltitude = nil
+    }
 
     mutating func add(_ l: CLLocation) {
         defer { last = l }
