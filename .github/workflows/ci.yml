@@ -97,6 +97,11 @@ jobs:
             gh release download "${{ steps.pack.outputs.tag }}" -D build/pack -p 'city.geojson.xz' --clobber || true
             ls build/pack/*.xz >/dev/null 2>&1 && xz -d -T0 build/pack/*.xz
           fi
+          # Cycle routes (M9 Routes golden test).
+          if [ ! -f build/pack/routes.sqlite ]; then
+            gh release download "${{ steps.pack.outputs.tag }}" -D build/pack -p 'routes.sqlite.xz' --clobber || true
+            ls build/pack/*.xz >/dev/null 2>&1 && xz -d -T0 build/pack/*.xz
+          fi
           ls -lh build/pack
 
       - name: Test
