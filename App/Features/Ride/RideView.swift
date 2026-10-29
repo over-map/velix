@@ -47,6 +47,7 @@ struct RideView: View {
                 case .setHome: app.state.home = place
                 case .setWork: app.state.work = place
                 case .destination: app.choose(place)
+                case .area: break
                 }
             }
         }

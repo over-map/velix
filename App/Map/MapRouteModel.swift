@@ -20,6 +20,18 @@ struct MapRouteModel: Equatable, Sendable {
     var heading: Double = 0
     /// Bike + transit: the ride after the train (drawn like Best) and the train or metro leg.
     var rides: [[LatLon]] = []
+    /// Routes tab (P7 S7): the listed routes with their key numbers; one in focus, or the others grey (S7c).
+    var listed: [Listed] = []
+
+    struct Listed: Equatable {
+        enum State: String { case plain = "list", focus, grey = "list-grey" }
+        var id: Int64
+        var key: Int
+        var line: [LatLon]
+        /// Drawn piece by piece when given (a relation's pieces needn't join).
+        var pieces: [[LatLon]] = []
+        var state: State
+    }
     var legs: [Leg] = []
     /// Riding: the stretch of Best around the rider (drawn after `best`, which then holds the rest), and the share of it
     /// already ridden, faded out on the map (a line-gradient).
@@ -96,6 +108,12 @@ struct MapRouteModel: Equatable, Sendable {
         }
         if let near, near.count > 1 { f.append(line(near, ["role": "best-near"])) }
         for t in tubes { f.append(line(t, ["role": "tube"])) }
+        // Focus last: drawn on top (the style orders the roles too).
+        for l in listed.sorted(by: { ($0.state == .focus ? 1 : 0) < ($1.state == .focus ? 1 : 0) }) where l.line.count > 1 {
+            for piece in l.pieces.isEmpty ? [l.line] : l.pieces where piece.count > 1 {
+                f.append(line(piece, ["role": l.state.rawValue, "id": l.id]))
+            }
+        }
         return collection(f)
     }
 
@@ -111,8 +129,18 @@ struct MapRouteModel: Equatable, Sendable {
             f.append(point(RuleChecker.point(at: Geo.length(a.shape) / 2, on: a.shape, along: RouteAnalyzer.cumulative(a.shape)),
                            ["role": "avoided-tag", "id": a.id]))
         }
+        for l in listed where l.state != .grey && l.line.count > 1 {
+            // On the longest piece: a third along the chained line can fall on a gap between pieces.
+            let on = l.pieces.max { Geo.length($0) < Geo.length($1) } ?? l.line
+            f.append(point(Self.keyPoint(on.count > 1 ? on : l.line), ["role": "key", "key": l.key, "focus": l.state == .focus]))
+        }
         if let puck { f.append(point(puck, ["role": "puck", "heading": heading])) }
         return collection(f)
+    }
+
+    /// Where a route's key tile sits: a third of the way along (clear of the ends, where routes meet).
+    static func keyPoint(_ line: [LatLon]) -> LatLon {
+        RuleChecker.point(at: Geo.length(line) / 3, on: line, along: RouteAnalyzer.cumulative(line))
     }
 
     private func line(_ c: [LatLon], _ props: [String: Any]) -> [String: Any] {

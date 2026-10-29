@@ -81,6 +81,35 @@ final class AppModel {
     var summary: RideSummaryModel?
     /// The bike + transit stages of the ride in progress (P6), if it is one.
     var transit: TransitRide?
+    /// S7c → S7d: Ride this route opens route options for this cycle route.
+    var follow: CycleRoute?
+
+    /// The pack's cycle routes (Routes tab), opened once per installed pack.
+    var routeStore: RouteStore? {
+        guard let url = RegionPack.routes else { return nil }
+        if let cached = routeStoreCache, cached.url == url { return cached.store }
+        let store = try? RouteStore(path: url)
+        routeStoreCache = store.map { (url, $0) }
+        return store
+    }
+    @ObservationIgnored private var routeStoreCache: (url: URL, store: RouteStore)?
+
+    /// The Routes tab keeps its area, filter and focus across tab switches, per ride type.
+    @ObservationIgnored private var routesModels: [RideType: RoutesModel] = [:]
+
+    func routesModel() -> RoutesModel {
+        if let m = routesModels[state.rideType] { return m }
+        let here = location.coordinate.flatMap { packContains($0) ? $0 : nil }
+        let m = RoutesModel(rideType: state.rideType, home: .init(center: here ?? RideView.milan, name: here == nil ? "Milan" : "you"))
+        routesModels[state.rideType] = m
+        return m
+    }
+
+    /// Inside the region the pack covers.
+    func packContains(_ p: LatLon) -> Bool {
+        if case let .ready(m) = pack.state { return m.contains(p) }
+        return RegionPackManifest.sideloaded.contains(p)
+    }
 
     /// Open route options for a place (Home, Work, a search result): tap 1 of the commute.
     func choose(_ place: Place) {
@@ -89,10 +118,11 @@ final class AppModel {
     }
 
     /// Tap 2: ride the chosen route.
-    func start(_ option: RouteOption, choice: RideChoice = .best, avoided: [AvoidedRoad] = [], to place: Place) {
+    func start(_ option: RouteOption, choice: RideChoice = .best, avoided: [AvoidedRoad] = [], to place: Place,
+               follow vias: [LatLon]? = nil) {
         let rules = state.ruleSet(for: state.rideType, litStreetsOnly: litStreetsOnly)
         let session = RideSession(destination: place, option: option, avoided: avoided, rules: rules, choice: choice,
-                                  planner: engine.loadedPlanner)
+                                  planner: engine.loadedPlanner, follow: vias)
         session.onEnd = { [weak self] session in
             self?.ended(session, transit: nil)
             self?.ride = nil

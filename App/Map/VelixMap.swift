@@ -42,6 +42,10 @@ struct VelixMap: UIViewRepresentable {
     var riding = false
     /// The rider moved the map (S1b: the Recenter button appears).
     var onUserPan: () -> Void = {}
+    /// Routes tab: a tap on a listed route's line (its relation id).
+    var onTapRoute: ((Int64) -> Void)?
+    /// The camera settled after the rider moved the map: its centre (Routes: "Search routes in this area").
+    var onRegionChange: ((LatLon) -> Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -55,6 +59,12 @@ struct VelixMap: UIViewRepresentable {
         context.coordinator.applyDetail(on: map)
         context.coordinator.loadStyle(on: map)
         context.coordinator.applyCamera(on: map, animated: false)
+        if onTapRoute != nil {
+            let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
+            // After the map's own double-tap zoom fails.
+            for g in map.gestureRecognizers ?? [] where (g as? UITapGestureRecognizer)?.numberOfTapsRequired == 2 { tap.require(toFail: g) }
+            map.addGestureRecognizer(tap)
+        }
         return map
     }
 
@@ -191,7 +201,28 @@ struct VelixMap: UIViewRepresentable {
             let byGesture = !reason.intersection([.gesturePan, .gesturePinch, .gestureRotate, .gestureZoomIn, .gestureZoomOut,
                                                   .gestureOneFingerZoom, .gestureTilt]).isEmpty
             guard byGesture else { return }
-            MainActor.assumeIsolated { state?.onUserPan() }
+            MainActor.assumeIsolated { state?.onUserPan(); movedByUser = true }
+        }
+
+        private var movedByUser = false
+
+        nonisolated func mapView(_ mapView: MLNMapView, regionDidChangeWith reason: MLNCameraChangeReason, animated: Bool) {
+            MainActor.assumeIsolated {
+                guard movedByUser else { return }
+                movedByUser = false
+                let c = mapView.centerCoordinate
+                state?.onRegionChange?(LatLon(lat: c.latitude, lon: c.longitude))
+            }
+        }
+
+        /// The listed route nearest the tap, within a finger's width.
+        @objc func tapped(_ g: UITapGestureRecognizer) {
+            guard let map = g.view as? MLNMapView, let onTap = state?.onTapRoute else { return }
+            let p = g.location(in: map)
+            let rect = CGRect(x: p.x - 22, y: p.y - 22, width: 44, height: 44)
+            let ids: Set<String> = ["route-list", "route-focus", "route-list-grey"]
+            let hit = map.visibleFeatures(in: rect, styleLayerIdentifiers: ids).compactMap { ($0.attribute(forKey: "id") as? NSNumber)?.int64Value }
+            if let id = hit.first { onTap(id) }
         }
 
         nonisolated func mapView(_ mapView: MLNMapView, didFailToLoadImage imageName: String) -> UIImage? {

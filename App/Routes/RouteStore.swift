@@ -22,8 +22,10 @@ struct CycleRoute: Identifiable, Hashable, Sendable {
     let description: String
     let from: String
     let to: String
-    /// The merged pieces, chained end to end (``RouteStore/chain(_:)``).
+    /// The merged pieces, chained end to end (``RouteStore/chain(_:)``): what Ride this route follows.
     let line: [LatLon]
+    /// The pieces as stored: what the map draws (chaining bridges gaps with straight lines).
+    var pieces: [[LatLon]] = []
 
     struct Mix: Hashable, Sendable {
         var carFree: Double
@@ -80,8 +82,12 @@ final class RouteStore: @unchecked Sendable {
     private let lock = NSLock()
     private(set) var schema = 1
 
-    /// At most this many routes in a search (P7 lists a handful).
-    static let limit = 20
+    /// At most this many routes in a search (P7 lists a handful), none shorter than `minimumMeters` (the pack clips
+    /// routes at the region border and keeps stray pieces of others).
+    static let limit = 10
+    static let minimumMeters = 2000.0
+    /// Pieces shorter than this are left out of the chained line (still drawn).
+    static let minimumPiece = 200.0
 
     enum Failure: Error { case cannotOpen(String) }
 
@@ -118,10 +124,10 @@ final class RouteStore: @unchecked Sendable {
                 climb: v2 && sqlite3_column_type(s, 12) != SQLITE_NULL ? sqlite3_column_double(s, 12) : nil,
                 descent: v2 && sqlite3_column_type(s, 13) != SQLITE_NULL ? sqlite3_column_double(s, 13) : nil,
                 description: v2 ? Self.text(s, 14) ?? "" : "", from: v2 ? Self.text(s, 15) ?? "" : "",
-                to: v2 ? Self.text(s, 16) ?? "" : "", line: Self.chain(pieces))
+                to: v2 ? Self.text(s, 16) ?? "" : "", line: Self.chain(pieces), pieces: pieces)
             out.append(route)
         }
-        return Self.ordered(out.filter(filter.keeps), near: center).prefix(limit).map { $0 }
+        return Self.ordered(out.filter { $0.meters >= Self.minimumMeters && filter.keeps($0) }, near: center).prefix(limit).map { $0 }
     }
 
     /// EuroVelo first, then by the distance from `center` to the route's nearest point.
@@ -136,7 +142,10 @@ final class RouteStore: @unchecked Sendable {
     /// The pieces as one line: from the longest, the nearest remaining piece is joined at whichever end is closer
     /// (reversed if needed), at the front or the back. OSM relations aren't always ordered or in one direction.
     static func chain(_ pieces: [[LatLon]]) -> [LatLon] {
+        // Fragments at junctions (a few metres of a side way, both carriageways) would send the vias back and forth.
         var rest = pieces.filter { $0.count > 1 }
+        if rest.count > 1 { rest = rest.filter { Geo.length($0) >= minimumPiece } }
+        if rest.isEmpty { rest = pieces.filter { $0.count > 1 } }
         guard let longest = rest.indices.max(by: { Geo.length(rest[$0]) < Geo.length(rest[$1]) }) else { return pieces.first ?? [] }
         var line = rest.remove(at: longest)
         while !rest.isEmpty {

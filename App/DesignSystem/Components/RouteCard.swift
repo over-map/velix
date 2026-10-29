@@ -10,6 +10,8 @@ struct RouteCard: View {
         /// DifferenceLine text with `**bold**` lead; nil on an unselected Fastest card.
         var line: String?
         var selected: Bool
+        /// Long rides (S7d): "2 h 20" instead of minutes.
+        var time: String?
     }
 
     let model: Model
@@ -24,7 +26,7 @@ struct RouteCard: View {
                         Text(model.distance).velixType(.footnote).foregroundStyle(Color.velix.ink3)
                     }
                     Spacer(minLength: CGFloat.velix.xs)
-                    Text("\(model.minutes) min")
+                    Text(model.time ?? "\(model.minutes) min")
                         .velixType(model.selected ? .numberL : .numberM)
                         .foregroundStyle(Color.velix.ink)
                         .lineLimit(1)

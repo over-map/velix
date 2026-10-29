@@ -219,6 +219,65 @@ final class ScreenSnapshotTests: XCTestCase {
         s5("S5e-rideOn", at: 1200) { $0.stage = StageStrip(current: 3) }
     }
 
+    // MARK: S7 Routes
+
+    /// P7's four routes (design/tools/p7gen.js `RT`), as the pack would give them.
+    static let p7Routes: [CycleRoute] = {
+        func r(_ id: Int64, _ kind: CycleRoute.Kind, _ network: String, _ name: String, ev: Int? = nil, km: Double,
+               mix: CycleRoute.Mix, climb: Double, description: String = "", from: String = "", to: String = "") -> CycleRoute {
+            let a = LatLon(lat: 45.45 + Double(id) * 0.01, lon: 9.15), b = LatLon(lat: 45.30 + Double(id) * 0.01, lon: 9.16)
+            return CycleRoute(id: id, kind: kind, network: network, name: name, ref: "", eurovelo: ev, meters: km * 1000,
+                              pavedShare: 1 - mix.unpaved, mix: mix, climb: climb, descent: climb, description: description,
+                              from: from, to: to, line: [a, b], pieces: [[a, b]])
+        }
+        return [
+            r(1, .bicycle, "icn", "Alzaia Naviglio Pavese", ev: 5, km: 33, mix: .init(carFree: 0.62, quiet: 0.08, unpaved: 0.30), climb: 40,
+              description: "Flat towpath from the Darsena to Pavia, on EuroVelo 5. Mostly car-free; the last third is packed gravel.",
+              from: "the Darsena", to: "Pavia"),
+            r(2, .bicycle, "rcn", "Naviglio Martesana", km: 38, mix: .init(carFree: 0.85, quiet: 0.10, unpaved: 0.05), climb: 60,
+              from: "Milano", to: "Cassano d’Adda"),
+            r(3, .mtb, "", "Groane MTB trails", km: 14, mix: .init(carFree: 0.2, quiet: 0.1, unpaved: 0.7), climb: 120,
+              description: "Heath and woods, short steep pitches"),
+            r(4, .bicycle, "lcn", "Parco Nord loop", km: 9, mix: .init(carFree: 1, quiet: 0, unpaved: 0), climb: 15,
+              description: "Paved park loop, no cars"),
+        ]
+    }()
+
+    private func routes(_ setup: (RoutesModel) -> Void, rideType: RideType = .gravel) -> some View {
+        let a = app(rideType: rideType)
+        let m = RoutesModel(rideType: rideType, home: .init(center: portaVenezia, name: "Milan"))
+        m.show(Self.p7Routes, area: .init(center: portaVenezia, name: "Milan"))
+        setup(m)
+        return ZStack(alignment: .bottom) {
+            RoutesView(app: a, model: m, sheet: .constant(nil), loadsOnAppear: false)
+                .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: 44) }
+            VStack(spacing: 0) { Spacer(minLength: 0); TabBar(selected: .routes) { _ in } }.ignoresSafeArea(edges: .bottom)
+        }
+    }
+
+    func testS7Routes() {
+        check(routes { _ in }, named: "S7a-fitsGravel")
+        check(routes { $0.filterIndex = 1; $0.tapped(4) }, named: "S7b-all")
+        check(routes { $0.select(1) }, named: "S7c-selected")
+        check(routes { $0.mapMoved(to: LatLon(lat: 45.98, lon: 9.26), name: "Lake Como") }, named: "S7e-searched")
+        check(routes { m in
+            m.show(Array(Self.p7Routes.prefix(2)), area: .init(center: LatLon(lat: 45.98, lon: 9.26), name: "Lake Como"))
+            m.filterIndex = 4
+        }, named: "S7f-noRoutes")
+        check(routes { m in
+            m.load(store: nil, inside: { _ in false })
+            m.search(.init(center: LatLon(lat: 46.0037, lon: 8.9511), name: "Lugano"))
+        }, named: "S7g-outside")
+        let route = Self.p7Routes[0]
+        let leg = RouteRide.Leg(line: route.line, from: route.from, to: route.to, reversed: false)
+        let option = AppSamples.rideOption()
+        let m = RouteOptionsModel(follow: route, state: .options(RouteOptionsModel.followOptions(option, rules: .defaults(for: .gravel), leg: leg,
+                                                                                                    approachMeters: 3800)),
+                                  approachMeters: 3800, leg: leg)
+        check(RouteOptionsView(app: app(rideType: .gravel), model: m, onClose: {}, onStart: { _, _, _ in }, onEditRules: {},
+                               plansOnAppear: false), named: "S7d-rideThisRoute")
+    }
+
     // MARK: S6 Ride summary
 
     func testS6Summary() {

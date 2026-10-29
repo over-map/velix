@@ -7639,6 +7639,343 @@
    }
   },
   {
+   "id": "route-list-grey",
+   "type": "line",
+   "source": "velix-route",
+   "filter": [
+    "==",
+    [
+     "get",
+     "role"
+    ],
+    "list-grey"
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#4F6570",
+    "line-opacity": 0.7,
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     8,
+     0.27,
+     9,
+     0.48,
+     10,
+     0.85,
+     11,
+     1.5,
+     12,
+     1.9,
+     13,
+     2.5,
+     14,
+     3.3,
+     15,
+     4.5,
+     16,
+     5.5,
+     17,
+     7,
+     18,
+     8.2,
+     19,
+     10,
+     20,
+     10
+    ]
+   }
+  },
+  {
+   "id": "route-list-casing",
+   "type": "line",
+   "source": "velix-route",
+   "filter": [
+    "==",
+    [
+     "get",
+     "role"
+    ],
+    "list"
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#021624",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     8,
+     2.27,
+     9,
+     2.48,
+     10,
+     2.85,
+     11,
+     3.5,
+     12,
+     3.9,
+     13,
+     4.5,
+     14,
+     5.3,
+     15,
+     6.5,
+     16,
+     7.5,
+     17,
+     9,
+     18,
+     10.2,
+     19,
+     12,
+     20,
+     12
+    ]
+   }
+  },
+  {
+   "id": "route-list",
+   "type": "line",
+   "source": "velix-route",
+   "filter": [
+    "==",
+    [
+     "get",
+     "role"
+    ],
+    "list"
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#DBF227",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     8,
+     0.27,
+     9,
+     0.48,
+     10,
+     0.85,
+     11,
+     1.5,
+     12,
+     1.9,
+     13,
+     2.5,
+     14,
+     3.3,
+     15,
+     4.5,
+     16,
+     5.5,
+     17,
+     7,
+     18,
+     8.2,
+     19,
+     10,
+     20,
+     10
+    ]
+   }
+  },
+  {
+   "id": "route-focus-halo",
+   "type": "line",
+   "source": "velix-route",
+   "filter": [
+    "==",
+    [
+     "get",
+     "role"
+    ],
+    "focus"
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#FFFFFF",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     8,
+     4.91,
+     9,
+     5.61,
+     10,
+     6.83,
+     11,
+     9,
+     12,
+     10.2,
+     13,
+     12,
+     14,
+     14,
+     15,
+     17,
+     16,
+     19.8,
+     17,
+     24,
+     18,
+     27.2,
+     19,
+     32,
+     20,
+     32
+    ]
+   }
+  },
+  {
+   "id": "route-focus-casing",
+   "type": "line",
+   "source": "velix-route",
+   "filter": [
+    "==",
+    [
+     "get",
+     "role"
+    ],
+    "focus"
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#021624",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     8,
+     0.91,
+     9,
+     1.61,
+     10,
+     2.83,
+     11,
+     5,
+     12,
+     6.2,
+     13,
+     8,
+     14,
+     10,
+     15,
+     13,
+     16,
+     15.8,
+     17,
+     20,
+     18,
+     23.2,
+     19,
+     28,
+     20,
+     28
+    ]
+   }
+  },
+  {
+   "id": "route-focus",
+   "type": "line",
+   "source": "velix-route",
+   "filter": [
+    "==",
+    [
+     "get",
+     "role"
+    ],
+    "focus"
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#DBF227",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     8,
+     0.55,
+     9,
+     0.96,
+     10,
+     1.7,
+     11,
+     3,
+     12,
+     3.8,
+     13,
+     5,
+     14,
+     6.6,
+     15,
+     9,
+     16,
+     11,
+     17,
+     14,
+     18,
+     16.4,
+     19,
+     20,
+     20,
+     20
+    ]
+   }
+  },
+  {
    "id": "route-best-casing",
    "type": "line",
    "source": "velix-route",
@@ -10334,6 +10671,84 @@
     "text-color": "#021624",
     "text-halo-color": "#F4F3EA",
     "text-halo-width": 1.75
+   }
+  },
+  {
+   "id": "route-key",
+   "type": "symbol",
+   "source": "velix-markers",
+   "filter": [
+    "all",
+    [
+     "==",
+     [
+      "get",
+      "role"
+     ],
+     "key"
+    ],
+    [
+     "!",
+     [
+      "get",
+      "focus"
+     ]
+    ]
+   ],
+   "layout": {
+    "icon-image": [
+     "concat",
+     "key-",
+     [
+      "to-string",
+      [
+       "get",
+       "key"
+      ]
+     ],
+     "-day"
+    ],
+    "icon-padding": 4,
+    "symbol-sort-key": [
+     "get",
+     "key"
+    ]
+   }
+  },
+  {
+   "id": "route-key-focus",
+   "type": "symbol",
+   "source": "velix-markers",
+   "filter": [
+    "all",
+    [
+     "==",
+     [
+      "get",
+      "role"
+     ],
+     "key"
+    ],
+    [
+     "get",
+     "focus"
+    ]
+   ],
+   "layout": {
+    "icon-image": [
+     "concat",
+     "key-",
+     [
+      "to-string",
+      [
+       "get",
+       "key"
+      ]
+     ],
+     "-sel",
+     "-day"
+    ],
+    "icon-allow-overlap": true
    }
   },
   {

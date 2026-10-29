@@ -213,8 +213,11 @@ enum ComponentCatalog {
             RideSummary(arrived: "08:42", place: "Politecnico", option: "Calmest for city", km: "5.4", minutes: "21", climb: "8",
                         connections: .synced, issue: RideSummary.sampleIssue, gpx: URL(fileURLWithPath: "/tmp/ride.gpx"))
         },
-        e("RouteListCard", "selected") { RouteListCard(model: .sample, selected: true) },
-        e("RouteListCard", "unselected") { RouteListCard(model: .sample) },
+        e("RouteListCard", "focused") { RouteListCard(route: RouteSummary.samples[0], focused: true) },
+        e("RouteListCard", "plain") { RouteListCard(route: RouteSummary.samples[1]) },
+        e("RouteDetail", "selected") { RouteDetail(route: RouteSummary.samples[0]) },
+        e("RouteKeyTile", "both") { HStack { RouteKeyTile(number: 1, focused: true); RouteKeyTile(number: 2) } },
+        e("EVBadge", "ev5") { HStack { EVBadge(number: 5); NetworkChip(text: "Regional") } },
         e("FilterChips", "fitsCity", width: 425) {
             FilterChips(options: ["Fits City", "All", "Paved", "Gravel", "MTB"], leadingGlyph: .rideTypeCity, selected: .constant(0))
         },

@@ -43,7 +43,7 @@ struct RootView: View {
             Group {
                 switch tab {
                 case .ride: RideView(app: app, sheet: $sheet, bottomCovered: showDownload, following: following)
-                case .routes: PlaceholderTab(title: "Routes", message: "Cycle routes from the region pack arrive with M9.")
+                case .routes: RoutesView(app: app, model: app.routesModel(), sheet: $sheet).id(app.state.rideType)
                 case .you: YouView(app: app)
                 }
             }
@@ -58,6 +58,15 @@ struct RootView: View {
             }
             if let sheet { RideSheetHost(app: app, sheet: $sheet, kind: sheet, openYou: { self.sheet = nil; tab = .you }) }
             if showDownload { DownloadSheet(pack: app.pack) { showDownload = false } }
+            if let route = app.follow {
+                RouteOptionsView(app: app, model: RouteOptionsModel(follow: route),
+                                 onClose: { app.follow = nil },
+                                 onStart: { _, _, _ in },
+                                 onStartFollow: { option, place, vias in app.follow = nil; app.start(option, to: place, follow: vias) },
+                                 onEditRules: { app.follow = nil; tab = .you })
+                    .id("follow-\(route.id)" + app.state.rideType.rawValue)
+                    .transition(.move(edge: .bottom))
+            }
             if let place = app.destination {
                 RouteOptionsView(app: app, model: RouteOptionsModel(destination: place),
                                  onClose: { app.destination = nil },

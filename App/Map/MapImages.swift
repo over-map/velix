@@ -26,6 +26,7 @@ enum MapImages {
         case "puck": return puck(CGFloat(Int(parts.last ?? "34") ?? 34), pal)
         case "avoided": return avoidedTexts[parts.dropFirst().joined(separator: "-")].flatMap { swiftUI(AvoidedTag(reason: $0), mode) }
         case "ev": return euroVelo(parts.dropFirst().joined(separator: "-"))
+        case "key": return parts.count >= 2 ? Int(parts[1]).flatMap { swiftUI(RouteKeyTile(number: $0, focused: parts.last == "sel"), mode) } : nil
         default: return nil
         }
     }

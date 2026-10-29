@@ -8,6 +8,8 @@ struct RouteOptionsView: View {
     var onStart: (RouteOption, RideChoice, [AvoidedRoad]) -> Void
     /// Start with bike + transit (S3e).
     var onStartTransit: (TransitPlan) -> Void = { _ in }
+    /// Ride this route (S7d): the option, the route's far end and the vias reroutes go back through.
+    var onStartFollow: (RouteOption, Place, [LatLon]) -> Void = { _, _, _ in }
     var onEditRules: () -> Void
     /// Plan when the screen appears (snapshot tests show a fixed state instead).
     var plansOnAppear = true
@@ -218,6 +220,7 @@ struct RouteOptionsView: View {
         let ready = app.pack.isReady && model.chosen != nil
         return PrimaryButton(title: "Start", icon: .navigation, isEnabled: ready, casing: true) {
             if model.transitSelected, let p = model.transitPlan { return onStartTransit(p) }
+            if model.follow != nil, let option = model.chosen { return onStartFollow(option, model.destination, model.followVias) }
             if let option = model.chosen { onStart(option, model.fastestSelected ? .fastest : .best, model.options?.avoided ?? []) }
         }
         .accessibilityLabel(ready ? "Start riding to \(model.destination.name)"

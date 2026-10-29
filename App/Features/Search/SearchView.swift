@@ -3,6 +3,8 @@ import SwiftUI
 /// Why Search opened: a destination, or picking Home / Work (S1c "Set Home").
 enum SearchPurpose: String, Identifiable {
     case destination, setHome, setWork
+    /// Routes tab (S7e): a place to look at routes around.
+    case area
     var id: String { rawValue }
 }
 

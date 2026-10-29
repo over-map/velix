@@ -101,3 +101,107 @@ struct RouteStoreTests {
         #expect(RideType.city.time(meters: 16000, climb: 100) == 3600 + 600)
     }
 }
+
+@MainActor
+struct RoutesModelTests {
+    nonisolated static func route(_ id: Int64, unpaved: Double, kind: CycleRoute.Kind = .bicycle, line: [LatLon]? = nil) -> CycleRoute {
+        let l = line ?? [LatLon(lat: 45.4 + Double(id) * 0.01, lon: 9.1), LatLon(lat: 45.5 + Double(id) * 0.01, lon: 9.1)]
+        return CycleRoute(id: id, kind: kind, network: "rcn", name: "R\(id)", ref: "", eurovelo: nil, meters: 10000, pavedShare: 1 - unpaved,
+                          mix: .init(carFree: 0.5, quiet: 0.5 - unpaved, unpaved: unpaved), climb: 10, descent: 10, description: "",
+                          from: "A", to: "B", line: l, pieces: [l])
+    }
+
+    static func model() -> RoutesModel {
+        let m = RoutesModel(rideType: .gravel, home: .init(center: RouteStoreTests.milan, name: "Milan"))
+        m.show([route(1, unpaved: 0.3), route(2, unpaved: 0.0), route(3, unpaved: 0.7, kind: .mtb)], area: m.home)
+        return m
+    }
+
+    @Test func filterKeysAndFocus() {
+        let m = Self.model()
+        #expect(m.results.map(\.id) == [1, 3])
+        #expect(m.count == "2 fit Gravel")
+        #expect(m.focus == 1)
+        m.filterIndex = 1
+        #expect(m.results.count == 3 && m.count == "3 routes")
+    }
+
+    @Test func aTappedLineComesToTheTopAndKeepsItsKey() {
+        let m = Self.model()
+        m.filterIndex = 1
+        m.tapped(3)
+        #expect(m.cards.map(\.key) == [3, 1, 2])
+        #expect(m.focus == 3)
+        #expect(m.mapRoute.listed.first { $0.id == 3 }?.state == .focus)
+    }
+
+    @Test func selectedGreysTheOthers() {
+        let m = Self.model()
+        m.select(3)
+        #expect(m.selectedRoute?.id == 3)
+        #expect(m.mapRoute.listed.filter { $0.state == .grey }.map(\.id) == [1])
+        m.deselect()
+        #expect(m.selectedRoute == nil)
+    }
+
+    @Test func theListWaitsForSearchHere() {
+        let m = Self.model()
+        m.mapMoved(to: LatLon(lat: 45.4650, lon: 9.19))   // 100 m: not a move
+        #expect(m.moved == nil)
+        m.mapMoved(to: LatLon(lat: 45.98, lon: 9.26), name: "Lake Como")
+        #expect(m.moved?.name == "Lake Como")
+        #expect(m.results.count == 2)   // unchanged until Search routes in this area
+    }
+
+    @Test func emptyFilterSaysWhatIsMissing() {
+        let m = Self.model()
+        m.show([Self.route(2, unpaved: 0)], area: .init(center: RouteStoreTests.milan, name: "Lake Como"))
+        m.filterIndex = 4
+        #expect(m.emptyText?.title == "No MTB routes in this area")
+        #expect(m.emptyText?.message == "There is 1 other route here.")
+    }
+
+    @Test func outsideTheRegion() {
+        let m = Self.model()
+        m.load(store: nil, inside: { _ in false })
+        m.search(.init(center: LatLon(lat: 46.0, lon: 8.95), name: "Lugano"))
+        #expect(m.outside)
+    }
+}
+
+struct RouteRideTests {
+    static let line = [LatLon(lat: 45.40, lon: 9.0), LatLon(lat: 45.45, lon: 9.0), LatLon(lat: 45.50, lon: 9.0)]
+
+    @Test func joinsAtTheNearerEnd() throws {
+        let r = RoutesModelTests.route(1, unpaved: 0, line: Self.line)
+        let near = try #require(RouteRide.leg(r, from: LatLon(lat: 45.39, lon: 9.0)))
+        #expect(!near.reversed && near.from == "A" && near.to == "B")
+        let far = try #require(RouteRide.leg(r, from: LatLon(lat: 45.52, lon: 9.0)))
+        #expect(far.reversed && far.line.first == Self.line.last && far.from == "B" && far.to == "A")
+    }
+
+    @Test func viasStartAtTheJoinAndStopBeforeTheEnd() {
+        let vias = RouteRide.vias(Self.line)   // ≈ 11 km
+        #expect(vias.first == Self.line.first)
+        #expect(vias.count == 7)
+        #expect(Geo.distance(vias.last!, Self.line.last!) > 750)
+    }
+
+    @Test func longRoutesGetAtMostFortyVias() {
+        let long = [LatLon(lat: 44.0, lon: 9.0), LatLon(lat: 45.5, lon: 9.0)]   // ≈ 167 km
+        #expect(RouteRide.vias(long).count <= RouteRide.maxVias)
+    }
+
+    @Test func copy() {
+        let leg = RouteRide.Leg(line: Self.line, from: "the Darsena", to: "Pavia", reversed: false)
+        #expect(RouteRide.line(approachSeconds: 960, leg: leg) == "**16 min** to the start at the Darsena, then the full route to Pavia")
+        #expect(RouteRide.duration(140 * 60) == "2 h 20")
+        #expect(RouteRide.duration(45 * 60) == "45 min")
+    }
+
+    @Test func reroutesGoBackThroughTheViasAhead() {
+        let vias = RouteRide.vias(Self.line)
+        let ahead = PlannedRouteProvider.viasAhead(vias, from: vias[2])
+        #expect(ahead == Array(vias[3...]))
+    }
+}

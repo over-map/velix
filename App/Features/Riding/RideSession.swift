@@ -77,7 +77,7 @@ final class RideSession {
     static let activityStep = 10.0
 
     init(destination: Place, option: RouteOption, avoided: [AvoidedRoad] = [], rules: RuleSet, choice: RideChoice,
-         planner: RoutePlanner?) {
+         planner: RoutePlanner?, follow vias: [LatLon]? = nil) {
         self.destination = destination
         self.option = option
         self.avoided = choice == .best ? avoided : []
@@ -87,6 +87,11 @@ final class RideSession {
         tracker = HazardTracker(hazards: option.analysis.hazards)
         if let planner {
             provider = PlannedRouteProvider(planner: planner, rules: rules, choice: choice)
+            if let vias {
+                provider.follow = (vias, { from, ahead, to, heading in
+                    try await planner.follow(from: from, through: ahead, to: to, heading: heading, rules: rules)
+                })
+            }
         } else {
             provider = PlannedRouteProvider(choice: choice) { _, _, _ in .noRoute }
         }
