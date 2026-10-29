@@ -18,7 +18,7 @@ final class ScreenSnapshotTests: XCTestCase {
     private func app(onboarded: Bool = true, home: Bool = true, work: Bool = true, recents: Bool = true,
                      access: LocationService.Access = .allowed, here: LatLon? = LatLon(lat: 45.4746, lon: 9.2050),
                      cannotFind: Bool = false, pack: PackService.State = .ready(.sideloaded), expensive: Bool = false,
-                     rideType: RideType = .city, weather: WeatherWarnings = NoWeatherWarnings()) -> AppModel {
+                     rideType: RideType = .city, weather: WeatherWarnings = NoWeatherWarnings(), rides: Bool = false) -> AppModel {
         let dir = FileManager.default.temporaryDirectory.appending(path: "velix-snap-\(UUID().uuidString)")
         let store = AppStore(url: dir.appending(path: "state.json"))
         var s = AppState()
@@ -33,8 +33,30 @@ final class ScreenSnapshotTests: XCTestCase {
         let packService = PackService(installer: RegionPackInstaller(root: dir.appending(path: "RegionPack")), catalog: { nil })
         packService.setForTesting(pack, expensive: expensive)
         let prefs = MapStylePreference(defaults: UserDefaults(suiteName: "velix-snap-\(UUID().uuidString)")!)
+        let history = RideHistory(inMemory: true)
+        if rides { Self.sampleRides.forEach(history.add) }
         return AppModel(store: store, location: location, pack: packService, search: NoSearch(), weather: weather,
-                        mapPreference: prefs)
+                        mapPreference: prefs, history: history)
+    }
+
+    static let ridesNow = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 29, hour: 18))!
+
+    /// P7 S8's rides: Politecnico today 08:24, Villa Reale yesterday by bike + train, Centrale on Tue 7 Oct.
+    static var sampleRides: [RideRecord] {
+        let cal = Calendar.current
+        let today = cal.date(from: DateComponents(year: 2026, month: 10, day: 29, hour: 8, minute: 24))!
+        let yesterday = cal.date(from: DateComponents(year: 2026, month: 10, day: 28, hour: 9, minute: 2))!
+        let oct7 = cal.date(from: DateComponents(year: 2026, month: 10, day: 7, hour: 18, minute: 10))!
+        let track = AppSamples.rideOption().analysis.shape
+        return [
+            RideRecord(started: today, ended: today.addingTimeInterval(21 * 60), destination: "Politecnico", rideType: .city,
+                       meters: 5400, movingSeconds: 21 * 60, climb: 8, arrived: true, track: track, logFile: "a.jsonl", gpxFile: nil),
+            RideRecord(started: yesterday, ended: yesterday.addingTimeInterval(50 * 60), destination: "Villa Reale, Monza", rideType: .city,
+                       meters: 14_000, movingSeconds: 30 * 60, climb: 20, arrived: true, transit: "Trenord RE80", track: track,
+                       logFile: "b.jsonl", gpxFile: nil),
+            RideRecord(started: oct7, ended: oct7.addingTimeInterval(13 * 60), destination: "Milano Centrale", rideType: .city,
+                       meters: 3100, movingSeconds: 12 * 60, climb: 4, arrived: true, track: track, logFile: "c.jsonl", gpxFile: nil),
+        ]
     }
 
     private func check(_ view: some View, named name: String, file: StaticString = #filePath, testName: String = #function,
@@ -213,5 +235,7 @@ final class ScreenSnapshotTests: XCTestCase {
 
     func testS8You() {
         check(YouView(app: app()), named: "S8a-you")
+        check(YouView(app: app(rides: true), now: Self.ridesNow).defaultScrollAnchor(.bottom), named: "S8a-you-rides")
+        check(RideHistoryView(history: app(rides: true).history, now: Self.ridesNow), named: "S8b-allRides")
     }
 }

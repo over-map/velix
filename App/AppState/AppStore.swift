@@ -1,6 +1,6 @@
 import Foundation
 
-/// What Velix remembers between launches (Application Support/state.json). Rides come with SwiftData in M9.
+/// What Velix remembers between launches (Application Support/state.json). Rides are in SwiftData (``RideHistory``).
 struct AppState: Codable, Equatable, Sendable {
     var onboarded = false
     var rideType: RideType = .city

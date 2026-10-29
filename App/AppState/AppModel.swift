@@ -27,6 +27,8 @@ final class AppModel {
     let search: PlaceSearch
     let weather: WeatherWarnings
     let mapPreference: MapStylePreference
+    /// Past rides (M9).
+    let history: RideHistory
 
     /// Session only: "Lit streets only" for the next ride (S8 Tonight), off when a ride ends.
     var litStreetsOnly = false
@@ -42,7 +44,7 @@ final class AppModel {
 
     init(store: AppStore = .live, location: LocationService = LocationService(), pack: PackService = PackService(),
          search: PlaceSearch = PhotonSearch(), weather: WeatherWarnings = NoWeatherWarnings(),
-         mapPreference: MapStylePreference = MapStylePreference()) {
+         mapPreference: MapStylePreference = MapStylePreference(), history: RideHistory? = nil) {
         self.store = store
         self.state = store.load()
         self.location = location
@@ -50,6 +52,7 @@ final class AppModel {
         self.search = search
         self.weather = weather
         self.mapPreference = mapPreference
+        self.history = history ?? RideHistory()
         pack.onInstalled = { [weak self] in self?.engine.reset() }
     }
 
@@ -87,7 +90,7 @@ final class AppModel {
         let session = RideSession(destination: place, option: option, avoided: avoided, rules: rules, choice: choice,
                                   planner: engine.loadedPlanner)
         session.onEnd = { [weak self] session in
-            if session.arrived { self?.summary = RideSummaryModel(session) }
+            self?.ended(session, transit: nil)
             self?.ride = nil
             self?.litStreetsOnly = false     // "For the next ride only" (S8)
         }
@@ -104,8 +107,8 @@ final class AppModel {
     func startTransit(_ plan: TransitPlan, to place: Place) {
         let rules = state.ruleSet(for: state.rideType, litStreetsOnly: litStreetsOnly)
         let trip = TransitRide(plan: plan, destination: place, rules: rules, planner: engine.loadedTransitPlanner)
-        trip.session.onEnd = { [weak self] session in
-            if session.arrived { self?.summary = RideSummaryModel(session) }
+        trip.session.onEnd = { [weak self, weak trip] session in
+            self?.ended(session, transit: trip?.plan.departure.name)
             self?.ride = nil
             self?.transit = nil
             self?.litStreetsOnly = false
@@ -118,6 +121,13 @@ final class AppModel {
         } catch {
             print("Start failed: \(error)")
         }
+    }
+
+    /// Every ride of 200 m or more goes into the history; S6 opens only when it ended at the door.
+    private func ended(_ session: RideSession, transit: String?) {
+        let record = RideHistory.record(session, transit: transit)
+        if let record { history.add(record) }
+        if session.arrived { summary = RideSummaryModel(session) }
     }
 
     /// The map style for the current ride type (remembered per type).

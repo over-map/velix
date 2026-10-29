@@ -18,18 +18,25 @@ struct RuleToggleRow: View {
     }
 }
 
-/// RideRow (P2 §08, Routes · history): one past ride.
+/// RideRow (P7 S8 · Your rides): one past ride, its ride-type glyph (the train for bike + transit) and distance.
 struct RideRow: View {
     let destination: String
     let detail: String
+    var glyph: VelixGlyph = .rideTypeCity
     var transit = false
+    /// "5.4 km" (P7); without it a chevron.
+    var value: String?
     var divider = true
     var action: () -> Void = {}
 
     var body: some View {
         Button(action: action) {
-            ListRow(leading: transit ? .glyphTile(.train) : .glyphTile(.rideTypeCity), title: destination, subtitle: detail, divider: divider) {
-                VelixIconView(.chevronRight, size: 20).foregroundStyle(Color.velix.ink)
+            ListRow(leading: .glyphTile(transit ? .train : glyph), title: destination, subtitle: detail, divider: divider) {
+                if let value {
+                    Text(value).velixType(.bodyBold).monospacedDigit().foregroundStyle(Color.velix.ink2).lineLimit(1).fixedSize()
+                } else {
+                    VelixIconView(.chevronRight, size: 20).foregroundStyle(Color.velix.ink)
+                }
             }
             .contentShape(Rectangle())
         }

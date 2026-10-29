@@ -3,9 +3,13 @@ import SwiftUI
 /// S8 You (P7 §03): rules per ride type, tonight's lit streets, rides, connections, offline map, privacy, about.
 struct YouView: View {
     @Bindable var app: AppModel
+    /// Today for "Today" / "Yesterday" (snapshots pin it).
+    var now: Date?
     @State private var expanded: RideType?
     @State private var showAbout = false
     @State private var notice: String?
+    @State private var showHistory = false
+    @State private var past: RideSummaryModel?
 
     var body: some View {
         ScrollView {
@@ -23,6 +27,12 @@ struct YouView: View {
         }
         .background(Color.velix.canvas)
         .sheet(isPresented: $showAbout) { AboutView(app: app) }
+        .sheet(isPresented: $showHistory) {
+            RideHistoryView(history: app.history) { ride in showHistory = false; open(ride, afterSheet: true) }
+        }
+        .fullScreenCover(item: $past) { model in
+            RideSummaryView(model: model, mapStyle: MapStyleKind(app.mapStyle), onConnect: { past = nil }, onDone: { past = nil })
+        }
         .alert(notice ?? "", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) {
             Button("OK", role: .cancel) {}
         }
@@ -108,9 +118,31 @@ struct YouView: View {
 
     // MARK: Rides (M9) and connections (M9)
 
+    /// The latest three (P7 S8), then See all rides.
+    static let ridesShown = 3
+
     private var rides: some View {
         group("Your rides") {
-            ListRow(leading: .tile(.route), title: "No rides yet", subtitle: "Your rides show up here when they end.", divider: false)
+            if app.history.rides.isEmpty {
+                ListRow(leading: .tile(.route), title: "No rides yet", subtitle: "Your rides show up here when they end.", divider: false)
+            } else {
+                ForEach(Array(app.history.rides.prefix(Self.ridesShown).enumerated()), id: \.element.id) { i, ride in
+                    RideRow(destination: ride.destination, detail: ride.detail(now: now ?? AppClock.now), glyph: ride.type.glyph, transit: ride.transit != nil,
+                            value: Format.km(ride.meters), divider: i > 0) { open(ride) }
+                }
+                ChevronRow(title: "See all rides") { showHistory = true }
+                    .overlay(alignment: .top) { Rectangle().fill(Color.velix.line).frame(height: 1) }
+            }
+        }
+    }
+
+    private func open(_ ride: RideRecord, afterSheet: Bool = false) {
+        let model = RideSummaryModel(ride)
+        guard afterSheet else { past = model; return }
+        // After the history sheet has gone (one presentation at a time).
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(400))
+            past = model
         }
     }
 

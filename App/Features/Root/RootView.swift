@@ -30,6 +30,7 @@ struct RootView: View {
         }
         .task {
             if app.state.onboarded, !app.pack.isReady { app.pack.install() }
+            app.history.importLogs()
             #if DEBUG
             if let place = Self.launchDestination { app.choose(place) }
             #endif
