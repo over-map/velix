@@ -15,6 +15,9 @@ struct RouteOptionsView: View {
     @Environment(\.liveMap) private var liveMap
     @Environment(\.openURL) private var openURL
     @State private var sheetHeight: CGFloat = 480
+    /// The sheet folded to the destination and Start (tap or drag the grabber): more map for the route.
+    @State private var collapsed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -33,12 +36,11 @@ struct RouteOptionsView: View {
             .padding(.horizontal, CGFloat.velix.m)
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
-                sheet
-                    .background(GeometryReader { g in Color.clear.preference(key: SheetHeightKey.self, value: g.size.height) })
+                // The map fits the route above the sheet, whatever its height (open, folded, the transit card).
+                sheet.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { sheetHeight = $0 }
             }
             .ignoresSafeArea(edges: .bottom)
         }
-        .onPreferenceChange(SheetHeightKey.self) { sheetHeight = $0 }
         .task { if plansOnAppear, case .computing = model.state { await model.plan(app: app) } }
     }
 
@@ -60,20 +62,42 @@ struct RouteOptionsView: View {
 
     private var sheet: some View {
         VStack(alignment: .leading, spacing: CGFloat.velix.s) {
-            Capsule().fill(Color.velix.line).frame(width: 36, height: 5).frame(maxWidth: .infinity)
+            grabber
             header
-            ScrollView {
-                VStack(alignment: .leading, spacing: CGFloat.velix.s) { content }
+            if !collapsed {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: CGFloat.velix.s) { content }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(maxHeight: 520)
+                .fixedSize(horizontal: false, vertical: true)
+                .transition(.opacity)
             }
-            .scrollBounceBehavior(.basedOnSize)
-            .frame(maxHeight: 520)
-            .fixedSize(horizontal: false, vertical: true)
             start
         }
         .padding(EdgeInsets(top: CGFloat.velix.xs, leading: CGFloat.velix.m, bottom: 34, trailing: CGFloat.velix.m))
         .background(Color.velix.surface, in: UnevenRoundedRectangle(topLeadingRadius: CGFloat.velix.radius.sheet,
                                                                    topTrailingRadius: CGFloat.velix.radius.sheet))
         .velixElevation(VelixElevations.e3, in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.sheet))
+    }
+
+    /// Tap, or drag down / up, to fold or open the sheet; the map refits the route in the space left.
+    private var grabber: some View {
+        Capsule().fill(Color.velix.line).frame(width: 36, height: 5)
+            .frame(maxWidth: .infinity, minHeight: 24)
+            .contentShape(Rectangle())
+            .onTapGesture { fold(!collapsed) }
+            .gesture(DragGesture(minimumDistance: 12).onEnded { g in
+                if g.translation.height > 30 { fold(true) } else if g.translation.height < -30 { fold(false) }
+            })
+            .accessibilityElement()
+            .accessibilityLabel(collapsed ? "Show route details" : "Hide route details")
+            .accessibilityAddTraits(.isButton)
+            .padding(.vertical, -CGFloat.velix.xs)
+    }
+
+    private func fold(_ value: Bool) {
+        withAnimation(VelixMotions.sheetSnap.animation(reduceMotion: reduceMotion)) { collapsed = value }
     }
 
     private var header: some View {
@@ -101,7 +125,15 @@ struct RouteOptionsView: View {
             // S3e: the bike routes fold into one row; the transit card takes the space.
             if let text = model.bikeOnlyText { BikeOnlyRow(text: text) { model.transitSelected = false } }
             if let card = model.transitCard, let p = model.transitPlan {
-                TransitCard(model: card, selectedDeparture: $model.departureIndex) { openURL(TransitCopy.ticket(p).url) }
+                TransitCard(model: card, selectedDeparture: $model.departureIndex) {
+                    let ticket = TransitCopy.ticket(p)
+                    // The app when it's installed, else its App Store page (or the operator's site).
+                    if let app = ticket.app {
+                        openURL(app) { opened in if !opened { openURL(ticket.fallback) } }
+                    } else {
+                        openURL(ticket.fallback)
+                    }
+                }
             }
         case let .options(o):
             let cards = model.cards
@@ -191,9 +223,4 @@ struct RouteOptionsView: View {
         .accessibilityLabel(ready ? "Start riding to \(model.destination.name)"
                                   : app.pack.isReady ? "Start, dimmed" : "Start, dimmed, routes start when the download is done")
     }
-}
-
-private struct SheetHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 480
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }

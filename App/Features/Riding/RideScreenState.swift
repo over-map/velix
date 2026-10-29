@@ -73,6 +73,9 @@ struct RideScreenState: Equatable {
     static let avoidedWithin = 300.0
     /// Hazards stay on the map until this far behind the rider (P5 maps: `h.d > d − 4`).
     static let hazardsBehind = HazardTracker.passed
+    /// Hazard tubes are cut this far behind the rider, under the chevron's tail (the cut jumps fix to fix while the
+    /// chevron glides).
+    static let tubeBehind = 5.0
 
     struct Ride {
         var turn: RideTurn?
@@ -135,7 +138,7 @@ struct RideScreenState: Equatable {
         let full = r.track.shape
         var map = MapRouteModel(best: full, avoided: Self.avoidedNear(r.rider, r.avoided),
                                 hazards: Self.hazardsAhead(r.option.analysis.hazards, from: r.track.position),
-                                endName: r.destination.name)
+                                endName: r.destination.name, clipBefore: r.track.position - Self.tubeBehind)
         // Best stays put between re-cuts every 200 m; the near stretch around the rider fades its ridden part at the
         // rider (a paint change per fix, no upload).
         let w = Self.nearWindow(r.track)

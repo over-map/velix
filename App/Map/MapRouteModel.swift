@@ -32,7 +32,9 @@ struct MapRouteModel: Equatable, Sendable {
     /// Half-length of a point hazard's tube (P3: ±14 m).
     static let tubeHalf = 14.0
 
-    init(best: [LatLon], alternatives: [[LatLon]] = [], avoided: [Avoided] = [], hazards: [RouteHazard] = [], endName: String? = nil) {
+    /// `clipBefore`: no tube before this distance along `best` (riding: the stretch behind the rider).
+    init(best: [LatLon], alternatives: [[LatLon]] = [], avoided: [Avoided] = [], hazards: [RouteHazard] = [], endName: String? = nil,
+         clipBefore: Double = 0) {
         self.best = best
         self.alternatives = alternatives
         self.avoided = avoided
@@ -43,7 +45,8 @@ struct MapRouteModel: Equatable, Sendable {
         for h in hazards {
             let a = h.lengthM > 1 ? h.distanceAlong : h.distanceAlong - Self.tubeHalf
             let b = h.lengthM > 1 ? h.distanceAlong + h.lengthM : h.distanceAlong + Self.tubeHalf
-            let tube = RuleChecker.trimmed(best, from: max(0, a), to: min(along.last ?? 0, b))
+            let from = max(0, a, clipBefore), to = min(along.last ?? 0, b)
+            let tube = from < to ? RuleChecker.trimmed(best, from: from, to: to) : []
             if tube.count > 1 { tubes.append(tube) }
             let mid = h.lengthM > 1 ? h.distanceAlong + h.lengthM / 2 : h.distanceAlong
             self.hazards.append(.init(type: h.type, at: RuleChecker.point(at: mid, on: best, along: along)))

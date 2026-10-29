@@ -408,3 +408,15 @@ struct LockScreenWakeTests {
         #expect(RideSession.wake(s, hazard: nil, toTurn: 80, step: 7) == nil)
     }
 }
+
+struct PassedTubeTests {
+    @Test func tubesAreCutBehindTheRider() {
+        let shape = [LatLon(lat: 45.47, lon: 9.20), LatLon(lat: 45.47, lon: 9.2128)]   // ≈ 1 km east
+        let cobbles = RouteHazard(type: .cobbles, distanceAlong: 100, lengthM: 200, street: nil, detail: "", osm: "w1")
+        let whole = MapRouteModel(best: shape, hazards: [cobbles])
+        let ridden = MapRouteModel(best: shape, hazards: [cobbles], clipBefore: 250)
+        #expect(abs(Geo.length(whole.tubes[0]) - 200) < 1)
+        #expect(abs(Geo.length(ridden.tubes[0]) - 50) < 1)                // 250 → 300 m left
+        #expect(MapRouteModel(best: shape, hazards: [cobbles], clipBefore: 320).tubes.isEmpty)
+    }
+}

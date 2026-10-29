@@ -102,22 +102,18 @@ struct VelixMap: UIViewRepresentable {
             let motion = state?.motion ?? .standard
             let duration = motion == .standard ? nil : animated ? Self.duration(motion) : 0
             if let pts = state?.fit, pts.count > 1 {
-                let lats = pts.map(\.lat), lons = pts.map(\.lon)
-                let bounds = MLNCoordinateBounds(sw: CLLocationCoordinate2D(latitude: lats.min()!, longitude: lons.min()!),
-                                                 ne: CLLocationCoordinate2D(latitude: lats.max()!, longitude: lons.max()!))
+                // The whole route inside what the sheets and bars leave free, with a margin all round, north up and
+                // flat: worked out here (MapLibre's own bounds fit drifted under the sheet) and centred in the free
+                // area via content insets. Every route overview fits this way (S3, the transit card, S4d, S6).
                 let i = state?.insets ?? .zero
-                map.contentInset = .zero
-                let padding = UIEdgeInsets(top: i.top + 40, left: i.left + 40, bottom: i.bottom + 40, right: i.right + 40)
-                guard let duration else {
-                    map.setVisibleCoordinateBounds(bounds, edgePadding: padding, animated: animated, completionHandler: nil)
-                    return
-                }
-                // North up and flat (S4d), at the view-change pace: the fit worked out here, the padding as content insets.
+                let padding = UIEdgeInsets(top: i.top + Self.fitMargin, left: i.left + Self.fitMargin,
+                                           bottom: i.bottom + Self.fitMargin, right: i.right + Self.fitMargin)
                 guard let fit = Self.fitting(pts, in: map.bounds.size, padding: padding) else { return }
                 map.contentInset = padding
                 let cam = MLNMapCamera(lookingAtCenter: CLLocationCoordinate2D(latitude: fit.center.lat, longitude: fit.center.lon),
                                        altitude: Self.altitude(for: fit, from: map), pitch: 0, heading: 0)
-                map.setCamera(cam, withDuration: duration, animationTimingFunction: CAMediaTimingFunction(name: .easeInEaseOut))
+                map.setCamera(cam, withDuration: duration ?? (animated ? 0.35 : 0),
+                              animationTimingFunction: CAMediaTimingFunction(name: .easeInEaseOut))
                 return
             }
             guard let c = state?.camera else { return }
@@ -136,12 +132,16 @@ struct VelixMap: UIViewRepresentable {
             map.setCamera(cam, withDuration: duration, animationTimingFunction: timing)
         }
 
+        /// Free space kept around a fitted route.
+        static let fitMargin: CGFloat = 40
+
         /// Timed motions; nil for MapLibre's default flight.
         static func duration(_ motion: MapCameraMotion) -> TimeInterval? {
             switch motion {
             case .standard: nil
             case let .viewMode(reduceMotion): reduceMotion ? 0 : VelixMotions.viewMode.durationMs / 1000
-            case .track: 1
+            // One fix interval (a fix a second, faster in debug time-scale): the glide ends as the next fix lands.
+            case .track: 1 / AppClock.scale
             }
         }
 
