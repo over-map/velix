@@ -43,8 +43,8 @@ extension RideSummaryModel {
 }
 
 /// S6 Ride summary (P7): the ride on the map, the summary sheet over it. Shown once, after the ride ends by itself.
-/// Strava and Apple Health connect in You (M9), so everyone sees S6b until then; S6a and S6c are built and
-/// snapshot-tested.
+/// S6a when Apple Health is on (the ride is saved there), S6b with Connect otherwise; S6c is built and snapshot-tested.
+/// Also opens for a past ride (You → Your rides).
 struct RideSummaryView: View {
     let model: RideSummaryModel
     var connections: RideSummary.Connections = .notConnected

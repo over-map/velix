@@ -87,3 +87,33 @@ struct RideHistoryTests {
         #expect(ride(DateComponents(year: 2026, month: 10, day: 6, hour: 9)).detail(now: now, calendar: cal) == "Tue 6 Oct · City")
     }
 }
+
+struct HealthWorkoutTests {
+    private func lines(_ fixes: Int, train: ClosedRange<Int>? = nil) -> [String] {
+        [#"{"t":1000,"e":"start","to":"Monza","m":9000}"#] + (0 ..< fixes).map { i in
+            #"{"t":\#(1000 + i * 4),"lat":\#(45.4 + Double(i) * 0.00018),"lon":9.2,"acc":5,"alt":120,"v":5,"c":0\#(train?.contains(i) == true ? #","train":true"# : "")}"#
+        } + [#"{"t":\#(1000 + fixes * 4),"e":"end","s":"arrived"}"#]
+    }
+
+    @Test func aRideIsOneLeg() throws {
+        let w = try #require(HealthWorkout.from(lines: lines(51)))
+        #expect(w.legs.count == 1)
+        #expect(abs(w.meters - 1000) < 20)
+        #expect(w.start == Date(timeIntervalSince1970: 1000))
+        #expect(w.end == Date(timeIntervalSince1970: 1200))
+        #expect(w.route.count == 51)
+    }
+
+    @Test func theTrainSplitsTheLegsAndIsNotRidden() throws {
+        let w = try #require(HealthWorkout.from(lines: lines(51, train: 10 ... 40)))
+        #expect(w.legs.count == 2)
+        #expect(w.legs[0].end == Date(timeIntervalSince1970: 1036))
+        #expect(w.legs[1].start == Date(timeIntervalSince1970: 1164))
+        #expect(w.meters < 400)
+        #expect(w.route.count == 20)
+    }
+
+    @Test func noFixesNoWorkout() {
+        #expect(HealthWorkout.from(lines: [#"{"t":1,"e":"start","to":"X","m":1}"#]) == nil)
+    }
+}
