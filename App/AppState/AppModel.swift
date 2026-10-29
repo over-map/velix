@@ -29,6 +29,8 @@ final class AppModel {
     let mapPreference: MapStylePreference
     /// Past rides (M9).
     let history: RideHistory
+    /// Apple Health (M9b).
+    let health: HealthStoring
 
     /// Session only: "Lit streets only" for the next ride (S8 Tonight), off when a ride ends.
     var litStreetsOnly = false
@@ -44,7 +46,8 @@ final class AppModel {
 
     init(store: AppStore = .live, location: LocationService = LocationService(), pack: PackService = PackService(),
          search: PlaceSearch = PhotonSearch(), weather: WeatherWarnings = NoWeatherWarnings(),
-         mapPreference: MapStylePreference = MapStylePreference(), history: RideHistory? = nil) {
+         mapPreference: MapStylePreference = MapStylePreference(), history: RideHistory? = nil,
+         health: HealthStoring = HealthKitStore()) {
         self.store = store
         self.state = store.load()
         self.location = location
@@ -53,6 +56,7 @@ final class AppModel {
         self.weather = weather
         self.mapPreference = mapPreference
         self.history = history ?? RideHistory()
+        self.health = health
         pack.onInstalled = { [weak self] in self?.engine.reset() }
     }
 
@@ -126,8 +130,27 @@ final class AppModel {
     /// Every ride of 200 m or more goes into the history; S6 opens only when it ended at the door.
     private func ended(_ session: RideSession, transit: String?) {
         let record = RideHistory.record(session, transit: transit)
-        if let record { history.add(record) }
+        if let record {
+            history.add(record)
+            if state.healthOn { Task { await HealthSync.save(record, to: health, history: history) } }
+        }
         if session.arrived { summary = RideSummaryModel(session) }
+    }
+
+    /// S6b Connect: connect if needed, then save that ride (the latest when nil).
+    func saveToHealth(_ record: RideRecord? = nil) async {
+        var on = state.healthOn
+        if !on { on = await connectHealth() }
+        guard on, let r = record ?? history.rides.first else { return }
+        await HealthSync.save(r, to: health, history: history)
+    }
+
+    /// You / S6b → Connect Apple Health: asks once (the system sheet); on when workouts may be written.
+    func connectHealth() async -> Bool {
+        guard health.available else { return false }
+        let ok = (try? await health.authorize()) ?? false
+        state.healthOn = ok
+        return ok
     }
 
     /// The map style for the current ride type (remembered per type).

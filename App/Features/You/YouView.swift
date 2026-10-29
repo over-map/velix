@@ -9,7 +9,7 @@ struct YouView: View {
     @State private var showAbout = false
     @State private var notice: String?
     @State private var showHistory = false
-    @State private var past: RideSummaryModel?
+    @State private var past: (model: RideSummaryModel, record: RideRecord)?
 
     var body: some View {
         ScrollView {
@@ -30,8 +30,12 @@ struct YouView: View {
         .sheet(isPresented: $showHistory) {
             RideHistoryView(history: app.history) { ride in showHistory = false; open(ride, afterSheet: true) }
         }
-        .fullScreenCover(item: $past) { model in
-            RideSummaryView(model: model, mapStyle: MapStyleKind(app.mapStyle), onConnect: { past = nil }, onDone: { past = nil })
+        .fullScreenCover(isPresented: Binding(get: { past != nil }, set: { if !$0 { past = nil } })) {
+            if let past {
+                RideSummaryView(model: past.model, connections: past.record.healthSaved ? .synced : .notConnected,
+                                mapStyle: MapStyleKind(app.mapStyle),
+                                onConnect: { Task { await app.saveToHealth(past.record) } }, onDone: { self.past = nil })
+            }
         }
         .alert(notice ?? "", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) {
             Button("OK", role: .cancel) {}
@@ -137,7 +141,7 @@ struct YouView: View {
     }
 
     private func open(_ ride: RideRecord, afterSheet: Bool = false) {
-        let model = RideSummaryModel(ride)
+        let model = (RideSummaryModel(ride), ride)
         guard afterSheet else { past = model; return }
         // After the history sheet has gone (one presentation at a time).
         Task { @MainActor in
@@ -148,12 +152,15 @@ struct YouView: View {
 
     private var connections: some View {
         group("Connections") {
-            ConnectionRow(icon: .activity, name: "Strava", detail: "Rides upload when they end", connected: false, divider: false) {
-                notice = "Strava sync comes with ride history in a later version."
+            ConnectionRow(icon: .heart, name: "Apple Health", detail: "Save rides as workouts", connected: app.state.healthOn,
+                          divider: false) {
+                Task {
+                    if await !app.connectHealth() {
+                        notice = "Velix can't save workouts yet. Allow it in Settings → Health → Data Access & Devices → Velix."
+                    }
+                }
             }
-            ConnectionRow(icon: .heart, name: "Apple Health", detail: "Save rides as workouts", connected: false) {
-                notice = "Apple Health comes with ride history in a later version."
-            }
+            ListRow(leading: .tile(.activity), title: "Strava", subtitle: "In a later version. Share GPX from a ride meanwhile.")
         }
     }
 

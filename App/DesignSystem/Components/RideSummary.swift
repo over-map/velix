@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// RideSummary (P7 S6a–S6c): the sheet after a ride that ended by itself. A flag, the numbers, Strava and Apple
-/// Health (synced, or Connect), at most one data-issue question, Share GPX and Done.
+/// RideSummary (P7 S6a–S6c): the sheet after a ride that ended by itself. A flag, the numbers, Apple Health (saved,
+/// or Connect; Strava is deferred to phase 2), at most one data-issue question, Share GPX and Done.
 struct RideSummary: View {
     enum Connections: Equatable { case synced, notConnected }
     struct Issue: Equatable { var title: String; var message: String }
@@ -38,7 +38,7 @@ struct RideSummary: View {
             case .synced:
                 HStack(spacing: 10) {
                     VelixIconView(.circleCheck, size: 22).foregroundStyle(Color.velix.success)
-                    Text("Synced to Strava and Apple Health").velixType(VelixType.rowTitle.sized(16, lineHeight: 20))
+                    Text("Saved to Apple Health").velixType(VelixType.rowTitle.sized(16, lineHeight: 20))
                     Spacer(minLength: 0)
                 }
                 .frame(minHeight: 48)
@@ -46,10 +46,7 @@ struct RideSummary: View {
                 .overlay(alignment: .bottom) { divider }
                 .accessibilityElement(children: .combine)
             case .notConnected:
-                VStack(spacing: 0) {
-                    connectRow("Strava").overlay(alignment: .top) { divider }
-                    connectRow("Apple Health")
-                }
+                connectRow("Apple Health").overlay(alignment: .top) { divider }
             }
             if let issue { issueCard(issue) }
             buttons
@@ -85,7 +82,7 @@ struct RideSummary: View {
         }
     }
 
-    /// "Save to Strava" with Connect (connections live in You, M9).
+    /// "Save to Apple Health" with Connect (also in You).
     private func connectRow(_ name: String) -> some View {
         HStack(spacing: 10) {
             Text("Save to \(name)").velixType(VelixType.rowTitle.sized(16, lineHeight: 20))

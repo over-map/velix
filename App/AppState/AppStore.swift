@@ -13,6 +13,8 @@ struct AppState: Codable, Equatable, Sendable {
     var packAutoUpdate = true
     /// You → Routing: follow one-way restrictions (default off, Filippo 18 Oct).
     var respectOneways = false
+    /// You → Apple Health: save each ride as a workout (M9b).
+    var healthOn = false
 
     init() {}
 
@@ -27,6 +29,7 @@ struct AppState: Codable, Equatable, Sendable {
         recents = (try? c.decode([Place].self, forKey: .recents)) ?? []
         packAutoUpdate = try c.decodeIfPresent(Bool.self, forKey: .packAutoUpdate) ?? true
         respectOneways = try c.decodeIfPresent(Bool.self, forKey: .respectOneways) ?? false
+        healthOn = try c.decodeIfPresent(Bool.self, forKey: .healthOn) ?? false
     }
 
     static let recentsKept = 20

@@ -72,6 +72,8 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSLocationWhenInUseUsageDescription: "Velix uses your location to plan routes from where you are and to follow you while you ride. It never leaves your phone."
         NSLocationAlwaysAndWhenInUseUsageDescription: "Velix uses your location to plan routes from where you are and to follow you while you ride. It never leaves your phone."
+        NSHealthUpdateUsageDescription: "Velix saves each ride to Apple Health as a cycling workout, with its distance and route."
+        NSHealthShareUsageDescription: "Velix doesn't read anything from Apple Health. It only saves your rides there."
         UIBackgroundModes: [location, audio]   # audio: voice prompts with the screen locked (M7)
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: false
@@ -81,6 +83,11 @@ targets:
           - FamiljenGrotesk-Medium.ttf
           - FamiljenGrotesk-SemiBold.ttf
           - FamiljenGrotesk-Bold.ttf
+    entitlements:
+      path: App/Velix.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.over-map.velix
