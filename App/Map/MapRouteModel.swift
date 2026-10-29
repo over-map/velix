@@ -42,7 +42,7 @@ struct MapRouteModel: Equatable, Sendable {
         self.end = best.last
         self.endName = endName
         let along = RouteAnalyzer.cumulative(best)
-        for h in hazards {
+        for h in hazards where h.type.shown {
             let a = h.lengthM > 1 ? h.distanceAlong : h.distanceAlong - Self.tubeHalf
             let b = h.lengthM > 1 ? h.distanceAlong + h.lengthM : h.distanceAlong + Self.tubeHalf
             let from = max(0, a, clipBefore), to = min(along.last ?? 0, b)

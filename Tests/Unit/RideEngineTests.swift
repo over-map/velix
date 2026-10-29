@@ -131,27 +131,35 @@ struct HazardTrackerTests {
     }
 
     @Test func oneCardAtATimeAndOneAlertEach() {
-        var t = HazardTracker(hazards: [h(.cobbles, 400, length: 120), h(.tram, 160)])
-        #expect(t.next(at: 0)?.hazard.type == .tram)
+        var t = HazardTracker(hazards: [h(.cobbles, 400, length: 120), h(.steps, 160)])
+        #expect(t.next(at: 0)?.hazard.type == .steps)
         #expect(t.next(at: 0)?.approaching == false)
         #expect(t.alert(at: 100) == nil)
-        #expect(t.alert(at: 115)?.type == .tram)             // 45 m before
+        #expect(t.alert(at: 115)?.type == .steps)             // 45 m before
         #expect(t.alert(at: 130) == nil)                     // once
-        #expect(t.next(at: 170)?.hazard.type == .cobbles)    // passed the rails
+        #expect(t.next(at: 170)?.hazard.type == .cobbles)    // passed the steps
         #expect(t.next(at: 600) == nil)
     }
 
     @Test func aRerouteDoesNotRepeatAnAlert() {
-        var t = HazardTracker(hazards: [h(.tram, 60)])
-        #expect(t.alert(at: 20)?.type == .tram)
-        var after = HazardTracker(hazards: [h(.tram, 30)], alerted: t.alerted)   // the same rails on the new route
+        var t = HazardTracker(hazards: [h(.steps, 60)])
+        #expect(t.alert(at: 20)?.type == .steps)
+        var after = HazardTracker(hazards: [h(.steps, 30)], alerted: t.alerted)   // the same steps on the new route
         #expect(after.alert(at: 0) == nil)
     }
 
+    @Test func tramRailsAreNotShown() {
+        // Riders see them; they still steer the route (29 Oct).
+        let t = HazardTracker(hazards: [h(.tram, 100), h(.along, 200, length: 300), h(.steps, 600)])
+        #expect(t.hazards.map(\.type) == [.steps])
+        #expect(MapRouteModel(best: [LatLon(lat: 45.47, lon: 9.20), LatLon(lat: 45.47, lon: 9.21)],
+                              hazards: [h(.tram, 100), h(.along, 200, length: 300)]).hazards.isEmpty)
+    }
+
     @Test func weakGPSAlertsEarlier() {
-        var t = HazardTracker(hazards: [h(.tram, 160)])
+        var t = HazardTracker(hazards: [h(.steps, 160)])
         #expect(t.alert(at: 95) == nil)
-        #expect(t.alert(at: 95, gps: .weak)?.type == .tram)  // 65 m before
+        #expect(t.alert(at: 95, gps: .weak)?.type == .steps)  // 65 m before
     }
 
     @Test func onlyNarrowGapsAlert() {

@@ -78,6 +78,11 @@ enum MixCategory: String, CaseIterable, Codable, Sendable {
 enum HazardType: String, CaseIterable, Codable, Sendable {
     case tram, along, cobbles, steps, gap, dismount, lane, door, descent, climb
 
+    /// Shown to the rider (map tubes and markers, the riding card, voice, haptics, the lock screen, "On your route").
+    /// Tram rails aren't (Filippo, 29 Oct 2026: riders see them, and they were too many and too loud); they still
+    /// steer the route ("Never along tram rails") and explain it ("avoids rails along …", "Skipping …: rails").
+    var shown: Bool { self != .tram && self != .along }
+
     /// HazardRow / hazard card title (design/tools/p5gen.js `HZ`).
     var title: String {
         switch self {

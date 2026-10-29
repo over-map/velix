@@ -3,7 +3,7 @@ import Foundation
 /// The next hazard ahead and its alert (P5 S4a/S4e: one card at a time; under 50 m it turns coral, the phone taps
 /// twice and the voice says it once). Pure: positions in, events out.
 struct HazardTracker: Sendable {
-    /// Hazards that alert while riding: every type, gaps only when narrow (a cycle barrier, not a garden gate).
+    /// Hazards that alert while riding: the shown types, gaps only when narrow (a cycle barrier, not a garden gate).
     let hazards: [RouteHazard]
     /// Hazards already announced, by type and OSM element: kept across reroutes, so the rails just crossed don't
     /// alert again on the new route.
@@ -18,7 +18,7 @@ struct HazardTracker: Sendable {
     init(hazards: [RouteHazard], alerted: Set<String> = []) {
         self.alerted = alerted
         self.hazards = hazards
-            .filter { $0.type != .gap || RuleChecker.isNarrowGap($0.detail) }
+            .filter { $0.type.shown && ($0.type != .gap || RuleChecker.isNarrowGap($0.detail)) }
             .sorted { $0.distanceAlong < $1.distanceAlong }
     }
 

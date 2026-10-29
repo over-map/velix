@@ -92,14 +92,12 @@ enum TransitCopy {
 
     // MARK: Riding with transit (P6 S5)
 
-    /// What Fastest adds, from Best's and Fastest's analyses: "120 m of cobbles", "2 rail crossings"; nil when nothing.
+    /// What Fastest adds, from Best's and Fastest's analyses: "120 m of cobbles", "rails along Via Fabio Filzi";
+    /// nil when nothing (rail crossings aren't counted: they aren't shown, 29 Oct).
     static func lateCost(best: RouteAnalysis, fastest: RouteAnalysis) -> String? {
-        if let r = DifferenceCopy.avoidedReasons(best: best, fastest: fastest, rideType: .city).first {
-            if case let .cobbles(m) = r { return "\(DifferenceCopy.distance(m)) of cobbles" }
-            return r.text
-        }
-        let rails = fastest.hazardCount(.tram) - best.hazardCount(.tram)
-        return rails > 0 ? (rails == 1 ? "1 rail crossing" : "\(rails) rail crossings") : nil
+        guard let r = DifferenceCopy.avoidedReasons(best: best, fastest: fastest, rideType: .city).first else { return nil }
+        if case let .cobbles(m) = r { return "\(DifferenceCopy.distance(m)) of cobbles" }
+        return r.text
     }
 
     /// S5b: "Running late" / "Switched to the fastest route to catch the 08:16. It adds 120 m of cobbles."

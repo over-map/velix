@@ -32,6 +32,7 @@ enum AppSamples {
     }
 
     static let bestHazards = [
+        RouteHazard(type: .steps, distanceAlong: 200, lengthM: 0, street: "Piazza Oberdan", detail: "12", osm: "n9"),
         RouteHazard(type: .tram, distanceAlong: 300, lengthM: 0, street: "Piazza Oberdan", detail: "", osm: "n1"),
         RouteHazard(type: .tram, distanceAlong: 900, lengthM: 0, street: "Via Melzo", detail: "", osm: "n2"),
         RouteHazard(type: .tram, distanceAlong: 1500, lengthM: 0, street: "P.za Adelaide di Savoia", detail: "", osm: "n3"),
@@ -104,7 +105,7 @@ enum AppSamples {
         a.edges = [RouteEdge(wayId: 1, lengthKm: 0.58, roadClass: "residential", beginShapeIndex: 0, endShapeIndex: 1),
                    RouteEdge(wayId: 2, lengthKm: 1.2, roadClass: "secondary", beginShapeIndex: 1, endShapeIndex: 2)]
         a.lengthM = 1780
-        a.hazards = [RouteHazard(type: .tram, distanceAlong: 580, lengthM: 0, street: "P.za Adelaide di Savoia", detail: "", osm: "n3")]
+        a.hazards = [RouteHazard(type: .cobbles, distanceAlong: 580, lengthM: 120, street: "P.za Adelaide di Savoia", detail: "", osm: "w3")]
         return RouteOption(costing: RoutingProfile(costing: "bicycle", costingOptions: [:]), osrmJSON: "{}",
                            seconds: 18 * 60, meters: 4400, analysis: a, exclusions: [])
     }
