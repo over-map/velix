@@ -46,11 +46,20 @@ enum TransitCopy {
         return parts.joined(separator: " · ")
     }
 
-    /// The operator's ticket page (one link, BRIEF §8).
-    static func ticket(_ p: TransitPlan) -> (label: String, url: URL) {
+    /// Where to buy the ticket (one link, BRIEF §8). Trains: the Trenitalia app, which sells regional tickets
+    /// across Italy (Filippo, 29 Oct 2026; outside Italy this changes): its URL scheme first, its App Store page
+    /// otherwise (with Open when installed). The metro: ATM's ticket page.
+    struct Ticket: Equatable, Sendable {
+        let label: String
+        let app: URL?
+        let fallback: URL
+    }
+
+    static func ticket(_ p: TransitPlan) -> Ticket {
         p.departure.route.feed == "atm"
-            ? ("Ticket · ATM", URL(string: "https://www.atm.it/it/ViaggiaConNoi/Biglietti/Pagine/default.aspx")!)
-            : ("Ticket · Trenord", URL(string: "https://www.trenord.it/biglietti/")!)
+            ? Ticket(label: "Ticket · ATM", app: nil, fallback: URL(string: "https://www.atm.it/it/ViaggiaConNoi/Biglietti/Pagine/default.aspx")!)
+            : Ticket(label: "Ticket · Trenitalia app", app: URL(string: "trenitalia://"),
+                     fallback: URL(string: "https://apps.apple.com/it/app/trenitalia/id331050847")!)
     }
 
     /// Replaces P4's "Illustrative timetable": the times are the static GTFS, no live delays.
@@ -61,18 +70,13 @@ enum TransitCopy {
         "Bike only · **\(minutes(best)) min** Best" + (fastest.map { " · \(minutes($0)) min Fastest" } ?? "")
     }
 
-    /// TripBar: Ride · Wait · Train · Out · Ride (P4: a wait under 4 min carries no label).
+    /// TripBar: the bike and the train only (Filippo, 29 Oct 2026: no waiting times in the overview), in proportion.
     @MainActor static func segments(_ p: TransitPlan) -> [TripBar.Segment] {
         let kind: TripBar.Kind = p.departure.route.mode == .metro
             ? .metro(MetroBadge.family(metroFamily(p.departure.route), name: p.departure.route.shortName).color) : .train
-        let wait = minutes(p.wait), out = minutes(DirectPlanner.outOfStation)
-        // A label needs room: under 4 min (P4), or under a tenth of the trip, the wait goes unlabelled.
-        let total = Double(minutes(p.seconds))
-        func label(_ m: Int, _ text: String) -> String { m < 4 || Double(m) < 0.1 * total ? "" : text }
+        let vehicle = p.departure.route.mode == .metro ? p.departure.route.shortName : "Train"
         return [.init(kind: .ride, minutes: minutes(p.rideIn.seconds), label: "Ride \(minutes(p.rideIn.seconds))"),
-                .init(kind: .wait, minutes: wait, label: label(wait, "Wait \(wait)")),
-                .init(kind: kind, minutes: minutes(p.onBoard), label: "\(p.departure.route.mode == .metro ? p.departure.route.shortName : "Train") \(minutes(p.onBoard))"),
-                .init(kind: .wait, minutes: out, label: label(out, "Out \(out)")),
+                .init(kind: kind, minutes: minutes(p.onBoard), label: "\(vehicle) \(minutes(p.onBoard))"),
                 .init(kind: .ride, minutes: minutes(p.rideOut.seconds), label: "Ride \(minutes(p.rideOut.seconds))")]
     }
 

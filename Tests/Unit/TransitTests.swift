@@ -160,7 +160,9 @@ struct TransitCopyTests {
         #expect(TransitCopy.detail(p, destination: dest)
                 == "Ride 7 min to Centrale · platform planned: check the board · bikes allowed · ride 6 min into the park")
         #expect(TransitCopy.bikeOnly(best: 52 * 60, fastest: 45 * 60) == "Bike only · **52 min** Best · 45 min Fastest")
-        #expect(TransitCopy.segments(p).map(\.label) == ["Ride 7", "Wait 4", "Train 11", "", "Ride 6"])   // "Out 3" unlabelled
+        #expect(TransitCopy.segments(p).map(\.label) == ["Ride 7", "Train 11", "Ride 6"])               // bike and train only
+        #expect(TransitCopy.ticket(p).label == "Ticket · Trenitalia app")
+        #expect(TransitCopy.ticket(p).app?.scheme == "trenitalia")
         #expect(TransitCopy.minutes(p.seconds) == 31)
     }
 

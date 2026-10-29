@@ -475,13 +475,12 @@ extension TransitCard.Model {
     /// P4 S3e sample (Porta Venezia → Villa Reale, Monza; P4's illustrative timetable).
     static let sample = TransitCard.Model(
         title: "Bike + train", subtitle: "13 min by bike · arrive 08:36", minutes: 31,
-        segments: [.init(kind: .ride, minutes: 7, label: "Ride 7"), .init(kind: .wait, minutes: 4, label: "Wait 4"),
-                   .init(kind: .train, minutes: 11, label: "Train 11"), .init(kind: .wait, minutes: 3, label: ""),
+        segments: [.init(kind: .ride, minutes: 7, label: "Ride 7"), .init(kind: .train, minutes: 11, label: "Train 11"),
                    .init(kind: .ride, minutes: 6, label: "Ride 6")],
         departures: ["08:16", "08:46", "09:16"],
         train: "Trenord R 10834 · 08:16 → Monza 08:27",
         detail: "Ride 7 min to Centrale · platform planned: check the board · bikes allowed · ride 6 min into the park",
-        ticketsLabel: "Ticket · Trenord", footnote: TransitCopy.footnote)
+        ticketsLabel: "Ticket · Trenitalia app", footnote: TransitCopy.footnote)
 }
 
 #Preview {
