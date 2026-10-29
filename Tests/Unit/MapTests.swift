@@ -9,7 +9,7 @@ struct MapTests {
     @Test func routeModelBuildsTubesAndMarkersAlongTheRoute() throws {
         let hz = [RouteHazard(type: .steps, distanceAlong: 200, lengthM: 0, street: nil, detail: "", osm: "n1"),
                   RouteHazard(type: .cobbles, distanceAlong: 400, lengthM: 70, street: nil, detail: "", osm: "w2")]
-        let m = MapRouteModel(best: route, hazards: hz, endName: "Politecnico")
+        let m = MapRouteModel(best: route, hazards: hz, endName: "Politecnico", types: Set(HazardType.allCases))
         #expect(m.tubes.count == 2)
         #expect(abs(Geo.length(m.tubes[0]) - 28) < 1)       // ±14 m around a point hazard
         #expect(abs(Geo.length(m.tubes[1]) - 70) < 1)       // a line hazard's own length
