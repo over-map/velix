@@ -47,3 +47,23 @@ enum TransitGolden {
     static let city: CityArea? = GoldenPack.directory.flatMap { try? Data(contentsOf: $0.appending(path: "city.geojson")) }
         .flatMap { try? CityArea(geoJSON: $0) }
 }
+
+/// M9 Routes on the real pack: the canals out of Milan are there, with their S7 mix.
+@Suite(.enabled(if: RoutesGolden.store?.schema ?? 0 >= 2, "Needs a pack with routes.sqlite schema 2"))
+struct RoutesGoldenTests {
+    @Test func milanHasItsCanals() throws {
+        let store = try #require(RoutesGolden.store)
+        let milan = AppSamples.portaVenezia
+        let routes = store.routes(in: Geo.bbox([milan], padding: 20_000), near: milan, limit: 200)
+        let names = routes.map(\.name)
+        #expect(names.contains { $0.contains("Naviglio Pavese") })
+        #expect(names.contains { $0.contains("Martesana") })
+        let pavese = try #require(routes.first { $0.name.contains("Naviglio Pavese") })
+        #expect((pavese.mix?.unpaved ?? 1) < 0.1)
+        #expect((pavese.climb ?? 999) < 60)
+    }
+}
+
+enum RoutesGolden {
+    static let store: RouteStore? = GoldenPack.directory.flatMap { try? RouteStore(path: $0.appending(path: "routes.sqlite")) }
+}

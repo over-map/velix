@@ -35,6 +35,8 @@ enum RegionPack {
     /// Bike + transit (M8): the Trenord and ATM timetable, and the city area.
     static var transit: URL? { packFile(.transit, sideloaded: "transit.sqlite") }
     static var city: URL? { packFile(.city, sideloaded: "city.geojson") }
+    /// Routes tab (M9): OSM cycle-route relations.
+    static var routes: URL? { packFile(.routes, sideloaded: "routes.sqlite") }
 
     private static func packFile(_ role: RegionPackManifest.File.Role, sideloaded name: String) -> URL? {
         let side = URL.documentsDirectory.appending(path: name)
