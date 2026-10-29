@@ -78,6 +78,14 @@ enum MixCategory: String, CaseIterable, Codable, Sendable {
 enum HazardType: String, CaseIterable, Codable, Sendable {
     case tram, along, cobbles, steps, gap, dismount, lane, door, descent, climb
 
+    /// Drawn on route maps (tubes, markers) and announced while riding (card, voice, haptic, lock screen): none.
+    /// Hazards steer routing (rules, smoothness) but aren't worth the cognitive load on a route (Filippo, 29 Oct 2026).
+    /// Kept as a set so a type can come back, and for the browse map (cobbles, steps, steep climbs, not built yet).
+    static let onRoute: Set<HazardType> = []
+
+    /// Listed under Why this route → On your route (text, at planning). Not tram rails: riders see them.
+    var listed: Bool { self != .tram && self != .along }
+
     /// HazardRow / hazard card title (design/tools/p5gen.js `HZ`).
     var title: String {
         switch self {

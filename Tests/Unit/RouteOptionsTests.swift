@@ -34,10 +34,9 @@ struct RouteOptionsTests {
     @Test func whyThisRouteRows() {
         let m = RouteOptionsModel(destination: AppSamples.politecnico, state: .options(AppSamples.options()))
         let rows = m.hazardRows
-        #expect(rows.map(\.type) == [.tram, .cobbles])
-        #expect(rows[0].count == 4)
-        #expect(rows[0].subtitle == "Piazza Oberdan, Via Melzo, P.za Adelaide di Savoia, P.za Ascoli")
-        #expect(rows[1].amount == "70 m")
+        #expect(rows.map(\.type) == [.cobbles, .steps])           // tram rails aren't listed (29 Oct)
+        #expect(rows[1].count == 1 && rows[1].subtitle == "Piazza Oberdan")
+        #expect(rows[0].amount == "70 m")
         #expect(m.avoidedRows.map(\.name) == ["Viale Piave", "Via Morgagni"])
     }
 

@@ -32,9 +32,10 @@ struct MapRouteModel: Equatable, Sendable {
     /// Half-length of a point hazard's tube (P3: ±14 m).
     static let tubeHalf = 14.0
 
-    /// `clipBefore`: no tube before this distance along `best` (riding: the stretch behind the rider).
+    /// `clipBefore`: no tube before this distance along `best` (riding: the stretch behind the rider). `types`: the
+    /// hazards drawn (``HazardType/onRoute``: none since 29 Oct; tests pass all of them).
     init(best: [LatLon], alternatives: [[LatLon]] = [], avoided: [Avoided] = [], hazards: [RouteHazard] = [], endName: String? = nil,
-         clipBefore: Double = 0) {
+         clipBefore: Double = 0, types: Set<HazardType> = HazardType.onRoute) {
         self.best = best
         self.alternatives = alternatives
         self.avoided = avoided
@@ -42,7 +43,7 @@ struct MapRouteModel: Equatable, Sendable {
         self.end = best.last
         self.endName = endName
         let along = RouteAnalyzer.cumulative(best)
-        for h in hazards {
+        for h in hazards where types.contains(h.type) {
             let a = h.lengthM > 1 ? h.distanceAlong : h.distanceAlong - Self.tubeHalf
             let b = h.lengthM > 1 ? h.distanceAlong + h.lengthM : h.distanceAlong + Self.tubeHalf
             let from = max(0, a, clipBefore), to = min(along.last ?? 0, b)

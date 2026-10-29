@@ -126,36 +126,48 @@ struct RouteTrackTests {
 }
 
 struct HazardTrackerTests {
+    private let all = Set(HazardType.allCases)
+
     private func h(_ type: HazardType, _ at: Double, length: Double = 0, detail: String = "") -> RouteHazard {
         RouteHazard(type: type, distanceAlong: at, lengthM: length, street: nil, detail: detail, osm: "w1")
     }
 
     @Test func oneCardAtATimeAndOneAlertEach() {
-        var t = HazardTracker(hazards: [h(.cobbles, 400, length: 120), h(.tram, 160)])
-        #expect(t.next(at: 0)?.hazard.type == .tram)
+        var t = HazardTracker(hazards: [h(.cobbles, 400, length: 120), h(.steps, 160)], types: all)
+        #expect(t.next(at: 0)?.hazard.type == .steps)
         #expect(t.next(at: 0)?.approaching == false)
         #expect(t.alert(at: 100) == nil)
-        #expect(t.alert(at: 115)?.type == .tram)             // 45 m before
+        #expect(t.alert(at: 115)?.type == .steps)             // 45 m before
         #expect(t.alert(at: 130) == nil)                     // once
-        #expect(t.next(at: 170)?.hazard.type == .cobbles)    // passed the rails
+        #expect(t.next(at: 170)?.hazard.type == .cobbles)    // passed the steps
         #expect(t.next(at: 600) == nil)
     }
 
     @Test func aRerouteDoesNotRepeatAnAlert() {
-        var t = HazardTracker(hazards: [h(.tram, 60)])
-        #expect(t.alert(at: 20)?.type == .tram)
-        var after = HazardTracker(hazards: [h(.tram, 30)], alerted: t.alerted)   // the same rails on the new route
+        var t = HazardTracker(hazards: [h(.steps, 60)], types: all)
+        #expect(t.alert(at: 20)?.type == .steps)
+        var after = HazardTracker(hazards: [h(.steps, 30)], alerted: t.alerted, types: all)   // the same steps on the new route
         #expect(after.alert(at: 0) == nil)
     }
 
+    @Test func nothingIsShownOnARouteByDefault() {
+        // Hazards steer routing; on a route they are neither drawn nor announced (29 Oct).
+        let hs = [h(.tram, 100), h(.along, 200, length: 300), h(.steps, 600), h(.cobbles, 800, length: 100)]
+        #expect(HazardTracker(hazards: hs).hazards.isEmpty)
+        let line = [LatLon(lat: 45.47, lon: 9.20), LatLon(lat: 45.47, lon: 9.22)]
+        #expect(MapRouteModel(best: line, hazards: hs).hazards.isEmpty)
+        #expect(MapRouteModel(best: line, hazards: hs).tubes.isEmpty)
+        #expect(!HazardType.tram.listed && HazardType.cobbles.listed)
+    }
+
     @Test func weakGPSAlertsEarlier() {
-        var t = HazardTracker(hazards: [h(.tram, 160)])
+        var t = HazardTracker(hazards: [h(.steps, 160)], types: all)
         #expect(t.alert(at: 95) == nil)
-        #expect(t.alert(at: 95, gps: .weak)?.type == .tram)  // 65 m before
+        #expect(t.alert(at: 95, gps: .weak)?.type == .steps)  // 65 m before
     }
 
     @Test func onlyNarrowGapsAlert() {
-        let t = HazardTracker(hazards: [h(.gap, 100, detail: "gate"), h(.gap, 200, detail: "cycle_barrier")])
+        let t = HazardTracker(hazards: [h(.gap, 100, detail: "gate"), h(.gap, 200, detail: "cycle_barrier")], types: all)
         #expect(t.hazards.count == 1)
         #expect(t.next(at: 0)?.hazard.detail == "cycle_barrier")
     }
@@ -413,10 +425,11 @@ struct PassedTubeTests {
     @Test func tubesAreCutBehindTheRider() {
         let shape = [LatLon(lat: 45.47, lon: 9.20), LatLon(lat: 45.47, lon: 9.2128)]   // ≈ 1 km east
         let cobbles = RouteHazard(type: .cobbles, distanceAlong: 100, lengthM: 200, street: nil, detail: "", osm: "w1")
-        let whole = MapRouteModel(best: shape, hazards: [cobbles])
-        let ridden = MapRouteModel(best: shape, hazards: [cobbles], clipBefore: 250)
+        let all = Set(HazardType.allCases)
+        let whole = MapRouteModel(best: shape, hazards: [cobbles], types: all)
+        let ridden = MapRouteModel(best: shape, hazards: [cobbles], clipBefore: 250, types: all)
         #expect(abs(Geo.length(whole.tubes[0]) - 200) < 1)
         #expect(abs(Geo.length(ridden.tubes[0]) - 50) < 1)                // 250 → 300 m left
-        #expect(MapRouteModel(best: shape, hazards: [cobbles], clipBefore: 320).tubes.isEmpty)
+        #expect(MapRouteModel(best: shape, hazards: [cobbles], clipBefore: 320, types: all).tubes.isEmpty)
     }
 }

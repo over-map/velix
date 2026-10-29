@@ -121,7 +121,7 @@ final class RouteOptionsModel {
     /// WhyThisRoute "On your route": hazards of the chosen route, grouped by type, with streets and how many.
     var hazardRows: [WhyThisRoute.Hazard] {
         guard let a = chosen?.analysis else { return [] }
-        let order: [HazardType] = [.tram, .along, .cobbles, .steps, .gap, .lane, .dismount, .door, .descent, .climb]
+        let order: [HazardType] = [.tram, .along, .cobbles, .steps, .gap, .lane, .dismount, .door, .descent, .climb].filter(\.listed)
         return order.compactMap { type in
             let hs = a.hazards.filter { $0.type == type }
             guard !hs.isEmpty else { return nil }

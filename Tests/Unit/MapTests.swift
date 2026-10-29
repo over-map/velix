@@ -7,13 +7,13 @@ struct MapTests {
     let route = [LatLon(lat: 45.4746, lon: 9.2050), LatLon(lat: 45.4750, lon: 9.2100), LatLon(lat: 45.4760, lon: 9.2150)]
 
     @Test func routeModelBuildsTubesAndMarkersAlongTheRoute() throws {
-        let hz = [RouteHazard(type: .tram, distanceAlong: 200, lengthM: 0, street: nil, detail: "", osm: "n1"),
+        let hz = [RouteHazard(type: .steps, distanceAlong: 200, lengthM: 0, street: nil, detail: "", osm: "n1"),
                   RouteHazard(type: .cobbles, distanceAlong: 400, lengthM: 70, street: nil, detail: "", osm: "w2")]
-        let m = MapRouteModel(best: route, hazards: hz, endName: "Politecnico")
+        let m = MapRouteModel(best: route, hazards: hz, endName: "Politecnico", types: Set(HazardType.allCases))
         #expect(m.tubes.count == 2)
         #expect(abs(Geo.length(m.tubes[0]) - 28) < 1)       // ±14 m around a point hazard
         #expect(abs(Geo.length(m.tubes[1]) - 70) < 1)       // a line hazard's own length
-        #expect(m.hazards.map(\.type) == [.tram, .cobbles])
+        #expect(m.hazards.map(\.type) == [.steps, .cobbles])
         #expect(m.start == route.first && m.end == route.last)
 
         let fc = try #require(JSONSerialization.jsonObject(with: m.routeGeoJSON()) as? [String: Any])
@@ -21,7 +21,7 @@ struct MapTests {
         #expect(roles == ["best", "tube", "tube"])
         let hzFC = try #require(JSONSerialization.jsonObject(with: m.hazardsGeoJSON()) as? [String: Any])
         let ranks = (hzFC["features"] as? [[String: Any]])?.compactMap { ($0["properties"] as? [String: Any])?["rank"] as? Int }
-        #expect(ranks == [1, 6])   // tram before cobbles (marker collision priority)
+        #expect(ranks == [3, 6])   // steps before cobbles (marker collision priority)
     }
 
     @Test func overlayTogglesSwitchTheMatchingLayers() {
