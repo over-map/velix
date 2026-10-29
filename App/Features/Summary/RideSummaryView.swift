@@ -32,6 +32,16 @@ extension RideSummaryModel {
     }
 }
 
+extension RideSummaryModel {
+    /// A past ride from the history (You → Your rides).
+    init(_ record: RideRecord) {
+        self.init(arrived: record.ended, place: record.destination, rideType: record.type,
+                  option: record.option,
+                  meters: record.meters, movingSeconds: record.movingSeconds, climb: record.climb,
+                  track: record.track, gpx: record.gpxURL.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil })
+    }
+}
+
 /// S6 Ride summary (P7): the ride on the map, the summary sheet over it. Shown once, after the ride ends by itself.
 /// Strava and Apple Health connect in You (M9), so everyone sees S6b until then; S6a and S6c are built and
 /// snapshot-tested.

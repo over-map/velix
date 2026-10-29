@@ -117,8 +117,8 @@ final class RideSession {
         coordinator.session = self
         core.delegate = coordinator
         provider.onFailure = { [weak self] in Task { @MainActor in self?.rerouteFailed() } }
-        let log = RideLog()
-        log.event(.start(destination: destination.name, meters: option.meters))
+        let log = RideLog(started: AppClock.now)
+        log.event(.start(destination: destination.name, meters: option.meters, type: rules.rideType))
         self.log = log
         location.onFix = { [weak self] fix, quality in
             MainActor.assumeIsolated { self?.fix(fix, quality: quality) }
@@ -215,7 +215,7 @@ final class RideSession {
         try startRoute(next, choice: choice, on: core)
         betweenLegs = false
         legStarted = AppClock.now
-        log?.event(.start(destination: place.name, meters: next.meters))
+        log?.event(.start(destination: place.name, meters: next.meters, type: rules.rideType))
     }
 
     /// Swap the route of this leg (late: Fastest; time again: back to Best).

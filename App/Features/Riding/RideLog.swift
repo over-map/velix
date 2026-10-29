@@ -6,7 +6,7 @@ import Foundation
 /// reroutes, gaps), pulled from the phone like M1's `m1-metrics.jsonl`.
 final class RideLog: @unchecked Sendable {
     enum Event: Equatable, Sendable {
-        case start(destination: String, meters: Double)
+        case start(destination: String, meters: Double, type: RideType? = nil)
         case hazard(type: String, distance: Double, at: LatLon)
         case reroute(String)          // "requested", "accepted", "failed"
         case gps(String)              // "weak", "good"
@@ -15,6 +15,7 @@ final class RideLog: @unchecked Sendable {
     }
 
     let url: URL
+    let started: Date
     private let lock = NSLock()
     private var handle: FileHandle?
     private(set) var stats = RideStats()
@@ -24,6 +25,7 @@ final class RideLog: @unchecked Sendable {
 
     init(directory: URL = URL.documentsDirectory.appending(path: "rides"), started: Date = Date()) {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        self.started = started
         let name = started.formatted(.iso8601.year().month().day().time(includingFractionalSeconds: false))
             .replacingOccurrences(of: ":", with: "")
         url = directory.appending(path: "\(name).jsonl")
@@ -53,7 +55,10 @@ final class RideLog: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         let t = Date().timeIntervalSince1970
         switch e {
-        case let .start(d, m): write(["t": t, "e": "start", "to": d, "m": m])
+        case let .start(d, m, type):
+            var o: [String: Any] = ["t": t, "e": "start", "to": d, "m": m]
+            if let type { o["type"] = type.rawValue }
+            write(o)
         case let .hazard(type, d, at): write(["t": t, "e": "hazard", "type": type, "d": d, "lat": at.lat, "lon": at.lon])
         case let .reroute(s): write(["t": t, "e": "reroute", "s": s])
         case let .gps(s): write(["t": t, "e": "gps", "s": s])
