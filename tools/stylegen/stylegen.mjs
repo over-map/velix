@@ -244,6 +244,16 @@ function style(name, mode) {
   halo('route-alt-halo', role('alt'), (z) => interp(W.routeCase, z) + 3);
   route('route-alt-casing', 'line', { filter: role('alt'), layout: lineLayout, paint: { 'line-color': T.altCase, 'line-width': w('routeCase') } });
   route('route-alt', 'line', { filter: role('alt'), layout: lineLayout, paint: { 'line-color': T.routeAlt, 'line-width': w('route') } });
+  // Routes tab (P7 S7): every listed route thin in accent ('list'), the one in focus wider on top with a white halo
+  // ('focus'); in S7c the others go grey ('list-grey'). Each feature carries its relation `id` (tap to focus).
+  route('route-list-grey', 'line', { filter: role('list-grey'), layout: lineLayout,
+    paint: { 'line-color': tokenColor('ink3', mode), 'line-opacity': 0.7, 'line-width': w('route', 0.5) } });
+  route('route-list-casing', 'line', { filter: role('list'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': w('route', 0.5, 2) } });
+  route('route-list', 'line', { filter: role('list'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': w('route', 0.5) } });
+  route('route-focus-halo', 'line', { filter: role('focus'), layout: lineLayout,
+    paint: { 'line-color': '#FFFFFF', 'line-width': width((z) => interp(W.routeCase, z) + 4) } });
+  route('route-focus-casing', 'line', { filter: role('focus'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': w('routeCase') } });
+  route('route-focus', 'line', { filter: role('focus'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': w('route') } });
   // While riding, Best is split: the stretch around the rider ('best-near', ≈ 400 m) carries the ridden-part fade (a
   // line-gradient set at runtime: its 256-step ramp is fine enough only on a short line), the rest stays 'best'.
   // Casings first, so the two pieces join without a casing cap across the line.
@@ -326,6 +336,13 @@ function style(name, mode) {
       'text-field': ['coalesce', ['get', 'name'], ''], 'text-font': F_BOLD, 'text-size': 13, 'text-anchor': 'bottom', 'text-offset': ['literal', [0, -1.2]],
       'text-optional': true, 'symbol-sort-key': 2 },
     paint: { 'text-color': sat ? '#FFFFFF' : P.lmInk, 'text-halo-color': P.halo, 'text-halo-width': 1.75 } });
+  // S7 key tiles (numbered, accent when in focus), drawn by the app (MapImages `key-<n>[-sel]`).
+  // The others give way when they collide (keys near Milan bunch up); the one in focus always shows.
+  add({ id: 'route-key', type: 'symbol', source: 'velix-markers', filter: ['all', role('key'), ['!', ['get', 'focus']]],
+    layout: { 'icon-image': ['concat', 'key-', ['to-string', ['get', 'key']], `-${mode}`], 'icon-padding': 4,
+      'symbol-sort-key': ['get', 'key'] } });
+  add({ id: 'route-key-focus', type: 'symbol', source: 'velix-markers', filter: ['all', role('key'), ['get', 'focus']],
+    layout: { 'icon-image': ['concat', 'key-', ['to-string', ['get', 'key']], '-sel', `-${mode}`], 'icon-allow-overlap': true } });
   add({ id: 'puck', type: 'symbol', source: 'velix-markers', filter: role('puck'),
     layout: { 'icon-image': ['step', ['zoom'], 'puck-22', 14, 'puck-34', 16, 'puck-46'], 'icon-rotate': ['coalesce', ['get', 'heading'], 0],
       'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true } });

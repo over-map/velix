@@ -27,6 +27,15 @@ final class PlannedRouteProvider: CustomRouteProvider, @unchecked Sendable {
     var lastAvoided: [AvoidedRoad] { lock.withLock { _lastAvoided } }
     /// Called when a reroute fails: Ferrostar swallows the error and keeps the current route.
     var onFailure: @Sendable () -> Void = {}
+    /// Ride this route (S7d): reroutes go back onto the cycle route through its vias still ahead, not straight to the end.
+    typealias Follow = @Sendable (LatLon, [LatLon], LatLon, Double?) async throws -> RouteOption?
+    var follow: (vias: [LatLon], plan: Follow)?
+
+    /// The vias still ahead: those after the one nearest the rider.
+    static func viasAhead(_ vias: [LatLon], from p: LatLon) -> [LatLon] {
+        guard let nearest = vias.indices.min(by: { Geo.distance(vias[$0], p) < Geo.distance(vias[$1], p) }) else { return [] }
+        return Array(vias[(nearest + 1)...])
+    }
 
     enum Failure: Error { case noDestination, noRoute }
 
@@ -46,6 +55,13 @@ final class PlannedRouteProvider: CustomRouteProvider, @unchecked Sendable {
             guard let to = waypoints.last?.coordinate else { throw Failure.noDestination }
             let from = LatLon(lat: userLocation.coordinates.lat, lon: userLocation.coordinates.lng)
             let heading = userLocation.courseOverGround.map { Double($0.degrees) }
+            if let follow {
+                guard let option = try await follow.plan(from, Self.viasAhead(follow.vias, from: from), LatLon(lat: to.lat, lon: to.lng), heading)
+                else { throw Failure.noRoute }
+                let route = try RideSession.route(from: option)
+                lock.withLock { _lastOption = option; _lastAvoided = [] }
+                return [route]
+            }
             let planned = try await plan(from, LatLon(lat: to.lat, lon: to.lng), heading)
             let choice = self.choice
             guard let option = Self.pick(planned, choice: choice) else { throw Failure.noRoute }

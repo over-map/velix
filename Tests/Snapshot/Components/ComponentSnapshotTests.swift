@@ -36,6 +36,9 @@ final class ComponentSnapshotTests: XCTestCase {
     func testLiveActivity() { check("LiveActivity") }
     func testRideSummary() { check("RideSummary") }
     func testRouteListCard() { check("RouteListCard") }
+    func testRouteDetail() { check("RouteDetail") }
+    func testRouteKeyTile() { check("RouteKeyTile") }
+    func testEVBadge() { check("EVBadge") }
     func testFilterChips() { check("FilterChips") }
     func testRuleToggleRow() { check("RuleToggleRow") }
     func testRideRow() { check("RideRow") }

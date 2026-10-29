@@ -16,8 +16,13 @@ final class RouteOptionsModel {
         case failed(String)
     }
 
-    let destination: Place
+    private(set) var destination: Place
     private(set) var state: State = .computing
+    /// Ride this route (P7 S7d): the cycle route, joined at its nearer end; one card, no Fastest, no transit.
+    let follow: CycleRoute?
+    private(set) var followLeg: RouteRide.Leg?
+    private(set) var followVias: [LatLon] = []
+    private(set) var approachMeters = 0.0
     var fastestSelected = false
     var whyExpanded = false
     /// Bike + transit (M8): the first run still caught and the next ones of the same pair, when a trigger fires.
@@ -29,12 +34,24 @@ final class RouteOptionsModel {
         self.destination = destination
         self.state = state
         self.transit = transit
+        follow = nil
+    }
+
+    /// S7d from S7c's Ride this route.
+    init(follow route: CycleRoute, state: State = .computing, approachMeters: Double = 0, leg: RouteRide.Leg? = nil) {
+        follow = route
+        let end = leg?.line.last ?? route.line.last ?? LatLon(lat: 0, lon: 0)
+        destination = Place(id: "route-\(route.id)", name: route.name, subtitle: "", kind: .poi, lat: end.lat, lon: end.lon)
+        self.state = state
+        self.approachMeters = approachMeters
+        followLeg = leg
     }
 
     func plan(app: AppModel) async {
         guard let origin = app.location.coordinate else { state = .needsLocation; return }
         state = .computing
         fastestSelected = false
+        if let follow { return await planFollow(follow, app: app, from: origin) }
         do {
             let planner = try await app.engine.planner()
             switch try await planner.plan(from: origin, to: destination.location, heading: app.location.travelHeading, rules: app.rules) {
@@ -49,6 +66,34 @@ final class RouteOptionsModel {
         } catch {
             state = .failed("Velix couldn’t plan this route.")
         }
+    }
+
+    /// To the nearer end of the route, then along all of it, as one route through vias (``RouteRide``).
+    private func planFollow(_ route: CycleRoute, app: AppModel, from origin: LatLon) async {
+        guard let leg = RouteRide.leg(route, from: origin), let end = leg.line.last else { state = .noRoute; return }
+        followLeg = leg
+        destination = Place(id: "route-\(route.id)", name: route.name, subtitle: leg.to, kind: .poi, lat: end.lat, lon: end.lon)
+        followVias = RouteRide.vias(leg.line)
+        do {
+            let planner = try await app.engine.planner()
+            guard let option = try await planner.follow(from: origin, through: followVias, to: end, heading: app.location.travelHeading,
+                                                        rules: app.rules) else { state = .noRoute; return }
+            approachMeters = RouteRide.approachMeters(option, join: leg.line[0])
+            state = .options(Self.followOptions(option, rules: app.rules, leg: leg, approachMeters: approachMeters))
+        } catch EngineHost.Failure.noPack {
+            state = .failed("Routes start when the \(app.pack.regionName) download is done.")
+        } catch {
+            state = .failed("Velix couldn’t plan this route.")
+        }
+    }
+
+    static let followName = "To the route and along it"
+
+    static func followOptions(_ option: RouteOption, rules: RuleSet, leg: RouteRide.Leg, approachMeters: Double) -> RouteOptions {
+        let approachSeconds = option.meters > 0 ? option.seconds * approachMeters / option.meters : 0
+        return RouteOptions(rules: rules, best: option, fastest: nil, fastestAnalysis: option.analysis, fastestSeconds: option.seconds,
+                            bestName: followName, bestLine: RouteRide.line(approachSeconds: approachSeconds, leg: leg), fastestLine: nil,
+                            litLine: nil, avoided: [], unavoidable: [], rounds: 0, milliseconds: 0)
     }
 
     /// In the background, after the bike routes are on screen: one direct connection, kept only when a trigger
@@ -108,6 +153,12 @@ final class RouteOptionsModel {
 
     var cards: [RouteCard.Model] {
         guard let o = options else { return [] }
+        if let follow {
+            // S7d: "3.8 km + 33 km", "2 h 20".
+            return [RouteCard.Model(name: o.bestName, distance: "\(Format.km(approachMeters)) + \(Format.km(follow.meters))",
+                                    minutes: max(1, Int((o.best.seconds / 60).rounded())), mix: o.best.analysis.mix,
+                                    line: o.bestLine, selected: true, time: RouteRide.duration(o.best.seconds))]
+        }
         var out = [Self.card(name: o.bestName, option: o.best, line: o.bestLine, selected: !fastestSelected)]
         if let f = o.fastest { out.append(Self.card(name: "Fastest", option: f, line: o.fastestLine, selected: fastestSelected)) }
         return out
