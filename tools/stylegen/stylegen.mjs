@@ -37,6 +37,9 @@ function interp(st, z) {
 }
 const ZS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 const r2 = (v) => Math.round(v * 100) / 100;
+/** `a` moved `t` of the way to `b` (#RRGGBB). */
+const mixHex = (a, b, t) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t)
+  .toString(16).padStart(2, '0')).join('').toUpperCase();
 /** A zoom-driven width: f(z) sampled at every zoom, interpolated exponentially (base 1.5) like P3. */
 const width = (f) => ['interpolate', ['exponential', 1.5], ['zoom'], ...ZS.flatMap((z) => [z, r2(Math.max(0, f(z)))])];
 const w = (k, mul = 1, add = 0) => width((z) => interp(W[k], z) * mul + add);
@@ -222,11 +225,22 @@ function style(name, mode) {
   const landmark = ['>=', ['coalesce', ['get', 'render_height'], 0], 85];
   omt('building', 'building-flat', 'fill', { minzoom: 13.6, maxzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof] } });
   omt('building', 'building-edge', 'line', { minzoom: 14.2, maxzoom: 15, paint: { 'line-color': P.wallD, 'line-width': 0.4, 'line-opacity': 0.5 } });
-  omt('building', 'building-3d', 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
-    paint: { 'fill-extrusion-color': ['case', landmark, P.lmRoof, roof],
-      'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14.6, 0, 15.8, ['coalesce', ['get', 'render_height'], 6]],
-      'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14.6, 0, 15.8, ['coalesce', ['get', 'render_min_height'], 0]],
-      'fill-extrusion-vertical-gradient': true, 'fill-extrusion-opacity': 1 } });
+  // Walls lighter at the bottom, darker at the top (Filippo, 30 Oct): MapLibre's own vertical gradient darkens the
+  // bottom and can't be reversed, so each building is three stacked slices of its height, lighter to darker, with
+  // the built-in gradient off. `building-3d` is the bottom slice, `building-3d-1`… the ones above it.
+  const hgt = ['coalesce', ['get', 'render_height'], 6], minH = ['coalesce', ['get', 'render_min_height'], 0];
+  const at = (f) => ['+', minH, ['*', ['-', hgt, minH], f]];
+  const ramp = (v) => ['interpolate', ['linear'], ['zoom'], 14.6, 0, 15.8, v];
+  const shade = (t) => ['case', landmark, P.lmRoof, ['match', roofIdx, ...P.roof.flatMap((c, i) => [i, mixHex(c, t > 0 ? '#000000' : '#FFFFFF', Math.abs(t))]).slice(0, -2),
+    mixHex(P.roof[P.roof.length - 1], t > 0 ? '#000000' : '#FFFFFF', Math.abs(t))]];
+  const SLICES = 8, LIGHT = -0.12, DARK = 0.10;   // lighter than the wall colour at the bottom, darker at the top
+  for (let i = 0; i < SLICES; i++) {
+    const from = i / SLICES, to = (i + 1) / SLICES, t = LIGHT + (DARK - LIGHT) * (i / (SLICES - 1));
+    omt('building', i === 0 ? 'building-3d' : `building-3d-${i}`, 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
+      paint: { 'fill-extrusion-color': shade(t),
+        'fill-extrusion-base': ramp(i === 0 ? minH : at(from)), 'fill-extrusion-height': ramp(at(to)),
+        'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
+  }
   if (sat && P.dim) add({ id: 'night-dim', type: 'background', paint: { 'background-color': `rgba(5,8,12,${P.dim})` } });
 
   // ---- road labels (below the route: it covers its own street names) ----
@@ -345,10 +359,11 @@ function style(name, mode) {
   // without names. Every shop and café of central Milan made the iPhone 11 re-place thousands of symbols each frame
   // of the moving camera (3 fps instead of 60, 30 Oct), and they aren't what a rider looks at.
   // Bike parking left out too (Filippo, 30 Oct: riders park where they like): bike shops and water.
-  omt('poi', 'poi-riding', 'symbol', { minzoom: 15.6, filter: ['all', ['in', poiCat, ['literal', ['bike', 'water']]],
-      ['!', ['in', ['coalesce', ['get', 'subclass'], ''], ['literal', ['bicycle_parking', 'bicycle_rental']]]]],
-    layout: { visibility: 'none', 'icon-image': ['concat', 'poi-', poiCat, `-${mode}`], 'icon-size': ['step', ['zoom'], 1, 17, 8 / 6.5],
-      'symbol-sort-key': 7 } });
+  const bikeShop = ['all', ['==', ['get', 'class'], 'bicycle'], ['!=', ['coalesce', ['get', 'subclass'], ''], 'bicycle_parking']];
+  omt('poi', 'poi-riding', 'symbol', { minzoom: 15.6,
+    filter: ['any', bikeShop, ['==', ['coalesce', ['get', 'subclass'], ''], 'bicycle'], ['==', poiCat, 'water']],
+    layout: { visibility: 'none', 'icon-image': ['case', ['==', poiCat, 'water'], `poi-water-${mode}`, `poi-bikeshop-${mode}`],
+      'icon-size': ['step', ['zoom'], 1, 17, 8 / 6.5], 'symbol-sort-key': 7 } });
   omt('housenumber', 'housenumber', 'symbol', { minzoom: 17.6,
     layout: { 'text-field': ['get', 'housenumber'], 'text-font': F_REG, 'text-size': 9.5, 'symbol-sort-key': 8 },
     paint: { 'text-color': P.hn, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
@@ -395,7 +410,8 @@ function style(name, mode) {
     name: `Velix ${name} ${mode}`,
     metadata: { 'velix:generator': 'tools/stylegen/stylegen.mjs', 'velix:source': 'design/p3v3 (palettes.js, render.js)', 'velix:style': name, 'velix:mode': mode },
     glyphs: 'asset://MapStyle/glyphs/{fontstack}/{range}.pbf',
-    light: { anchor: 'map', position: [1.15, 300, 40], color: '#FFFFFF', intensity: mode === 'day' ? 0.35 : 0.25 },
+    // A warm, higher sun from the south-west (30 Oct): softer walls, roofs lit; dimmer at night.
+    light: { anchor: 'map', position: [1.15, 210, 30], color: mode === 'day' ? '#FFF3E0' : '#C9D4E6', intensity: mode === 'day' ? 0.42 : 0.2 },
     sources: {
       omt: { type: 'vector', url: 'pmtiles://velix-pack/basemap.pmtiles', attribution: '© OpenMapTiles © OpenStreetMap contributors' },
       velix: { type: 'vector', url: 'pmtiles://velix-pack/overlays.pmtiles' },

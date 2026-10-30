@@ -305,8 +305,10 @@ struct VelixMap: UIViewRepresentable {
                     style.layer(withIdentifier: id)?.isVisible = on
                 }
                 // Riding in 3D: buildings a little see-through, so the street and the route read through them (30 Oct).
-                (style.layer(withIdentifier: "building-3d") as? MLNFillExtrusionStyleLayer)?.fillExtrusionOpacity =
-                    NSExpression(forConstantValue: s.riding && s.camera.pitch > 0 ? Self.ridingBuildingOpacity : 1)
+                for layer in style.layers where layer.identifier.hasPrefix("building-3d") {
+                    (layer as? MLNFillExtrusionStyleLayer)?.fillExtrusionOpacity =
+                        NSExpression(forConstantValue: s.riding && s.camera.pitch > 0 ? Self.ridingBuildingOpacity : 1)
+                }
                 // Riding: only the bike POIs, without names (see tools/stylegen: the full POI layers cost 3 fps).
                 for id in ["poi", "poi-civic"] { style.layer(withIdentifier: id)?.isVisible = !s.riding }
                 style.layer(withIdentifier: "poi-riding")?.isVisible = s.riding
