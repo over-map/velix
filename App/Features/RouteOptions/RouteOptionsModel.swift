@@ -194,6 +194,13 @@ final class RouteOptionsModel {
 
     /// The map: both routes, the avoided roads and Best's hazards; the blocked attempt as an alternative.
     var mapRoute: MapRouteModel? {
+        var m = baseMapRoute
+        // The place itself, with a dotted line from where the route ends (not for Ride this route: its end is the route's).
+        if follow == nil, m != nil { m?.place = destination.location }
+        return m
+    }
+
+    private var baseMapRoute: MapRouteModel? {
         if transitSelected, let p = transitPlan { return MapRouteModel(transit: p, endName: destination.name) }
         switch state {
         case let .options(o):
@@ -214,9 +221,11 @@ final class RouteOptionsModel {
 
     /// Points to fit the camera on.
     var fitPoints: [LatLon] {
-        if transitSelected, let p = transitPlan { return p.rideIn.analysis.shape + p.stops.map(\.stop.location) + p.rideOut.analysis.shape }
+        if transitSelected, let p = transitPlan {
+            return p.rideIn.analysis.shape + p.stops.map(\.stop.location) + p.rideOut.analysis.shape + [destination.location]
+        }
         switch state {
-        case let .options(o): return o.best.analysis.shape + (o.fastest?.analysis.shape ?? [])
+        case let .options(o): return o.best.analysis.shape + (o.fastest?.analysis.shape ?? []) + (follow == nil ? [destination.location] : [])
         case let .blocked(_, _, closest?): return closest.analysis.shape
         default: return []
         }

@@ -114,10 +114,26 @@ struct RidingScreen: View {
                 }
                 Spacer()
             }
-            VStack { Spacer(); card.onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { trainCard = VelixMap.covered(fromTop: $0) } }
-                .ignoresSafeArea(edges: .bottom)
+            VStack(alignment: .trailing, spacing: 10) {
+                Spacer()
+                // Ending the ride on the train too (Filippo, 30 Oct): the same End as the ETA bar's, above the sheet.
+                Button { confirmEnd = true } label: {
+                    Text("End ride").velixType(.button).foregroundStyle(Color.velix.dangerInk)
+                        .padding(.horizontal, 20).frame(height: 48)
+                        .background(Color.velix.danger, in: Capsule())
+                        .velixElevation(VelixElevations.e1, in: Capsule())
+                }
+                .buttonStyle(VelixPressStyle())
+                .padding(.trailing, 16)
+                card.onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { trainCard = VelixMap.covered(fromTop: $0) }
+            }
+            .ignoresSafeArea(edges: .bottom)
         }
         .dynamicTypeSize(...DynamicTypeSize.velixRidingCap)
+        .confirmationDialog("End this ride?", isPresented: $confirmEnd, titleVisibility: .visible) {
+            Button("End ride", role: .destructive, action: onEnd)
+            Button("Keep riding", role: .cancel) {}
+        }
     }
 
     private var riding: some View {
@@ -181,7 +197,9 @@ struct RidingScreen: View {
                             .overlay { Circle().strokeBorder(Color.velix.casing.opacity(0.35), lineWidth: 2) }
                             .frame(width: Self.haloSize, height: Self.haloSize)
                     }
-                    if camera.showsChevron { RiderChevron() } else { RiderPuck(course: state.course) }
+                    // The overview's dot in every view (Filippo, 30 Oct: no chevron). Heading-up views turn the map, so
+                    // the cone points up; North up turns the cone.
+                    RiderPuck(course: camera.showsChevron ? 0 : state.course)
                 }
                 .position(x: g.size.width / 2, y: g.size.height * target.anchor)
             }

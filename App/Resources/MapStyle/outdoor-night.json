@@ -8379,12 +8379,70 @@
     ],
     "leg-train"
    ],
+   "maxzoom": 14,
    "layout": {
     "line-cap": "round",
     "line-join": "round"
    },
    "paint": {
     "line-color": "#DBF227",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     8,
+     4.5,
+     9,
+     4.5,
+     10,
+     4.5,
+     11,
+     4.5,
+     12,
+     4.5,
+     13,
+     5,
+     14,
+     6.6,
+     15,
+     9,
+     16,
+     11,
+     17,
+     14,
+     18,
+     16.4,
+     19,
+     20,
+     20,
+     20
+    ]
+   }
+  },
+  {
+   "id": "leg-train-near",
+   "type": "line",
+   "source": "velix-route",
+   "filter": [
+    "==",
+    [
+     "get",
+     "role"
+    ],
+    "leg-train"
+   ],
+   "minzoom": 14,
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#B0ADAD",
     "line-width": [
      "interpolate",
      [
@@ -8435,6 +8493,7 @@
     ],
     "leg-train"
    ],
+   "maxzoom": 14,
    "layout": {
     "line-cap": "butt"
    },
@@ -8919,6 +8978,69 @@
      20,
      20,
      20
+    ]
+   }
+  },
+  {
+   "id": "route-connector",
+   "type": "line",
+   "source": "velix-route",
+   "filter": [
+    "==",
+    [
+     "get",
+     "role"
+    ],
+    "connector"
+   ],
+   "layout": {
+    "line-cap": "round",
+    "line-join": "round"
+   },
+   "paint": {
+    "line-color": "#021624",
+    "line-width": [
+     "interpolate",
+     [
+      "exponential",
+      1.5
+     ],
+     [
+      "zoom"
+     ],
+     8,
+     2.5,
+     9,
+     2.5,
+     10,
+     2.5,
+     11,
+     2.5,
+     12,
+     2.5,
+     13,
+     2.5,
+     14,
+     2.5,
+     15,
+     3.15,
+     16,
+     3.85,
+     17,
+     4.9,
+     18,
+     5.74,
+     19,
+     7,
+     20,
+     7
+    ],
+    "line-dasharray": [
+     "literal",
+     [
+      0.1,
+      2
+     ]
     ]
    }
   },

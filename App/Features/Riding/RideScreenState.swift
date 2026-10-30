@@ -152,7 +152,8 @@ struct RideScreenState: Equatable {
         map.best = restFrom < r.track.length ? RuleChecker.trimmed(full, from: restFrom, to: r.track.length) : []
         map.position = r.track.position
         map.start = nil
-        map.end = r.destination.location
+        map.end = full.last
+        map.place = r.destination.location
         if !r.chevron, let rider = r.rider { map.puck = rider; map.heading = r.heading }
         self.map = map
     }
