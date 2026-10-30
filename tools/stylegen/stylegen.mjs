@@ -21,6 +21,8 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'design/p3v3/palettes.js'), 'utf
 const VX = ctx.VX, W = VX.W, FAM = VX.METRO_FAM;
 const overrides = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/TokenGen/overrides.json'), 'utf8'));
 const tokens = JSON.parse(fs.readFileSync(path.join(ROOT, 'design/velix-tokens.json'), 'utf8'));
+/** POI colour by category: overrides.json `poi` (30 Oct: colours by category), else P3's. `m`: day | night. */
+const poiColor = (cat, m, P) => overrides.poi?.[cat]?.[m === 'day' ? 'light' : 'dark'] ?? P.poi[cat];
 const tokenColor = (name, mode) => (overrides.color?.[name] ?? tokens.color[name])[mode === 'day' ? 'light' : 'dark'];
 
 // P3 width curve (render.js interp): exponential base 1.5 between stops, decaying below the first stop.
@@ -323,7 +325,9 @@ function style(name, mode) {
     layout: { 'icon-image': ['concat', 'poi-', poiCat, `-${mode}`], 'icon-size': ['step', ['zoom'], 1, 17, 8 / 6.5],
       'text-field': ['step', ['zoom'], '', 16.8, ['coalesce', ['get', 'name'], '']], 'text-font': F_REG, 'text-size': 11,
       'text-anchor': 'left', 'text-offset': ['literal', [1.0, 0.05]], 'text-optional': true, 'symbol-sort-key': ['+', 7, ['/', ['coalesce', ['get', 'rank'], 50], 100]] },
-    paint: { 'text-color': P.poiInk, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
+    // Names in their category's colour (overrides.json `poi`), so shops, food and the rest read apart.
+    paint: { 'text-color': ['match', poiCat, ...Object.keys(P.poi).filter((c) => overrides.poi?.[c]).flatMap((c) => [c, poiColor(c, mode, P)]), P.poiInk],
+      'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
   poi('poi-civic', 15.6, true);
   poi('poi', 16.4, false);
   // While riding (the app swaps it in for the two above): bike shops, bike parking and drinking water only, icons
@@ -403,7 +407,7 @@ function swiftPalette() {
   const mode = (m) => {
     const P = VX.PAL.standard[m], T = VX.TK[m];
     const lines = [...keys.map((k) => `        ${k}: ${hex(P[k])},`), ...tk.map((k) => `        ${k}: ${hex(T[k])},`),
-      `        poi: [${cats.map((c) => `"${c}": ${hex(P.poi[c])}`).join(', ')}],`, `        poiAlpha: ${P.poiAlpha}`];
+      `        poi: [${cats.map((c) => `"${c}": ${hex(poiColor(c, m, P))}`).join(', ')}],`, `        poiAlpha: ${P.poiAlpha}`];
     return `    static let ${m} = MapPalette(\n${lines.join('\n')}\n    )`;
   };
   const fam = Object.entries(FAM).map(([k, f]) => `        "${k}": (${hex(f.main)}, ${hex(f.alt)}, ${hex(f.ink)}, ${hex(f.altInk)}),`).join('\n');
