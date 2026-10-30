@@ -24,6 +24,10 @@ struct RidingView: View {
                      onPan: { if !camera.isPanned { held = target(state) }; camera.userPanned(at: Date()) },
                      onEnd: { if let transit { transit.end() } else { session.end() } })
             .onChange(of: session.here) { motion = .track }
+            #if DEBUG
+            // `-ride-3d`: start the ride in 3D (measurements).
+            .onAppear { if ProcessInfo.processInfo.arguments.contains("-ride-3d"), camera.view == .twoD { camera.cycleView() } }
+            #endif
             .task {
                 // Overview and pan go back to follow after 10 s (P5 S4d, S4j).
                 while !Task.isCancelled {

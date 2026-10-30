@@ -75,7 +75,7 @@ enum MapImages {
     /// POI disc r 6.5 with the category glyph (bike: "P").
     private static func poi(_ cat: String, _ p: MapPalette) -> UIImage {
         let r: CGFloat = 6.5, size = CGSize(width: r * 2 + 2, height: r * 2 + 2)
-        let colour = cat == "bike" ? p.prot : (p.poi[cat] ?? p.poi["generic"] ?? p.prot)
+        let colour = cat == "bike" || cat == "bikeshop" ? p.prot : (p.poi[cat] ?? p.poi["generic"] ?? p.prot)
         return draw(size) { c in
             c.setAlpha(p.poiAlpha)
             let disc = CGRect(x: 1, y: 1, width: r * 2, height: r * 2)
@@ -83,6 +83,9 @@ enum MapImages {
             c.setStrokeColor(p.halo.cgColor); c.setLineWidth(1.2); c.strokeEllipse(in: disc)
             if cat == "bike" {
                 text("P", size: 9, bold: true, colour: .white, center: CGPoint(x: size.width / 2, y: size.height / 2))
+            } else if cat == "bikeshop", let img = UIImage(named: VelixGlyph.rideTypeCity.rawValue) {
+                // A bike shop (riding): the bike, not the parking "P".
+                img.withTintColor(.white).draw(in: disc.insetBy(dx: r * 0.3, dy: r * 0.3))
             } else if let glyph = VelixGlyph(rawValue: "glyph-poi-\(cat)"), let img = UIImage(named: glyph.rawValue) {
                 img.withTintColor(p.glyph).draw(in: disc.insetBy(dx: r * 0.38, dy: r * 0.38))
             }
