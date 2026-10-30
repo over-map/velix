@@ -164,7 +164,8 @@ final class TransitRide {
         notice = nil
         #if DEBUG
         if RideLocationProvider.simulates {
-            session.simulateTrain(plan.stops.map(\.stop.location), departs: plan.departure.departs, arrives: plan.departure.arrives)
+            let track = plan.legLines(straightGaps: true).first ?? plan.stops.map(\.stop.location)
+            session.simulateTrain(track, departs: plan.departure.departs, arrives: plan.departure.arrives)
         }
         #endif
         session.updateActivity()
@@ -210,19 +211,44 @@ final class TransitRide {
             let trip = MapRouteModel(transit: plan, endName: destination.name, riding: true)
             s.map.legs = trip.legs
             s.map.changes = trip.changes
+            s.map.connectors = trip.connectors
+            s.map.place = destination.location
             s.map.rides = trip.rides
             s.map.end = trip.end
             s.map.endName = destination.name
         case .onTrain:
             // P6 S5d: the whole trip, the rider on the train leg.
             var trip = MapRouteModel(transit: plan, endName: destination.name, riding: true)
-            trip.puck = s.rider
-            trip.heading = s.course
+            trip.place = destination.location
+            // Where the GPS is now, on the rails when it's near them (not the stale spot on the ride's own route).
+            if let here = session.here {
+                let on = Self.onTrack(here, plan.legLines(straightGaps: true).first ?? [])
+                trip.puck = on.point
+                trip.heading = on.bearing ?? s.course
+            } else {
+                trip.puck = s.rider
+                trip.heading = s.course
+            }
             s.map = trip
             s.ahead = plan.rideIn.analysis.shape + plan.stops.map(\.stop.location) + plan.rideOut.analysis.shape
         case .ride:
             break
         }
+    }
+
+    /// The train's position for the map: the fix snapped to the leg's line within 150 m (GPS in a carriage wanders),
+    /// with the line's direction there; else the fix as it is.
+    nonisolated static func onTrack(_ p: LatLon, _ line: [LatLon]) -> (point: LatLon, bearing: Double?) {
+        guard line.count > 1 else { return (p, nil) }
+        var best: (d: Double, i: Int, t: Double) = (.infinity, 0, 0)
+        for i in 0 ..< line.count - 1 {
+            let r = Geo.distance(from: p, toSegment: line[i], line[i + 1])
+            if r.meters < best.d { best = (r.meters, i, r.t) }
+        }
+        guard best.d <= 150 else { return (p, nil) }
+        let a = line[best.i], b = line[best.i + 1]
+        let snapped = LatLon(lat: a.lat + (b.lat - a.lat) * best.t, lon: a.lon + (b.lon - a.lon) * best.t)
+        return (snapped, Geo.bearing(a, b))
     }
 
     private func decorate(_ state: inout RideActivityAttributes.ContentState) {

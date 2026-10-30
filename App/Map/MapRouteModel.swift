@@ -35,6 +35,13 @@ struct MapRouteModel: Equatable, Sendable {
     var legs: [Leg] = []
     /// Bike + transit: where the ride meets the train or metro (getting on, getting off), marked on the map.
     var changes: [Change] = []
+    /// The place itself when the route can't reach it (a park's centre, a building): the end marker goes there,
+    /// with a dotted line from the route's end (Filippo, 30 Oct).
+    var place: LatLon?
+    /// Dotted lines from where a ride ends to where the rider goes on foot: the station, the destination.
+    var connectors: [[LatLon]] = []
+    /// Shorter than this, the route reaches the place: no dotted line.
+    static let connectorMin = 8.0
 
     struct Change: Equatable {
         var at: LatLon
@@ -113,9 +120,13 @@ struct MapRouteModel: Equatable, Sendable {
         let metro = p.departure.route.mode == .metro
         let color = metro ? p.departure.route.color.map { "#\($0)" } : nil
         legs = p.legLines(straightGaps: !riding).map { Leg(metro: metro, line: $0, color: color) }
-        // Where the bike legs end and start (the station entrance the router reached), else the stops.
-        changes = [Change(at: p.rideIn.analysis.shape.last ?? p.departure.board.location, metro: metro),
-                   Change(at: p.rideOut.analysis.shape.first ?? p.departure.alight.location, metro: metro)]
+        // At the stations, with a dotted line from where the bike legs end and start (the router stops at the road).
+        let board = p.departure.board.location, alight = p.departure.alight.location
+        changes = [Change(at: board, metro: metro), Change(at: alight, metro: metro)]
+        connectors = [[p.rideIn.analysis.shape.last, board], [alight, p.rideOut.analysis.shape.first]].compactMap { pair in
+            guard let a = pair[0], let b = pair[1], Geo.distance(a, b) >= Self.connectorMin else { return nil }
+            return [a, b]
+        }
     }
 
     // MARK: GeoJSON
@@ -133,6 +144,7 @@ struct MapRouteModel: Equatable, Sendable {
         }
         for w in nearWindows where w.line.count > 1 { f.append(line(w.line, ["role": w.slot == 0 ? "best-near" : "best-near-b"])) }
         for t in tubes { f.append(line(t, ["role": "tube"])) }
+        for c in allConnectors { f.append(line(c, ["role": "connector"])) }
         // Focus last: drawn on top (the style orders the roles too).
         for l in listed.sorted(by: { ($0.state == .focus ? 1 : 0) < ($1.state == .focus ? 1 : 0) }) where l.line.count > 1 {
             for piece in l.pieces.isEmpty ? [l.line] : l.pieces where piece.count > 1 {
@@ -149,7 +161,7 @@ struct MapRouteModel: Equatable, Sendable {
     func markersGeoJSON() -> Data {
         var f: [[String: Any]] = []
         if let start { f.append(point(start, ["role": "start"])) }
-        if let end { f.append(point(end, ["role": "end", "name": endName ?? ""])) }
+        if let at = place ?? end { f.append(point(at, ["role": "end", "name": endName ?? ""])) }
         for c in changes { f.append(point(c.at, ["role": "change", "mode": c.metro ? "metro" : "train"])) }
         for a in avoided where a.shape.count > 1 {
             f.append(point(RuleChecker.point(at: Geo.length(a.shape) / 2, on: a.shape, along: RouteAnalyzer.cumulative(a.shape)),
@@ -162,6 +174,12 @@ struct MapRouteModel: Equatable, Sendable {
         }
         if let puck { f.append(point(puck, ["role": "puck", "heading": heading])) }
         return collection(f)
+    }
+
+    /// The connectors, with the one from the route's end to the place.
+    var allConnectors: [[LatLon]] {
+        guard let place, let end, Geo.distance(end, place) >= Self.connectorMin else { return connectors }
+        return connectors + [[end, place]]
     }
 
     /// Where a route's key tile sits: a third of the way along (clear of the ends, where routes meet).

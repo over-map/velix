@@ -273,9 +273,13 @@ function style(name, mode) {
   route('route-best-near-b', 'line', { filter: role('best-near-b'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
   // Train leg drawn as a route with ink ties; metro leg: casing, white core, dashed line colour.
   route('leg-train-casing', 'line', { filter: role('leg-train'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': rw('routeCase') } });
-  route('leg-train', 'line', { filter: role('leg-train'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
+  // Overviews: accent with ink ties (P6). Close in (z14+, riding up to the station) the ties crowd: a plain line in
+  // the train colour instead (Filippo, 30 Oct).
+  route('leg-train', 'line', { filter: role('leg-train'), maxzoom: 14, layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
+  route('leg-train-near', 'line', { filter: role('leg-train'), minzoom: 14, layout: lineLayout,
+    paint: { 'line-color': tokenColor('transitTrain', mode), 'line-width': rw('route') } });
   const tieW = (z) => Math.max(1.6, interp(W.route, z) * 0.34);
-  route('leg-train-ties', 'line', { filter: role('leg-train'), layout: { 'line-cap': 'butt' },
+  route('leg-train-ties', 'line', { filter: role('leg-train'), maxzoom: 14, layout: { 'line-cap': 'butt' },
     paint: { 'line-color': T.casing, 'line-width': width(tieW), 'line-dasharray': dash([1.1, 0.9].map((x) => x * 9), tieW) } });
   route('leg-metro-casing', 'line', { filter: role('leg-metro'), layout: lineLayout, paint: { 'line-color': T.metroCase, 'line-width': w('leg', 1, 2) } });
   route('leg-metro-core', 'line', { filter: role('leg-metro'), layout: lineLayout, paint: { 'line-color': mode === 'day' ? '#FFFFFF' : '#1E2125', 'line-width': w('leg') } });
@@ -283,6 +287,10 @@ function style(name, mode) {
     paint: { 'line-color': ['get', 'color'], 'line-width': w('leg'), 'line-dasharray': dash([10, 4], (z) => interp(W.leg, z)) } });
   route('hazard-tube', 'line', { filter: role('tube'), layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: { 'line-pattern': `hz-stripe-${mode}`, 'line-width': w('tube') } });
+  // On foot to the place or the station from where the ride ends: dotted ink (Filippo, 30 Oct).
+  route('route-connector', 'line', { filter: role('connector'), layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': T.casing, 'line-width': width((z) => Math.max(2.5, interp(W.route, z) * 0.35)),
+      'line-dasharray': ['literal', [0.1, 2]] } });
   // No direction arrows on the route (docs/DECISIONS.md, 21 Oct: Filippo).
 
   // ---- stations, places, POIs ----
