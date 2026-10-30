@@ -36,6 +36,10 @@ struct RidingView: View {
 
     /// The ride, with the bike + transit stages on top when it is one (P6).
     private var screen: RideScreenState {
+        #if DEBUG
+        let t0 = CACurrentMediaTime()
+        defer { Perf.add("screen", CACurrentMediaTime() - t0) }
+        #endif
         var state = session.screen(chevron: camera.drawsRider, now: AppClock.now)
         transit?.decorate(&state)
         return state

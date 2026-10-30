@@ -43,7 +43,15 @@ struct RouteOptionsView: View {
             }
             .ignoresSafeArea(edges: .bottom)
         }
-        .task { if plansOnAppear, case .computing = model.state { await model.plan(app: app) } }
+        .task {
+            if plansOnAppear, case .computing = model.state { await model.plan(app: app) }
+            #if DEBUG
+            // `-start-ride`: Start on the bike route as soon as it is planned (measurements, recordings).
+            if ProcessInfo.processInfo.arguments.contains("-start-ride"), let option = model.chosen {
+                onStart(option, .best, model.options?.avoided ?? [])
+            }
+            #endif
+        }
     }
 
     // MARK: Map

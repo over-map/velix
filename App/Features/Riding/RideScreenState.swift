@@ -139,24 +139,27 @@ struct RideScreenState: Equatable {
         var map = MapRouteModel(best: full, avoided: Self.avoidedNear(r.rider, r.avoided),
                                 hazards: Self.hazardsAhead(r.option.analysis.hazards, from: r.track.position),
                                 endName: r.destination.name, clipBefore: r.track.position - Self.tubeBehind)
-        // Best stays put between re-cuts every 200 m; the near stretch around the rider fades its ridden part at the
-        // rider (a paint change per fix, no upload).
-        let w = Self.nearWindow(r.track)
-        map.best = w.length < r.track.length - w.start ? RuleChecker.trimmed(full, from: w.start + w.length, to: r.track.length) : []
-        map.near = RuleChecker.trimmed(full, from: w.start, to: min(r.track.length, w.start + w.length))
-        map.travelled = min(1, max(0, (r.track.position - w.start) / max(1, min(w.length, r.track.length - w.start))))
+        // Best stays put between re-cuts every 200 m; the stretches around the rider fade their ridden part at the
+        // rider (a paint change per fix, no upload). Two at a time: this 200 m step's and the last one's, each 400 m.
+        let step = Int((r.track.position / Self.nearStep).rounded(.down))
+        map.nearWindows = [step - 1, step].filter { $0 >= 0 }.compactMap { k in
+            let start = Double(k) * Self.nearStep
+            let length = min(2 * Self.nearStep, r.track.length - start)
+            guard length > 1 else { return nil }
+            return .init(slot: k % 2, start: start, length: length, line: RuleChecker.trimmed(full, from: start, to: start + length))
+        }
+        let restFrom = Double(step + 1) * Self.nearStep
+        map.best = restFrom < r.track.length ? RuleChecker.trimmed(full, from: restFrom, to: r.track.length) : []
+        map.position = r.track.position
         map.start = nil
         map.end = r.destination.location
         if !r.chevron, let rider = r.rider { map.puck = rider; map.heading = r.heading }
         self.map = map
     }
 
-    /// The near stretch: from the last 200 m mark behind the rider, 400 m long (MapLibre's 256-step gradient ramp
+    /// The near stretches: from 200 m marks, 400 m long, a new one every 200 m (MapLibre's 256-step gradient ramp
     /// then cuts within ≈ 1.6 m, under the chevron).
     static let nearStep = 200.0
-    static func nearWindow(_ track: RouteTrack) -> (start: Double, length: Double) {
-        ((track.position / nearStep).rounded(.down) * nearStep, 2 * nearStep)
-    }
 
     /// The route's hazards not yet passed (until 4 m beyond their end), measured along the whole route.
     static func hazardsAhead(_ hazards: [RouteHazard], from position: Double) -> [RouteHazard] {

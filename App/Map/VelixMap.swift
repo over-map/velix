@@ -65,6 +65,9 @@ struct VelixMap: UIViewRepresentable {
         map.compassView.isHidden = true
         map.attributionButton.isHidden = !showsAttribution
         context.coordinator.state = self
+        #if DEBUG
+        Perf.startHeartbeat()
+        #endif
         context.coordinator.applyDetail(on: map)
         context.coordinator.loadStyle(on: map)
         context.coordinator.applyCamera(on: map, animated: false)
@@ -79,6 +82,10 @@ struct VelixMap: UIViewRepresentable {
 
     func updateUIView(_ map: MLNMapView, context: Context) {
         let c = context.coordinator
+        #if DEBUG
+        let t0 = CACurrentMediaTime()
+        defer { Perf.add("update", CACurrentMediaTime() - t0) }
+        #endif
         let old = c.state
         c.state = self
         if old?.riding != riding { c.applyDetail(on: map) }
@@ -97,9 +104,11 @@ struct VelixMap: UIViewRepresentable {
             loaded = false
             styleKey = nil
             shapes = [:]
-            travelled = nil
+            position = nil
             shown = nil
             glide = nil
+            windows = [:]
+            clearUntil = [:]
             do { map.styleURL = try VelixMapStyle.url(s.style, s.mode) } catch { print("VelixMap: \(error)") }
         }
 
@@ -249,8 +258,23 @@ struct VelixMap: UIViewRepresentable {
             if let id = hit.first { onTap(id) }
         }
 
+        #if DEBUG
+        nonisolated func mapViewWillStartRenderingFrame(_ mapView: MLNMapView) {
+            MainActor.assumeIsolated { Perf.frameStart = CACurrentMediaTime() }
+        }
+
+        nonisolated func mapViewDidFinishRenderingFrame(_ mapView: MLNMapView, fullyRendered: Bool) {
+            MainActor.assumeIsolated { Perf.add("frame", CACurrentMediaTime() - Perf.frameStart) }
+        }
+        #endif
+
         nonisolated func mapView(_ mapView: MLNMapView, didFailToLoadImage imageName: String) -> UIImage? {
-            MainActor.assumeIsolated { MapImages.image(named: imageName) }
+            MainActor.assumeIsolated {
+                #if DEBUG
+                Perf.add("img:" + imageName.prefix(4), 0)
+                #endif
+                return MapImages.image(named: imageName)
+            }
         }
 
         /// What was last handed to the style, so an update that changes nothing costs nothing: re-setting a source
@@ -260,13 +284,27 @@ struct VelixMap: UIViewRepresentable {
 
         func applyStyleState(on map: MLNMapView) {
             guard loaded, let s = state, let style = map.style else { return }
-            let key = "\(s.bikeLanes)|\(s.transitLines)|\(s.route == nil)"
+            #if DEBUG
+            // `-map-lite a,b`: hide layers whose id starts with any of these (performance experiments).
+            let args = ProcessInfo.processInfo.arguments
+            if let i = args.firstIndex(of: "-map-lite"), i + 1 < args.count {
+                let prefixes = args[i + 1].split(separator: ",").map(String.init)
+                for l in style.layers where prefixes.contains(where: { l.identifier.hasPrefix($0) }) { l.isVisible = false }
+            }
+            if args.contains("-map-poi-notext") {
+                for id in ["poi", "poi-civic"] { (style.layer(withIdentifier: id) as? MLNSymbolStyleLayer)?.text = nil }
+            }
+            #endif
+            let key = "\(s.bikeLanes)|\(s.transitLines)|\(s.route == nil)|\(s.riding)"
             if key != styleKey {
                 styleKey = key
                 let ids = style.layers.map(\.identifier)
                 for (id, on) in VelixMapStyle.visibility(bikeLanes: s.bikeLanes, transitLines: s.transitLines, layerIDs: ids) {
                     style.layer(withIdentifier: id)?.isVisible = on
                 }
+                // Riding: only the bike POIs, without names (see tools/stylegen: the full POI layers cost 3 fps).
+                for id in ["poi", "poi-civic"] { style.layer(withIdentifier: id)?.isVisible = !s.riding }
+                style.layer(withIdentifier: "poi-riding")?.isVisible = s.riding
                 // P3: train & metro at 60 % while a route is shown.
                 for id in ids where id.hasPrefix("overlay-train") || id.hasPrefix("overlay-metro") {
                     (style.layer(withIdentifier: id) as? MLNLineStyleLayer)?.lineOpacity = NSExpression(forConstantValue: s.route == nil ? 1 : 0.6)
@@ -275,34 +313,53 @@ struct VelixMap: UIViewRepresentable {
             MapImages.avoidedTexts = Dictionary(uniqueKeysWithValues: (s.route?.avoided ?? []).map { ($0.id, $0.reason) })
             let r = s.route
             setShape("velix-route", r?.routeGeoJSON(), in: style)
-            setTravelled(r?.travelled, in: map)
+            setTravelled(r, in: map)
             setShape("velix-hazards", r?.hazardsGeoJSON(), in: style)
             var markers = r ?? MapRouteModel(best: [])
             if markers.puck == nil, let user = s.userLocation { markers.puck = user; markers.heading = s.userHeading ?? 0 }
             setShape("velix-markers", markers.markersGeoJSON(), in: style)
         }
 
-        private var travelled: Double?
-        /// The share drawn now, and the glide towards the latest one.
+        /// The rider's position along the route, as last handed over and as drawn now (it glides between fixes).
+        private var position: Double?
         private var shown: Double?
         private var glide: (from: Double, to: Double, start: CFTimeInterval)?
+        /// Per slot (0, 1): the stretch it draws, and until when a new one stays clear (its shape is uploaded with the
+        /// route but drawn a few frames later; its fade is a paint change, applied at once).
+        private var windows: [Int: (start: Double, length: Double)] = [:]
+        private var clearUntil: [Int: CFTimeInterval] = [:]
         private var link: CADisplayLink?
         private weak var map: MLNMapView?
 
-        /// Fades the ridden part of Best's near stretch: a step on line-progress, clear before the rider and the layer's
-        /// own colour after. A paint change only, so it follows the rider without re-uploading the route. While tracking it glides
-        /// to each new fix over the camera's 1 s, so the cut stays under the chevron instead of running ahead of it.
-        private func setTravelled(_ share: Double?, in map: MLNMapView) {
-            guard share != travelled else { return }
-            travelled = share
+        /// How long a new stretch waits before it shows: the old one, in the other slot, covers the next 200 m meanwhile.
+        static let newStretchDelay: CFTimeInterval = 0.5
+
+        /// Fades the ridden part of the near stretches: a step on line-progress, clear before the rider and the layer's
+        /// own colour after. A paint change only, so it follows the rider without re-uploading the route. While tracking
+        /// the rider's position glides to each new fix over the camera's step, so the cut stays under the rider.
+        private func setTravelled(_ route: MapRouteModel?, in map: MLNMapView) {
             self.map = map
-            guard let share, let from = shown, state?.motion == .track, share > from, share - from < 0.05 else {
-                glide = nil
-                drawTravelled(share)
-                return
+            let now = CACurrentMediaTime()
+            var changed = false
+            for slot in 0 ... 1 {
+                let w = route?.nearWindows.first { $0.slot == slot }.map { (start: $0.start, length: $0.length) }
+                if w?.start != windows[slot]?.start || w?.length != windows[slot]?.length {
+                    // A stretch replacing another stays clear until its shape is on screen; the first one shows at once.
+                    if w != nil, windows[slot] != nil || windows[1 - slot] != nil { clearUntil[slot] = now + Self.newStretchDelay }
+                    windows[slot] = w
+                    changed = true
+                }
             }
-            glide = (from, share, CACurrentMediaTime())
-            if link == nil {
+            let target = route?.position
+            guard target != position || changed else { return }
+            position = target
+            if let target, let from = shown, state?.motion == .track, target > from, target - from < 40 {
+                glide = (from, target, now)
+            } else {
+                glide = nil
+                drawTravelled(target)
+            }
+            if link == nil, glide != nil || !clearUntil.isEmpty {
                 let l = CADisplayLink(target: self, selector: #selector(stepGlide))
                 l.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30)
                 l.add(to: .main, forMode: .common)
@@ -311,20 +368,42 @@ struct VelixMap: UIViewRepresentable {
         }
 
         @objc private func stepGlide() {
-            guard let g = glide else { link?.invalidate(); link = nil; return }
-            let t = min(1, (CACurrentMediaTime() - g.start) / (Self.duration(.track) ?? 1))
-            drawTravelled(g.from + (g.to - g.from) * t)
-            if t >= 1 { glide = nil }
+            guard glide != nil || !clearUntil.isEmpty else { link?.invalidate(); link = nil; return }
+            if let g = glide {
+                let t = min(1, (CACurrentMediaTime() - g.start) / (Self.duration(.track) ?? 1))
+                drawTravelled(g.from + (g.to - g.from) * t)
+                if t >= 1 { glide = nil }
+            } else {
+                drawTravelled(shown)
+            }
         }
 
-        private func drawTravelled(_ share: Double?) {
-            shown = share
+        static let nearLayers = [["route-best-near-halo", "route-best-near-casing", "route-best-near"],
+                                 ["route-best-near-b-halo", "route-best-near-b-casing", "route-best-near-b"]]
+
+        private func drawTravelled(_ position: Double?) {
+            #if DEBUG
+            let t0 = CACurrentMediaTime()
+            defer { Perf.add("fade", CACurrentMediaTime() - t0) }
+            #endif
+            shown = position
             guard let style = map?.style else { return }
-            for id in ["route-best-near-halo", "route-best-near-casing", "route-best-near"] {
-                guard let layer = style.layer(withIdentifier: id) as? MLNLineStyleLayer else { continue }
-                guard let share, let color = layer.lineColor.constantValue as? UIColor else { layer.lineGradient = nil; continue }
-                let at = NSNumber(value: min(max(share, 0.0001), 0.9999))
-                layer.lineGradient = NSExpression(format: "mgl_step:from:stops:($lineProgress, %@, %@)", UIColor.clear, [at: color])
+            let now = CACurrentMediaTime()
+            for (slot, ids) in Self.nearLayers.enumerated() {
+                if let until = clearUntil[slot], now >= until { clearUntil[slot] = nil }
+                let w = windows[slot]
+                let clear = clearUntil[slot] != nil || w == nil
+                for id in ids {
+                    guard let layer = style.layer(withIdentifier: id) as? MLNLineStyleLayer else { continue }
+                    // No stretch in this slot, or a new one not drawn yet: clear (a removed shape lingers a few frames too).
+                    guard let w, let position, !clear, let color = layer.lineColor.constantValue as? UIColor else {
+                        layer.lineGradient = NSExpression(forConstantValue: UIColor.clear)
+                        continue
+                    }
+                    let share = (position - w.start) / max(1, w.length)
+                    let at = NSNumber(value: min(max(share, 0.0001), 0.9999))
+                    layer.lineGradient = NSExpression(format: "mgl_step:from:stops:($lineProgress, %@, %@)", UIColor.clear, [at: color])
+                }
             }
         }
 
@@ -338,3 +417,35 @@ struct VelixMap: UIViewRepresentable {
         }
     }
 }
+
+#if DEBUG
+/// `-map-perf`: once a second, frames the map drew and main-thread time in updates and fade steps (console).
+@MainActor
+enum Perf {
+    static let on = ProcessInfo.processInfo.arguments.contains("-map-perf")
+    private static var counts: [String: (n: Int, t: Double)] = [:]
+    private static var since = CACurrentMediaTime()
+    static var frameStart = CACurrentMediaTime()
+    /// A 60 Hz heartbeat: fewer ticks than 60 a second means the main thread was busy.
+    private static var beat: CADisplayLink?
+    private final class Beat: NSObject { @objc func tick() { MainActor.assumeIsolated { Perf.add("main", 0) } } }
+    private static let beatTarget = Beat()
+    static func startHeartbeat() {
+        guard on, beat == nil else { return }
+        let l = CADisplayLink(target: beatTarget, selector: #selector(Beat.tick))
+        l.add(to: .main, forMode: .common)
+        beat = l
+    }
+
+    static func add(_ key: String, _ t: Double) {
+        guard on else { return }
+        let c = counts[key] ?? (0, 0)
+        counts[key] = (c.n + 1, c.t + t)
+        let now = CACurrentMediaTime()
+        guard now - since >= 1 else { return }
+        print("PERF " + counts.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value.n)× \(Int($0.value.t * 1000)) ms" }.joined(separator: " · "))
+        counts = [:]
+        since = now
+    }
+}
+#endif
