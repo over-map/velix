@@ -10,7 +10,7 @@ struct RootView: View {
     @State private var showDownload = false
     private let following: Bool
 
-    init(app: AppModel = AppModel(), sheet: RideSheet? = nil, showDownload: Bool = false, following: Bool = true) {
+    init(app: AppModel, sheet: RideSheet? = nil, showDownload: Bool = false, following: Bool = true) {
         _app = State(initialValue: app)
         self.following = following
         _sheet = State(initialValue: sheet)

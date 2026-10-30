@@ -258,15 +258,19 @@ function style(name, mode) {
     paint: { 'line-color': '#FFFFFF', 'line-width': width((z) => Math.max(interp(W.routeCase, z), CASE_MIN) + 4) } });
   route('route-focus-casing', 'line', { filter: role('focus'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': rw('routeCase') } });
   route('route-focus', 'line', { filter: role('focus'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
-  // While riding, Best is split: the stretch around the rider ('best-near', ≈ 400 m) carries the ridden-part fade (a
+  // While riding, Best is split: the stretches around the rider ('best-near' and 'best-near-b', 400 m each, taking turns
+  // every 200 m so a new one is drawn before the old one goes, 30 Oct) carry the ridden-part fade (a
   // line-gradient set at runtime: its 256-step ramp is fine enough only on a short line), the rest stays 'best'.
   // Casings first, so the two pieces join without a casing cap across the line.
   halo('route-best-halo', role('best'), (z) => Math.max(interp(W.routeCase, z), CASE_MIN) + 3);
   halo('route-best-near-halo', role('best-near'), (z) => Math.max(interp(W.routeCase, z), CASE_MIN) + 3);
+  halo('route-best-near-b-halo', role('best-near-b'), (z) => Math.max(interp(W.routeCase, z), CASE_MIN) + 3);
   route('route-best-casing', 'line', { filter: role('best'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': rw('routeCase') } });
   route('route-best-near-casing', 'line', { filter: role('best-near'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': rw('routeCase') } });
+  route('route-best-near-b-casing', 'line', { filter: role('best-near-b'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': rw('routeCase') } });
   route('route-best', 'line', { filter: role('best'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
   route('route-best-near', 'line', { filter: role('best-near'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
+  route('route-best-near-b', 'line', { filter: role('best-near-b'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
   // Train leg drawn as a route with ink ties; metro leg: casing, white core, dashed line colour.
   route('leg-train-casing', 'line', { filter: role('leg-train'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': rw('routeCase') } });
   route('leg-train', 'line', { filter: role('leg-train'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
@@ -314,6 +318,12 @@ function style(name, mode) {
     paint: { 'text-color': P.poiInk, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
   poi('poi-civic', 15.6, true);
   poi('poi', 16.4, false);
+  // While riding (the app swaps it in for the two above): bike shops, bike parking and drinking water only, icons
+  // without names. Every shop and café of central Milan made the iPhone 11 re-place thousands of symbols each frame
+  // of the moving camera (3 fps instead of 60, 30 Oct), and they aren't what a rider looks at.
+  omt('poi', 'poi-riding', 'symbol', { minzoom: 15.6, filter: ['in', poiCat, ['literal', ['bike', 'water']]],
+    layout: { visibility: 'none', 'icon-image': ['concat', 'poi-', poiCat, `-${mode}`], 'icon-size': ['step', ['zoom'], 1, 17, 8 / 6.5],
+      'symbol-sort-key': 7 } });
   omt('housenumber', 'housenumber', 'symbol', { minzoom: 17.6,
     layout: { 'text-field': ['get', 'housenumber'], 'text-font': F_REG, 'text-size': 9.5, 'symbol-sort-key': 8 },
     paint: { 'text-color': P.hn, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });

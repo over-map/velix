@@ -43,8 +43,19 @@ struct MapRouteModel: Equatable, Sendable {
 
     /// Riding: the stretch of Best around the rider (drawn after `best`, which then holds the rest), and the share of it
     /// already ridden, faded out on the map (a line-gradient).
-    var near: [LatLon]?
-    var travelled: Double?
+    /// Riding: the stretches around the rider whose ridden part fades (``RideScreenState``), and where the rider is,
+    /// in metres along the route.
+    var nearWindows: [NearWindow] = []
+    var position: Double?
+
+    /// A 400 m stretch of Best from `start` metres, drawn in one of two slots (style roles `best-near`, `best-near-b`):
+    /// a new stretch takes the other slot, so the one on screen keeps its fade until the new one has been drawn.
+    struct NearWindow: Equatable {
+        var slot: Int
+        var start: Double
+        var length: Double
+        var line: [LatLon]
+    }
 
     /// Marker collision priority (docs/DECISIONS.md, 15 Oct): lower draws first and wins.
     static let rank: [HazardType: Int] = [.tram: 1, .along: 2, .steps: 3, .gap: 4, .lane: 5, .cobbles: 6, .dismount: 7,
@@ -120,7 +131,7 @@ struct MapRouteModel: Equatable, Sendable {
             if l.metro, let color = l.color { f.append(line(l.line, ["role": "leg-metro", "color": color])) }
             else { f.append(line(l.line, ["role": "leg-train"])) }
         }
-        if let near, near.count > 1 { f.append(line(near, ["role": "best-near"])) }
+        for w in nearWindows where w.line.count > 1 { f.append(line(w.line, ["role": w.slot == 0 ? "best-near" : "best-near-b"])) }
         for t in tubes { f.append(line(t, ["role": "tube"])) }
         // Focus last: drawn on top (the style orders the roles too).
         for l in listed.sorted(by: { ($0.state == .focus ? 1 : 0) < ($1.state == .focus ? 1 : 0) }) where l.line.count > 1 {

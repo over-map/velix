@@ -307,13 +307,18 @@ struct RideScreenStateTests {
         #expect(RideScreenState.hazardsAhead([h(.tram, 198)], from: 200).count == 1)
     }
 
-    @MainActor @Test func theStretchNearTheRiderFadesBehindIt() {
+    @MainActor @Test func theStretchesNearTheRiderFadeBehindIt() {
         let state = RideScreenState(AppSamples.ride(at: 420))
-        #expect(abs(Geo.length(state.map.near ?? []) - 400) < 1)           // 400 → 800 m: re-cut every 200 m only
+        // This 200 m step's stretch (400 → 800 m, slot 0) and the last one's (200 → 600 m, slot 1), so a new one is
+        // drawn before the old one goes.
+        #expect(state.map.nearWindows.map(\.start) == [200, 400])
+        #expect(state.map.nearWindows.map(\.slot) == [1, 0])
+        #expect(state.map.nearWindows.allSatisfy { abs(Geo.length($0.line) - 400) < 1 })
         let length = Geo.length(AppSamples.rideOption().analysis.shape)
-        #expect(abs(Geo.length(state.map.best) - (length - 800)) < 1)       // the rest, to the end
-        #expect(abs((state.map.travelled ?? 0) - 20 / 400) < 0.01)
-        #expect(RideScreenState(AppSamples.ride(at: 590)).map.near == state.map.near)
+        #expect(abs(Geo.length(state.map.best) - (length - 600)) < 1)       // the rest, from the step after
+        #expect(abs((state.map.position ?? 0) - 420) < 1)
+        #expect(RideScreenState(AppSamples.ride(at: 590)).map.nearWindows == state.map.nearWindows)
+        #expect(RideScreenState(AppSamples.ride(at: 120)).map.nearWindows.map(\.start) == [0])
     }
 
     @Test func avoidedRoadsShowOnlyNearTheRider() {

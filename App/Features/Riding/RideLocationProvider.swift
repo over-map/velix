@@ -1,4 +1,5 @@
 import CoreLocation
+import QuartzCore
 @preconcurrency import FerrostarCore
 @preconcurrency import FerrostarCoreFFI
 import Foundation
@@ -85,6 +86,10 @@ final class RideLocationProvider: NSObject, LocationProviding, CLLocationManager
     }
 
     private func simulationStep() {
+        #if DEBUG
+        let t0 = CACurrentMediaTime()
+        defer { let dt = CACurrentMediaTime() - t0; DispatchQueue.main.async { Perf.add("fix", dt) } }
+        #endif
         guard let (shape, along) = simulated, let length = along.last else { return }
         var speed = Self.simulatedSpeed
         if let run = simulatedRun {
