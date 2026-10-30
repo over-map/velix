@@ -25,13 +25,13 @@ struct MapTests {
     }
 
     @Test func overlayTogglesSwitchTheMatchingLayers() {
-        let ids = ["cycle-protected", "cycle-halo", "overlay-cycle-painted", "eurovelo-ribbon", "overlay-metro", "station-metro",
-                   "overlay-station-metro", "road-minor"]
+        // Bike lanes only through the overlay (30 Oct): the base map has no cycle layers.
+        let ids = ["overlay-cycle-painted", "eurovelo-ribbon", "overlay-metro", "station-metro", "overlay-station-metro", "road-minor"]
         let off = VelixMapStyle.visibility(bikeLanes: false, transitLines: false, layerIDs: ids)
-        #expect(off["cycle-protected"] == true && off["overlay-cycle-painted"] == false && off["eurovelo-ribbon"] == false)
+        #expect(off["overlay-cycle-painted"] == false && off["eurovelo-ribbon"] == false)
         #expect(off["station-metro"] == true && off["overlay-station-metro"] == false && off["road-minor"] == nil)
         let on = VelixMapStyle.visibility(bikeLanes: true, transitLines: true, layerIDs: ids)
-        #expect(on["cycle-protected"] == false && on["overlay-cycle-painted"] == true && on["overlay-metro"] == true)
+        #expect(on["overlay-cycle-painted"] == true && on["overlay-metro"] == true)
         #expect(on["station-metro"] == false)
     }
 

@@ -178,10 +178,11 @@ function style(name, mode) {
     omt('transportation', `bridge-${k}`, 'line', { minzoom: casedFrom, filter: f, layout: lineLayout, paint: { 'line-color': roadCol(k), 'line-width': width(wr(k)) } });
   }
 
-  // ---- cycling infrastructure: base (z14+, ×0.7, 80 %) and the Bike lanes overlay (z11+, full) ----
+  // ---- cycling infrastructure: only the Bike lanes overlay (z11+), switched in the Map sheet; the base map has none
+  // (Filippo, 30 Oct: one place for bike lanes) ----
   const vel = (layer, id, type, extra) => add({ id, type, source: 'velix', 'source-layer': layer, ...extra });
   const kerb = ['interpolate', ['linear'], ['zoom'], 16.9, 0, 17, ['match', ['get', 'side'], 'right', 2, 'left', -2, 0], 19, ['match', ['get', 'side'], 'right', 7, 'left', -7, 0]];
-  for (const [prefix, minzoom, mul, alpha, visible] of [['cycle', 14, 0.7, 0.8, !sat], ['overlay-cycle', 11, 1, 1, false]]) {
+  for (const [prefix, minzoom, mul, alpha, visible] of [['overlay-cycle', 11, 1, 1, false]]) {
     const bw = (z) => interp(W.bike, z) * mul;
     const vis = { visibility: visible ? 'visible' : 'none' };
     if (sat) vel('velix_cycling', `${prefix}-halo`, 'line', { minzoom, layout: { ...lineLayout, ...vis }, paint: { 'line-color': '#FFFFFF', 'line-width': width((z) => bw(z) + 3), 'line-offset': kerb } });

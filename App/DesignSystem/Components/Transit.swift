@@ -382,18 +382,7 @@ struct OnTrainCard: View, Equatable {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var footer: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 8) {
-                VelixIconView(.vibrate, size: 20)
-                Text("Velix buzzes 2 min before")
-            }
-            .velixType(VelixType.body.sized(15, lineHeight: 19))
-            .foregroundStyle(Color.velix.ink2)
-            Spacer(minLength: 0)
-            Text(arrival).velixType(VelixType.label.sized(15, lineHeight: 19)).foregroundStyle(Color.velix.ink).lineLimit(1)
-        }
-    }
+    private var footer: some View { OnTrainFooter(arrival: arrival) }
 
     /// One carriage, the front one rounded: accent with the casing and a bike where bikes go.
     private struct Carriage: View {
@@ -496,4 +485,53 @@ extension TransitCard.Model {
         .padding()
     }
     .background(Color.velix.canvas)
+}
+
+/// The on-train sheet's last row: the buzz and the arrival; while riding, End at the right, as in the ETA bar
+/// (Filippo, 30 Oct: End inside the panel, the same on the train as on the bike).
+struct OnTrainFooter: View {
+    let arrival: String
+    @Environment(\.rideEnd) private var rideEnd
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if let rideEnd {
+                VStack(alignment: .leading, spacing: 4) {
+                    buzz
+                    Text(arrival).velixType(VelixType.label.sized(15, lineHeight: 19)).foregroundStyle(Color.velix.ink).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Button(action: rideEnd.action) {
+                    Text("End").velixType(.button).foregroundStyle(Color.velix.dangerInk)
+                        .frame(width: 92, height: CGFloat.velix.touch.riding)
+                        .background(Color.velix.danger, in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.card))
+                }
+                .buttonStyle(VelixPressStyle())
+                .accessibilityLabel("End ride")
+            } else {
+                buzz
+                Spacer(minLength: 0)
+                Text(arrival).velixType(VelixType.label.sized(15, lineHeight: 19)).foregroundStyle(Color.velix.ink).lineLimit(1)
+            }
+        }
+    }
+
+    private var buzz: some View {
+        HStack(spacing: 8) {
+            VelixIconView(.vibrate, size: 20)
+            Text("Velix buzzes 2 min before")
+        }
+        .velixType(VelixType.body.sized(15, lineHeight: 19))
+        .foregroundStyle(Color.velix.ink2)
+    }
+}
+
+/// End ride, handed to panels that carry the End button (the on-train sheet).
+struct RideEndAction: Sendable { let action: @MainActor @Sendable () -> Void }
+private struct RideEndKey: EnvironmentKey { static let defaultValue: RideEndAction? = nil }
+extension EnvironmentValues {
+    var rideEnd: RideEndAction? {
+        get { self[RideEndKey.self] }
+        set { self[RideEndKey.self] = newValue }
+    }
 }

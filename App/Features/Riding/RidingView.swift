@@ -76,17 +76,31 @@ struct RidingScreen: View {
     var onEnd: () -> Void = {}
 
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.mapAppearance) private var mapAppearance
     @Environment(\.liveMap) private var liveMap
     @State private var confirmEnd = false
     /// Measured: how much the on-train sheet and the ETA bar cover (the fit and the map's ⓘ follow them).
     @State private var trainCard: CGFloat?
     @State private var etaBar: CGFloat?
+    /// Measured: the banner's bottom edge (the map area left free starts there).
+    @State private var bannerBottom: CGFloat?
 
     /// The overview fits the rest of the trip between the banner and the ETA bar (design/p4/maps.js rOver: 250 / 120,
     /// plus 20 so the ends clear them; VelixMap adds 40 all round).
     static let overviewInsets = UIEdgeInsets(top: 230, left: 0, bottom: 100, right: 0)
     /// P6 S5d map: top 110, bottom 470 (VelixMap adds 40).
     static let trainInsets = UIEdgeInsets(top: 70, left: 0, bottom: 430, right: 0)
+    /// The follow camera with the rider placed in the map area the banner and the ETA bar leave free (Filippo,
+    /// 30 Oct): 2D and North up at its centre, 3D a tenth of its height above its bottom edge. Until both are
+    /// measured, the camera's own anchor.
+    private var placed: MapCamera? {
+        guard var t = target, camera.isFollowing, let top = bannerBottom, let bottom = etaBar else { return target }
+        let h = UIScreen.main.bounds.height
+        let area = max(1, h - bottom - top)
+        t.anchor = (top + area * (t.pitch > 0 ? 0.9 : 0.5)) / h
+        return t
+    }
+
     /// The trip between the strip and the sheet, the sheet as tall as it is now (P6 S5d's 430 until measured).
     private var trainInsets: UIEdgeInsets {
         var i = Self.trainInsets
@@ -114,18 +128,11 @@ struct RidingScreen: View {
                 }
                 Spacer()
             }
-            VStack(alignment: .trailing, spacing: 10) {
+            VStack(spacing: 0) {
                 Spacer()
-                // Ending the ride on the train too (Filippo, 30 Oct): the same End as the ETA bar's, above the sheet.
-                Button { confirmEnd = true } label: {
-                    Text("End ride").velixType(.button).foregroundStyle(Color.velix.dangerInk)
-                        .padding(.horizontal, 20).frame(height: 48)
-                        .background(Color.velix.danger, in: Capsule())
-                        .velixElevation(VelixElevations.e1, in: Capsule())
-                }
-                .buttonStyle(VelixPressStyle())
-                .padding(.trailing, 16)
-                card.onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { trainCard = VelixMap.covered(fromTop: $0) }
+                // End inside the sheet, as in the ETA bar (Filippo, 30 Oct).
+                card.environment(\.rideEnd, RideEndAction { confirmEnd = true })
+                    .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { trainCard = VelixMap.covered(fromTop: $0) }
             }
             .ignoresSafeArea(edges: .bottom)
         }
@@ -141,7 +148,7 @@ struct RidingScreen: View {
             map.ignoresSafeArea()
             rider.ignoresSafeArea().allowsHitTesting(false)
             VStack(spacing: 0) {
-                top
+                top.onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { bannerBottom = $0 }
                 HStack(alignment: .top) {
                     Spacer()
                     VStack(spacing: 12) {
@@ -173,10 +180,10 @@ struct RidingScreen: View {
     // MARK: Map
 
     @ViewBuilder private var map: some View {
-        if liveMap, let target {
+        if liveMap, let target = placed {
             // The overview, and the train stage (P6 S5d: the whole trip between the strip and the sheet), fit the trip.
             let train = state.onTrain != nil
-            VelixMap(style: mapStyle, mode: scheme == .dark ? .night : .day, bikeLanes: bikeLanes, transitLines: transitLines,
+            VelixMap(style: mapStyle, mode: MapMode(scheme, mapAppearance), bikeLanes: bikeLanes, transitLines: transitLines,
                      route: state.map, camera: target,
                      insets: train ? trainInsets : camera.isOverview ? Self.overviewInsets : .zero,
                      fit: (camera.isOverview || train) && state.ahead.count > 1 ? state.ahead : nil, motion: motion,
@@ -189,7 +196,7 @@ struct RidingScreen: View {
     /// The rider at the camera's anchor while following: the P3 chevron (2D, 3D) or the dot and cone (North up), and
     /// the weak-GPS halo.
     @ViewBuilder private var rider: some View {
-        if camera.isFollowing, let target {
+        if camera.isFollowing, let target = placed {
             GeometryReader { g in
                 ZStack {
                     if state.weakGPS {
@@ -197,9 +204,10 @@ struct RidingScreen: View {
                             .overlay { Circle().strokeBorder(Color.velix.casing.opacity(0.35), lineWidth: 2) }
                             .frame(width: Self.haloSize, height: Self.haloSize)
                     }
-                    // The overview's dot in every view (Filippo, 30 Oct: no chevron). Heading-up views turn the map, so
-                    // the cone points up; North up turns the cone.
-                    RiderPuck(course: camera.showsChevron ? 0 : state.course)
+                    // The overview's dot (Filippo, 30 Oct: no chevron). Heading-up views (2D, 3D) turn the map: a plain
+                    // dot at twice the size, no cone; North up keeps the cone, which turns.
+                    RiderPuck(course: camera.showsChevron ? 0 : state.course, cone: !camera.showsChevron,
+                              scale: camera.showsChevron ? 2 : 1)
                 }
                 .position(x: g.size.width / 2, y: g.size.height * target.anchor)
             }
@@ -267,16 +275,22 @@ struct RiderChevron: View {
 /// gliding over the fix interval the shortest way round.
 struct RiderPuck: View {
     let course: Double
+    /// The heading cone (North up); heading-up views don't need it.
+    var cone = true
+    /// 2 in 2D and 3D (Filippo, 30 Oct).
+    var scale: CGFloat = 1
     @State private var angle: Double?
 
     var body: some View {
         ZStack {
-            Cone().fill(Color.velix.accent.opacity(0.42)).frame(width: 92, height: 92)
-                .rotationEffect(.degrees(angle ?? course))
-            Circle().fill(Color.white).frame(width: 24, height: 24)
-            Circle().fill(Color.velix.accent).frame(width: 20, height: 20)
-                .overlay { Circle().strokeBorder(Color.velix.casing, lineWidth: 3) }
-            NavigationArrow().fill(Color.velix.accentInk).frame(width: 8, height: 9).rotationEffect(.degrees(angle ?? course))
+            if cone {
+                Cone().fill(Color.velix.accent.opacity(0.42)).frame(width: 92, height: 92)
+                    .rotationEffect(.degrees(angle ?? course))
+            }
+            Circle().fill(Color.white).frame(width: 24 * scale, height: 24 * scale)
+            Circle().fill(Color.velix.accent).frame(width: 20 * scale, height: 20 * scale)
+                .overlay { Circle().strokeBorder(Color.velix.casing, lineWidth: 3 * (1 + (scale - 1) / 2)) }
+            NavigationArrow().fill(Color.velix.accentInk).frame(width: 8 * scale, height: 9 * scale).rotationEffect(.degrees(angle ?? course))
         }
         .accessibilityHidden(true)
         .onChange(of: course) { _, new in

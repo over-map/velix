@@ -7,6 +7,8 @@ struct MapStyleSheet: View {
     @Binding var style: Style
     @Binding var bikeLanes: Bool
     @Binding var transitLines: Bool
+    /// Light / Dark / Auto for the map (nil hides the row: gallery samples).
+    var appearance: Binding<MapAppearance>?
     /// S1h/i: close button and "Your choice is remembered for City." (nil hides them).
     var onClose: (() -> Void)?
 
@@ -32,6 +34,25 @@ struct MapStyleSheet: View {
                 if let onClose { SheetCloseButton(action: onClose) }
             }
             HStack(spacing: CGFloat.velix.s) { ForEach(styles, id: \.self) { styleTile($0) } }
+            if let appearance {
+                SectionLabel("Light or dark")
+                HStack(spacing: CGFloat.velix.xs) {
+                    ForEach(MapAppearance.allCases, id: \.self) { a in
+                        let on = appearance.wrappedValue == a
+                        Button { appearance.wrappedValue = a } label: {
+                            Text(a.title).velixType(.label)
+                                .foregroundStyle(on ? Color.velix.surface : Color.velix.ink)
+                                .frame(maxWidth: .infinity).frame(height: 40)
+                                .background(on ? Color.velix.ink : Color.velix.surface, in: Capsule())
+                                .overlay { if !on { Capsule().strokeBorder(Color.velix.line, lineWidth: 1) } }
+                                .frame(minHeight: CGFloat.velix.touch.min)
+                        }
+                        .buttonStyle(VelixPressStyle())
+                        .accessibilityLabel("Map \(a.title)")
+                        .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
+                    }
+                }
+            }
             SectionLabel("Overlays")
             VStack(spacing: 0) {
                 overlayRow(icon: VelixIconView(.bike, size: 22), title: "Bike lanes", isOn: $bikeLanes, first: true)
