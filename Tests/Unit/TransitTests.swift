@@ -293,3 +293,24 @@ struct TrainStretchLogTests {
         #expect(gpx.components(separatedBy: "<trkpt").count - 1 == 4)
     }
 }
+
+@MainActor
+struct TransitLegLineTests {
+    @Test func theLegFollowsTheTrackAndGapsOnlyJoinInOverviews() throws {
+        var p = try #require(AppSamples.monzaTransit().first)
+        let stops = p.stops.map(\.stop.location)
+        try #require(stops.count >= 2)
+        let mid = LatLon(lat: (stops[0].lat + stops[1].lat) / 2 + 0.002, lon: (stops[0].lon + stops[1].lon) / 2)
+        // Known track for the first hop only.
+        p.track = [[stops[0], mid, stops[1]]] + Array(repeating: nil, count: stops.count - 2)
+        let overview = p.legLines(straightGaps: true)
+        #expect(overview.count == 1)
+        #expect(overview[0].contains(mid) && overview[0].last == stops.last)
+        let riding = p.legLines(straightGaps: false)
+        #expect(riding == [[stops[0], mid, stops[1]]])
+        p.track = []
+        #expect(p.legLines(straightGaps: false).isEmpty)
+        #expect(MapRouteModel(transit: p, riding: true).legs.isEmpty)
+        #expect(MapRouteModel(transit: p).legs.count == 1)
+    }
+}

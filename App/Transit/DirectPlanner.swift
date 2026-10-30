@@ -127,6 +127,29 @@ struct TransitPlan: Sendable {
     let rideOut: RouteOption
     /// When the plan was made (the rider leaves now).
     let planned: Date
+    /// The track between consecutive stops (``TransitStore/track(of:)``), nil where unknown.
+    var track: [[LatLon]?] = []
+
+    /// The leg as drawn: on the track where known. `straightGaps` joins the stops with straight lines where it isn't
+    /// (overviews: the leg reads as one); else those stretches are left out (riding: no line across the city).
+    func legLines(straightGaps: Bool) -> [[LatLon]] {
+        let pts = stops.map(\.stop.location)
+        var out: [[LatLon]] = []
+        var current: [LatLon] = []
+        func add(_ line: [LatLon]) { current += current.last == line.first ? Array(line.dropFirst()) : line }
+        for (i, pair) in zip(pts, pts.dropFirst()).enumerated() {
+            if let t = track.indices.contains(i) ? track[i] : nil {
+                add(t)
+            } else if straightGaps {
+                add([pair.0, pair.1])
+            } else {
+                if current.count > 1 { out.append(current) }
+                current = []
+            }
+        }
+        if current.count > 1 { out.append(current) }
+        return out
+    }
 
     var arrival: Date { departure.arrives.addingTimeInterval(DirectPlanner.outOfStation + rideOut.seconds) }
     var seconds: TimeInterval { arrival.timeIntervalSince(planned) }
@@ -160,8 +183,11 @@ struct TransitPlanner: Sendable {
             let runs = ([c.departure] + DirectPlanner.later(store, than: c.departure, count: 4)).filter { $0.departs >= ready }
             guard !runs.isEmpty else { continue }
             return runs.prefix(Self.choices).map { d in
-                TransitPlan(rideIn: rideIn, departure: d, rule: store.bikeRule(for: d), stops: store.stopTimes(of: d),
-                            rideOut: rideOut, planned: now)
+                let stops = store.stopTimes(of: d)
+                var plan = TransitPlan(rideIn: rideIn, departure: d, rule: store.bikeRule(for: d), stops: stops, rideOut: rideOut,
+                                       planned: now)
+                plan.track = store.track(of: stops)
+                return plan
             }
         }
         return []

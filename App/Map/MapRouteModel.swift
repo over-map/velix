@@ -41,10 +41,6 @@ struct MapRouteModel: Equatable, Sendable {
         var metro: Bool
     }
 
-    /// The train / metro leg's line between its stops. Off: GTFS has no shapes, and straight lines between the stops
-    /// cross the city over buildings (Filippo, 30 Oct: snapped to the rails, or not at all). The changes mark where
-    /// the ride stops and starts again.
-    static let drawsTransitLegs = false
     /// Riding: the stretch of Best around the rider (drawn after `best`, which then holds the rest), and the share of it
     /// already ridden, faded out on the map (a line-gradient).
     var near: [LatLon]?
@@ -94,7 +90,9 @@ struct MapRouteModel: Equatable, Sendable {
     }
 
     /// Bike + transit (P4 S3e): both rides in accent with their hazards, the run through its stops.
-    init(transit p: TransitPlan, endName: String? = nil) {
+    /// `riding`: the train / metro leg only where its track is known (no straight line across the city while
+    /// navigating); overviews join the stops where it isn't (Filippo, 30 Oct).
+    init(transit p: TransitPlan, endName: String? = nil, riding: Bool = false) {
         self.init(best: p.rideIn.analysis.shape, hazards: p.rideIn.analysis.hazards, endName: endName)
         let out = MapRouteModel(best: p.rideOut.analysis.shape, hazards: p.rideOut.analysis.hazards)
         rides = [p.rideOut.analysis.shape]
@@ -102,8 +100,8 @@ struct MapRouteModel: Equatable, Sendable {
         hazards += out.hazards
         end = p.rideOut.analysis.shape.last
         let metro = p.departure.route.mode == .metro
-        legs = [Leg(metro: metro, line: p.stops.map(\.stop.location),
-                    color: metro ? p.departure.route.color.map { "#\($0)" } : nil)]
+        let color = metro ? p.departure.route.color.map { "#\($0)" } : nil
+        legs = p.legLines(straightGaps: !riding).map { Leg(metro: metro, line: $0, color: color) }
         // Where the bike legs end and start (the station entrance the router reached), else the stops.
         changes = [Change(at: p.rideIn.analysis.shape.last ?? p.departure.board.location, metro: metro),
                    Change(at: p.rideOut.analysis.shape.first ?? p.departure.alight.location, metro: metro)]
@@ -117,7 +115,7 @@ struct MapRouteModel: Equatable, Sendable {
         for alt in alternatives { f.append(line(alt, ["role": "alt"])) }
         if best.count > 1 { f.append(line(best, ["role": "best"])) }
         for r in rides where r.count > 1 { f.append(line(r, ["role": "best"])) }
-        for l in legs where Self.drawsTransitLegs && l.line.count > 1 {
+        for l in legs where l.line.count > 1 {
             // A metro leg takes its line colour from the GTFS; without one it is drawn like a train leg.
             if l.metro, let color = l.color { f.append(line(l.line, ["role": "leg-metro", "color": color])) }
             else { f.append(line(l.line, ["role": "leg-train"])) }
