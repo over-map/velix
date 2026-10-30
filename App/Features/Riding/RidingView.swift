@@ -86,8 +86,11 @@ struct RidingScreen: View {
     /// Measured: how much the on-train sheet and the ETA bar cover (the fit and the map's ⓘ follow them).
     @State private var trainCard: CGFloat?
     @State private var etaBar: CGFloat?
-    /// Measured: the banner's bottom edge (the map area left free starts there).
+    @State private var etaTop: CGFloat?
+    /// Measured: the banner's bottom edge (the map area left free starts there), and the screen's bottom edge (the
+    /// riding screen's own, not the device's: snapshot tests render at a fixed size).
     @State private var bannerBottom: CGFloat?
+    @State private var screenBottom: CGFloat?
 
     /// The overview fits the rest of the trip between the banner and the ETA bar (design/p4/maps.js rOver: 250 / 120,
     /// plus 20 so the ends clear them; VelixMap adds 40 all round).
@@ -98,8 +101,8 @@ struct RidingScreen: View {
     /// 30 Oct): 2D and North up at its centre, 3D a tenth of its height above its bottom edge. Until both are
     /// measured, the camera's own anchor.
     private var placed: MapCamera? {
-        guard var t = target, camera.isFollowing, let top = bannerBottom, let bottom = etaBar else { return target }
-        let h = UIScreen.main.bounds.height
+        guard var t = target, camera.isFollowing, let top = bannerBottom, let etaTop = etaTop, let h = screenBottom else { return target }
+        let bottom = h - etaTop
         let area = max(1, h - bottom - top)
         t.anchor = (top + area * (t.pitch > 0 ? 0.9 : 0.5)) / h
         return t
@@ -150,6 +153,7 @@ struct RidingScreen: View {
     private var riding: some View {
         ZStack {
             map.ignoresSafeArea()
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { screenBottom = $0 }
             rider.ignoresSafeArea().allowsHitTesting(false)
             VStack(spacing: 0) {
                 top.onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { bannerBottom = $0 }
@@ -170,7 +174,7 @@ struct RidingScreen: View {
             VStack {
                 Spacer()
                 EtaBar(state: state.eta) { confirmEnd = true }
-                    .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { etaBar = VelixMap.covered(fromTop: $0) }
+                    .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { etaTop = $0; etaBar = VelixMap.covered(fromTop: $0) }
             }
             .ignoresSafeArea(edges: .bottom)
         }
