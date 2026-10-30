@@ -15,6 +15,8 @@ struct AppState: Codable, Equatable, Sendable {
     var respectOneways = false
     /// You → Apple Health: save each ride as a workout (M9b).
     var healthOn = false
+    /// Map sheet: the map's light or dark style (Auto follows the phone).
+    var mapAppearance: MapAppearance = .auto
 
     init() {}
 
@@ -30,6 +32,7 @@ struct AppState: Codable, Equatable, Sendable {
         packAutoUpdate = try c.decodeIfPresent(Bool.self, forKey: .packAutoUpdate) ?? true
         respectOneways = try c.decodeIfPresent(Bool.self, forKey: .respectOneways) ?? false
         healthOn = try c.decodeIfPresent(Bool.self, forKey: .healthOn) ?? false
+        mapAppearance = (try? c.decode(MapAppearance.self, forKey: .mapAppearance)) ?? .auto
     }
 
     static let recentsKept = 20

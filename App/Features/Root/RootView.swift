@@ -28,6 +28,7 @@ struct RootView: View {
                 }
             }
         }
+        .environment(\.mapAppearance, app.state.mapAppearance)
         .task {
             if app.state.onboarded, !app.pack.isReady { app.pack.install() }
             app.history.importLogs()

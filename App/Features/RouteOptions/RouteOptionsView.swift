@@ -14,6 +14,7 @@ struct RouteOptionsView: View {
     /// Plan when the screen appears (snapshot tests show a fixed state instead).
     var plansOnAppear = true
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.mapAppearance) private var mapAppearance
     @Environment(\.liveMap) private var liveMap
     @Environment(\.openURL) private var openURL
     @State private var sheetHeight: CGFloat = 480
@@ -58,7 +59,7 @@ struct RouteOptionsView: View {
 
     @ViewBuilder private var map: some View {
         if liveMap {
-            VelixMap(style: MapStyleKind(app.mapStyle), mode: scheme == .dark ? .night : .day,
+            VelixMap(style: MapStyleKind(app.mapStyle), mode: MapMode(scheme, mapAppearance),
                      bikeLanes: app.bikeLanes, transitLines: app.transitLines, route: model.mapRoute,
                      camera: MapCamera(center: model.destination.location, zoom: 14),
                      insets: UIEdgeInsets(top: 100, left: 0, bottom: sheetHeight, right: 0),

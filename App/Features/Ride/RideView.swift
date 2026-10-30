@@ -11,6 +11,7 @@ struct RideView: View {
     /// The download sheet covers the bottom controls (S0e).
     var bottomCovered = false
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.mapAppearance) private var mapAppearance
     @Environment(\.liveMap) private var liveMap
     @State private var following: Bool
     @State private var camera = MapCamera(center: RideView.milan, zoom: 15)
@@ -63,7 +64,7 @@ struct RideView: View {
 
     @ViewBuilder private var map: some View {
         if liveMap {
-            VelixMap(style: MapStyleKind(app.mapStyle), mode: scheme == .dark ? .night : .day,
+            VelixMap(style: MapStyleKind(app.mapStyle), mode: MapMode(scheme, mapAppearance),
                      bikeLanes: app.bikeLanes, transitLines: app.transitLines, camera: camera,
                      userLocation: app.isOutsideRegion ? nil : app.location.coordinate, userHeading: app.location.heading,
                      coveredBottom: tabBar, onUserPan: { following = false })
@@ -166,7 +167,7 @@ struct RideSheetHost: View {
                     RideTypePicker(selected: $app.state.rideType, onClose: { sheet = nil }, onEditRules: openYou)
                 case .mapStyle:
                     MapStyleSheet(rideType: app.state.rideType, style: $app.mapStyle, bikeLanes: $app.bikeLanes,
-                                  transitLines: $app.transitLines, onClose: { sheet = nil })
+                                  transitLines: $app.transitLines, appearance: $app.state.mapAppearance, onClose: { sheet = nil })
                 }
             }
             // The sheet's surface continues under the home indicator.

@@ -54,6 +54,7 @@ struct RideSummaryView: View {
     var onDone: () -> Void = {}
 
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.mapAppearance) private var mapAppearance
     @Environment(\.liveMap) private var liveMap
     @State private var sheetHeight: CGFloat = 450
 
@@ -77,7 +78,7 @@ struct RideSummaryView: View {
 
     @ViewBuilder private var map: some View {
         if liveMap {
-            VelixMap(style: mapStyle, mode: scheme == .dark ? .night : .day, route: MapRouteModel(best: model.track, endName: model.place),
+            VelixMap(style: mapStyle, mode: MapMode(scheme, mapAppearance), route: MapRouteModel(best: model.track, endName: model.place),
                      camera: MapCamera(center: model.track.last ?? RideView.milan, zoom: 14),
                      insets: UIEdgeInsets(top: 60, left: 0, bottom: sheetHeight, right: 0),
                      fit: model.track.count > 1 ? model.track : nil)

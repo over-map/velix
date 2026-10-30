@@ -10,6 +10,7 @@ struct RoutesView: View {
     /// Load from the pack when the tab appears (snapshot tests show fixture routes instead).
     var loadsOnAppear = true
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.mapAppearance) private var mapAppearance
     @Environment(\.liveMap) private var liveMap
     @State private var sheetHeight: CGFloat = 400
     @State private var searching = false
@@ -63,7 +64,7 @@ struct RoutesView: View {
 
     @ViewBuilder private var map: some View {
         if liveMap {
-            VelixMap(style: MapStyleKind(app.mapStyle), mode: scheme == .dark ? .night : .day,
+            VelixMap(style: MapStyleKind(app.mapStyle), mode: MapMode(scheme, mapAppearance),
                      bikeLanes: app.bikeLanes, transitLines: app.transitLines, route: model.mapRoute, camera: camera,
                      userLocation: app.location.coordinate, userHeading: app.location.heading,
                      insets: UIEdgeInsets(top: 120, left: 0, bottom: sheetHeight, right: 0),

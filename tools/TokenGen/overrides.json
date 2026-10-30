@@ -15,5 +15,40 @@
   },
   "font": {
     "_riding": "HANDOFF (higher precedence than the token file) caps riding screens at 115 % Dynamic Type; the token file says xxLarge (+35 %)"
+  },
+  "poi": {
+    "_reason": "Filippo, 30 Oct 2026: every POI was the same green; colour by category (bike and water keep P3's green and teal)",
+    "food": {
+      "light": "#C2601A",
+      "dark": "#F2A45E"
+    },
+    "shop": {
+      "light": "#A3407E",
+      "dark": "#E58FC0"
+    },
+    "culture": {
+      "light": "#8A5A3C",
+      "dark": "#D3A584"
+    },
+    "worship": {
+      "light": "#8A5A3C",
+      "dark": "#D3A584"
+    },
+    "health": {
+      "light": "#C82C45",
+      "dark": "#FF8A97"
+    },
+    "edu": {
+      "light": "#4F6A8F",
+      "dark": "#9DB4D6"
+    },
+    "lodging": {
+      "light": "#3E7C9B",
+      "dark": "#8CC3DE"
+    },
+    "generic": {
+      "light": "#6B767C",
+      "dark": "#AEB6BA"
+    }
   }
 }
