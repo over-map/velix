@@ -38,6 +38,10 @@ const r2 = (v) => Math.round(v * 100) / 100;
 /** A zoom-driven width: f(z) sampled at every zoom, interpolated exponentially (base 1.5) like P3. */
 const width = (f) => ['interpolate', ['exponential', 1.5], ['zoom'], ...ZS.flatMap((z) => [z, r2(Math.max(0, f(z)))])];
 const w = (k, mul = 1, add = 0) => width((z) => interp(W[k], z) * mul + add);
+// Route lines never thinner than this (pt): P3's curves fade out below z11, where route overviews of 10–20 km sit and
+// the route must still stand out (Filippo, 30 Oct). The casing keeps its 3 pt over the line.
+const ROUTE_MIN = 4.5, CASE_MIN = ROUTE_MIN + 3;
+const rw = (k, mul = 1, add = 0) => width((z) => Math.max(interp(W[k], z) * mul + add, (k === 'routeCase' ? CASE_MIN : ROUTE_MIN) * mul + add));
 /** Canvas dashes are in px; MapLibre's are in line widths: one dash array per zoom (step). */
 const dashAt = (px, f, z) => ['literal', px.map((d) => r2(d / Math.max(0.2, f(z))))];
 const dash = (px, f) => ['step', ['zoom'], dashAt(px, f, ZS[0]), ...ZS.slice(1).flatMap((z) => [z, dashAt(px, f, z)])];
@@ -241,31 +245,31 @@ function style(name, mode) {
   route('route-avoided', 'line', { filter: role('avoided'), layout: { 'line-cap': 'butt' },
     paint: { 'line-color': T.avoided, 'line-width': w('avoided'), 'line-dasharray': dash([7, 6], (z) => interp(W.avoided, z)) } });
   // Alternatives: cobalt, same width and casing as Best (docs/DECISIONS.md, 15 Oct).
-  halo('route-alt-halo', role('alt'), (z) => interp(W.routeCase, z) + 3);
-  route('route-alt-casing', 'line', { filter: role('alt'), layout: lineLayout, paint: { 'line-color': T.altCase, 'line-width': w('routeCase') } });
-  route('route-alt', 'line', { filter: role('alt'), layout: lineLayout, paint: { 'line-color': T.routeAlt, 'line-width': w('route') } });
+  halo('route-alt-halo', role('alt'), (z) => Math.max(interp(W.routeCase, z), CASE_MIN) + 3);
+  route('route-alt-casing', 'line', { filter: role('alt'), layout: lineLayout, paint: { 'line-color': T.altCase, 'line-width': rw('routeCase') } });
+  route('route-alt', 'line', { filter: role('alt'), layout: lineLayout, paint: { 'line-color': T.routeAlt, 'line-width': rw('route') } });
   // Routes tab (P7 S7): every listed route thin in accent ('list'), the one in focus wider on top with a white halo
   // ('focus'); in S7c the others go grey ('list-grey'). Each feature carries its relation `id` (tap to focus).
   route('route-list-grey', 'line', { filter: role('list-grey'), layout: lineLayout,
-    paint: { 'line-color': tokenColor('ink3', mode), 'line-opacity': 0.7, 'line-width': w('route', 0.5) } });
-  route('route-list-casing', 'line', { filter: role('list'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': w('route', 0.5, 2) } });
-  route('route-list', 'line', { filter: role('list'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': w('route', 0.5) } });
+    paint: { 'line-color': tokenColor('ink3', mode), 'line-opacity': 0.7, 'line-width': rw('route', 0.5) } });
+  route('route-list-casing', 'line', { filter: role('list'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': rw('route', 0.5, 2) } });
+  route('route-list', 'line', { filter: role('list'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route', 0.5) } });
   route('route-focus-halo', 'line', { filter: role('focus'), layout: lineLayout,
-    paint: { 'line-color': '#FFFFFF', 'line-width': width((z) => interp(W.routeCase, z) + 4) } });
-  route('route-focus-casing', 'line', { filter: role('focus'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': w('routeCase') } });
-  route('route-focus', 'line', { filter: role('focus'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': w('route') } });
+    paint: { 'line-color': '#FFFFFF', 'line-width': width((z) => Math.max(interp(W.routeCase, z), CASE_MIN) + 4) } });
+  route('route-focus-casing', 'line', { filter: role('focus'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': rw('routeCase') } });
+  route('route-focus', 'line', { filter: role('focus'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
   // While riding, Best is split: the stretch around the rider ('best-near', ≈ 400 m) carries the ridden-part fade (a
   // line-gradient set at runtime: its 256-step ramp is fine enough only on a short line), the rest stays 'best'.
   // Casings first, so the two pieces join without a casing cap across the line.
-  halo('route-best-halo', role('best'), (z) => interp(W.routeCase, z) + 3);
-  halo('route-best-near-halo', role('best-near'), (z) => interp(W.routeCase, z) + 3);
-  route('route-best-casing', 'line', { filter: role('best'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': w('routeCase') } });
-  route('route-best-near-casing', 'line', { filter: role('best-near'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': w('routeCase') } });
-  route('route-best', 'line', { filter: role('best'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': w('route') } });
-  route('route-best-near', 'line', { filter: role('best-near'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': w('route') } });
+  halo('route-best-halo', role('best'), (z) => Math.max(interp(W.routeCase, z), CASE_MIN) + 3);
+  halo('route-best-near-halo', role('best-near'), (z) => Math.max(interp(W.routeCase, z), CASE_MIN) + 3);
+  route('route-best-casing', 'line', { filter: role('best'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': rw('routeCase') } });
+  route('route-best-near-casing', 'line', { filter: role('best-near'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': rw('routeCase') } });
+  route('route-best', 'line', { filter: role('best'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
+  route('route-best-near', 'line', { filter: role('best-near'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
   // Train leg drawn as a route with ink ties; metro leg: casing, white core, dashed line colour.
-  route('leg-train-casing', 'line', { filter: role('leg-train'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': w('routeCase') } });
-  route('leg-train', 'line', { filter: role('leg-train'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': w('route') } });
+  route('leg-train-casing', 'line', { filter: role('leg-train'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': rw('routeCase') } });
+  route('leg-train', 'line', { filter: role('leg-train'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
   const tieW = (z) => Math.max(1.6, interp(W.route, z) * 0.34);
   route('leg-train-ties', 'line', { filter: role('leg-train'), layout: { 'line-cap': 'butt' },
     paint: { 'line-color': T.casing, 'line-width': width(tieW), 'line-dasharray': dash([1.1, 0.9].map((x) => x * 9), tieW) } });
@@ -330,9 +334,12 @@ function style(name, mode) {
   add({ id: 'avoided-tag', type: 'symbol', source: 'velix-markers', minzoom: 14, filter: role('avoided-tag'),
     layout: { 'icon-image': ['concat', 'avoided-', ['get', 'id'], `-${mode}`], 'icon-allow-overlap': false, 'symbol-sort-key': 1 } });
   add({ id: 'route-start', type: 'symbol', source: 'velix-markers', filter: role('start'),
-    layout: { 'icon-image': `start-${mode}`, 'icon-size': ['step', ['zoom'], 5.5 / 8, 14, 6.5 / 8, 16, 1], 'icon-allow-overlap': true, 'symbol-sort-key': 2 } });
+    layout: { 'icon-image': `start-${mode}`, 'icon-size': 1, 'icon-allow-overlap': true, 'symbol-sort-key': 2 } });
+  // Bike + transit: getting on and off (the train leg itself isn't drawn without rail geometry, 30 Oct).
+  add({ id: 'route-change', type: 'symbol', source: 'velix-markers', filter: role('change'),
+    layout: { 'icon-image': ['concat', 'change-', ['get', 'mode'], `-${mode}`], 'icon-allow-overlap': true, 'symbol-sort-key': 2 } });
   add({ id: 'route-end', type: 'symbol', source: 'velix-markers', filter: role('end'),
-    layout: { 'icon-image': `end-${mode}`, 'icon-size': ['step', ['zoom'], 8 / 11, 14, 9.5 / 11, 16, 1], 'icon-allow-overlap': true,
+    layout: { 'icon-image': `end-${mode}`, 'icon-size': 1, 'icon-allow-overlap': true,
       'text-field': ['coalesce', ['get', 'name'], ''], 'text-font': F_BOLD, 'text-size': 13, 'text-anchor': 'bottom', 'text-offset': ['literal', [0, -1.2]],
       'text-optional': true, 'symbol-sort-key': 2 },
     paint: { 'text-color': sat ? '#FFFFFF' : P.lmInk, 'text-halo-color': P.halo, 'text-halo-width': 1.75 } });

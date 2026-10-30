@@ -71,6 +71,8 @@ final class TransitStore: @unchecked Sendable {
     private var db: OpaquePointer?
     private let lock = NSLock()
     private(set) var timeZone = TimeZone(identifier: "Europe/Rome")!
+    /// The pack has the track between stops (`hops`, packs from 30 Oct 2026).
+    private(set) var hasTrack = false
     private var routes: [String: TransitRoute] = [:]
     private var stops: [String: TransitStop] = [:]
     private var rules: [(operator: String, routes: [String], weekdays: [Bool], start: Int, end: Int, rule: BikeRule)] = []
@@ -84,6 +86,7 @@ final class TransitStore: @unchecked Sendable {
         rows("SELECT value FROM meta WHERE key = 'timezone'") { s in
             if let id = Self.text(s, 0), let z = TimeZone(identifier: id) { timeZone = z }
         }
+        rows("SELECT value FROM meta WHERE key = 'hops'") { _ in hasTrack = true }
         rows("SELECT id, feed, short_name, long_name, mode, color FROM routes") { s in
             let r = TransitRoute(id: Self.text(s, 0) ?? "", feed: Self.text(s, 1) ?? "", shortName: Self.text(s, 2) ?? "",
                                  longName: Self.text(s, 3) ?? "", mode: TransitRoute.Mode(rawValue: Self.text(s, 4) ?? "") ?? .rail,
@@ -168,6 +171,20 @@ final class TransitStore: @unchecked Sendable {
                                        departs: day.start.addingTimeInterval(Double(sqlite3_column_int(s, 2)))))
         }
         return out
+    }
+
+    // MARK: Track
+
+    /// The track between each pair of consecutive stops (table `hops`, pipeline/stages/transit_paths.py), nil where
+    /// the pipeline found none or the pack is older.
+    func track(of stops: [TransitStopTime]) -> [[LatLon]?] {
+        zip(stops, stops.dropFirst()).map { a, b in
+            var line: [LatLon]?
+            let sql = "SELECT polyline FROM hops WHERE from_stop = '\(a.stop.id.replacingOccurrences(of: "'", with: "''"))'"
+                + " AND to_stop = '\(b.stop.id.replacingOccurrences(of: "'", with: "''"))'"
+            rows(sql) { s in line = Self.text(s, 0).map(Geo.decodePolyline6) }
+            return line.flatMap { $0.count > 1 ? $0 : nil }
+        }
     }
 
     // MARK: Bikes

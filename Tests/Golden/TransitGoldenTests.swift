@@ -31,6 +31,13 @@ struct TransitGoldenTests {
         #expect(TransitTrigger.shows(bike: .init(seconds: bike.best.seconds, meters: bike.best.meters, climb: bike.best.analysis.climbM),
                                      transit: plan, destinationOutsideCity: outside))
         #expect(ms < 4000, "transit plan took \(Int(ms)) ms")
+        if store.hasTrack {
+            // The train is drawn on the rails: every hop of the run has its track, close to the straight distance.
+            #expect(plan.track.count == plan.stops.count - 1 && plan.track.allSatisfy { $0 != nil })
+            let rails = plan.track.compactMap { $0 }.reduce(0) { $0 + Geo.length($1) }
+            let straight = Geo.distance(plan.departure.board.location, plan.departure.alight.location)
+            #expect(rails > straight && rails < 1.6 * straight)
+        }
         print("Monza: \(plan.departure.name) \(plan.departure.departs) → \(plan.departure.alight.name), " +
               "\(Int(plan.seconds / 60)) min vs bike \(Int(bike.best.seconds / 60)) min, ride \(Int(plan.bikeSeconds / 60)) min, \(Int(ms)) ms")
     }

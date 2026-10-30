@@ -41,7 +41,8 @@ struct RoutesView: View {
             .padding(.top, CGFloat.velix.xs)
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
-                tabSheet.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { sheetHeight = $0 }
+                // From the sheet's top to the screen's bottom: the sheet and the tab bar under it.
+                tabSheet.onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { sheetHeight = VelixMap.covered(fromTop: $0) }
             }
         }
         .fullScreenCover(isPresented: $searching) {
@@ -65,7 +66,7 @@ struct RoutesView: View {
             VelixMap(style: MapStyleKind(app.mapStyle), mode: scheme == .dark ? .night : .day,
                      bikeLanes: app.bikeLanes, transitLines: app.transitLines, route: model.mapRoute, camera: camera,
                      userLocation: app.location.coordinate, userHeading: app.location.heading,
-                     insets: UIEdgeInsets(top: 120, left: 0, bottom: sheetHeight + 44, right: 0),
+                     insets: UIEdgeInsets(top: 120, left: 0, bottom: sheetHeight, right: 0),
                      fit: model.moved == nil ? model.fitPoints : nil,
                      onTapRoute: { id in withAnimation(.easeOut(duration: 0.2)) { model.tapped(id); top = id } },
                      onRegionChange: { model.mapMoved(to: $0) })

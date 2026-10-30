@@ -140,8 +140,10 @@ final class TransitRide {
         guard let planner else { return }
         let old = plan.departure
         guard let d = DirectPlanner.later(planner.store, than: old, count: 1).first else { return }
-        let next = TransitPlan(rideIn: plan.rideIn, departure: d, rule: planner.store.bikeRule(for: d), stops: planner.store.stopTimes(of: d),
+        let stops = planner.store.stopTimes(of: d)
+        var next = TransitPlan(rideIn: plan.rideIn, departure: d, rule: planner.store.bikeRule(for: d), stops: stops,
                                rideOut: plan.rideOut, planned: plan.planned)
+        next.track = planner.store.track(of: stops)
         plan = next
         session.log?.event(.transit("missed \(TransitCopy.clock(old.departs)): next \(TransitCopy.clock(d.departs))"))
         let copy = TransitCopy.missed(old, next: next)
@@ -205,14 +207,15 @@ final class TransitRide {
         switch stage {
         case .toStation:
             // The leg being ridden is the session's (fade, rider); the train leg and the last ride come after it.
-            let trip = MapRouteModel(transit: plan, endName: destination.name)
+            let trip = MapRouteModel(transit: plan, endName: destination.name, riding: true)
             s.map.legs = trip.legs
+            s.map.changes = trip.changes
             s.map.rides = trip.rides
             s.map.end = trip.end
             s.map.endName = destination.name
         case .onTrain:
             // P6 S5d: the whole trip, the rider on the train leg.
-            var trip = MapRouteModel(transit: plan, endName: destination.name)
+            var trip = MapRouteModel(transit: plan, endName: destination.name, riding: true)
             trip.puck = s.rider
             trip.heading = s.course
             s.map = trip

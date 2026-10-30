@@ -33,6 +33,14 @@ struct MapRouteModel: Equatable, Sendable {
         var state: State
     }
     var legs: [Leg] = []
+    /// Bike + transit: where the ride meets the train or metro (getting on, getting off), marked on the map.
+    var changes: [Change] = []
+
+    struct Change: Equatable {
+        var at: LatLon
+        var metro: Bool
+    }
+
     /// Riding: the stretch of Best around the rider (drawn after `best`, which then holds the rest), and the share of it
     /// already ridden, faded out on the map (a line-gradient).
     var near: [LatLon]?
@@ -82,15 +90,21 @@ struct MapRouteModel: Equatable, Sendable {
     }
 
     /// Bike + transit (P4 S3e): both rides in accent with their hazards, the run through its stops.
-    init(transit p: TransitPlan, endName: String? = nil) {
+    /// `riding`: the train / metro leg only where its track is known (no straight line across the city while
+    /// navigating); overviews join the stops where it isn't (Filippo, 30 Oct).
+    init(transit p: TransitPlan, endName: String? = nil, riding: Bool = false) {
         self.init(best: p.rideIn.analysis.shape, hazards: p.rideIn.analysis.hazards, endName: endName)
         let out = MapRouteModel(best: p.rideOut.analysis.shape, hazards: p.rideOut.analysis.hazards)
         rides = [p.rideOut.analysis.shape]
         tubes += out.tubes
         hazards += out.hazards
         end = p.rideOut.analysis.shape.last
-        legs = [Leg(metro: p.departure.route.mode == .metro, line: p.stops.map(\.stop.location),
-                    color: p.departure.route.mode == .metro ? p.departure.route.color.map { "#\($0)" } : nil)]
+        let metro = p.departure.route.mode == .metro
+        let color = metro ? p.departure.route.color.map { "#\($0)" } : nil
+        legs = p.legLines(straightGaps: !riding).map { Leg(metro: metro, line: $0, color: color) }
+        // Where the bike legs end and start (the station entrance the router reached), else the stops.
+        changes = [Change(at: p.rideIn.analysis.shape.last ?? p.departure.board.location, metro: metro),
+                   Change(at: p.rideOut.analysis.shape.first ?? p.departure.alight.location, metro: metro)]
     }
 
     // MARK: GeoJSON
@@ -125,6 +139,7 @@ struct MapRouteModel: Equatable, Sendable {
         var f: [[String: Any]] = []
         if let start { f.append(point(start, ["role": "start"])) }
         if let end { f.append(point(end, ["role": "end", "name": endName ?? ""])) }
+        for c in changes { f.append(point(c.at, ["role": "change", "mode": c.metro ? "metro" : "train"])) }
         for a in avoided where a.shape.count > 1 {
             f.append(point(RuleChecker.point(at: Geo.length(a.shape) / 2, on: a.shape, along: RouteAnalyzer.cumulative(a.shape)),
                            ["role": "avoided-tag", "id": a.id]))

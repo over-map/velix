@@ -42,6 +42,7 @@ routes: tools
 
 transit: tools
 	$(TOOLS) python stages/transit.py
+	$(TOOLS) python stages/transit_paths.py
 
 # OpenMapTiles basemap. Tiles are stored uncompressed: the pack's xz then compresses across tiles (151 MB instead of
 # 203 MB with per-tile gzip, measured 16 Oct 2026); MapLibre reads uncompressed PMTiles tiles directly.

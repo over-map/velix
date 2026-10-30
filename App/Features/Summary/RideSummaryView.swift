@@ -70,7 +70,7 @@ struct RideSummaryView: View {
             .background(Color.velix.surface, in: UnevenRoundedRectangle(topLeadingRadius: CGFloat.velix.radius.sheet,
                                                                        topTrailingRadius: CGFloat.velix.radius.sheet))
             .velixElevation(VelixElevations.e3, in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.sheet))
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { sheetHeight = $0 }
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { sheetHeight = VelixMap.covered(fromTop: $0) }
             .ignoresSafeArea(edges: .bottom)
         }
     }

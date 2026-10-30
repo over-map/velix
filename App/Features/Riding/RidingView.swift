@@ -74,12 +74,22 @@ struct RidingScreen: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.liveMap) private var liveMap
     @State private var confirmEnd = false
+    /// Measured: how much the on-train sheet and the ETA bar cover (the fit and the map's ⓘ follow them).
+    @State private var trainCard: CGFloat?
+    @State private var etaBar: CGFloat?
 
     /// The overview fits the rest of the trip between the banner and the ETA bar (design/p4/maps.js rOver: 250 / 120,
     /// plus 20 so the ends clear them; VelixMap adds 40 all round).
     static let overviewInsets = UIEdgeInsets(top: 230, left: 0, bottom: 100, right: 0)
     /// P6 S5d map: top 110, bottom 470 (VelixMap adds 40).
     static let trainInsets = UIEdgeInsets(top: 70, left: 0, bottom: 430, right: 0)
+    /// The trip between the strip and the sheet, the sheet as tall as it is now (P6 S5d's 430 until measured).
+    private var trainInsets: UIEdgeInsets {
+        var i = Self.trainInsets
+        if let trainCard { i.bottom = trainCard }
+        return i
+    }
+
     /// The weak-GPS halo around the rider (P5 S4h).
     static let haloSize: CGFloat = 116
 
@@ -100,7 +110,8 @@ struct RidingScreen: View {
                 }
                 Spacer()
             }
-            VStack { Spacer(); card }.ignoresSafeArea(edges: .bottom)
+            VStack { Spacer(); card.onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { trainCard = VelixMap.covered(fromTop: $0) } }
+                .ignoresSafeArea(edges: .bottom)
         }
         .dynamicTypeSize(...DynamicTypeSize.velixRidingCap)
     }
@@ -128,6 +139,7 @@ struct RidingScreen: View {
             VStack {
                 Spacer()
                 EtaBar(state: state.eta) { confirmEnd = true }
+                    .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { etaBar = VelixMap.covered(fromTop: $0) }
             }
             .ignoresSafeArea(edges: .bottom)
         }
@@ -146,9 +158,9 @@ struct RidingScreen: View {
             let train = state.onTrain != nil
             VelixMap(style: mapStyle, mode: scheme == .dark ? .night : .day, bikeLanes: bikeLanes, transitLines: transitLines,
                      route: state.map, camera: target,
-                     insets: train ? Self.trainInsets : camera.isOverview ? Self.overviewInsets : .zero,
+                     insets: train ? trainInsets : camera.isOverview ? Self.overviewInsets : .zero,
                      fit: (camera.isOverview || train) && state.ahead.count > 1 ? state.ahead : nil, motion: motion,
-                     riding: true, onUserPan: onPan)
+                     riding: true, coveredBottom: train ? nil : etaBar, onUserPan: onPan)
         } else {
             Color.velix.surface2
         }
