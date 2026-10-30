@@ -15,6 +15,8 @@ struct RideView: View {
     @State private var following: Bool
     @State private var camera = MapCamera(center: RideView.milan, zoom: 15)
     @State private var search: SearchPurpose?
+    /// The tab bar (and the home indicator) under the map: the ⓘ sits above it.
+    @State private var tabBar: CGFloat = 0
 
     static let milan = LatLon(lat: 45.4746, lon: 9.2050)   // Porta Venezia, until the first fix
 
@@ -39,6 +41,7 @@ struct RideView: View {
             .padding(.top, CGFloat.velix.xs)
             .padding(.bottom, CGFloat.velix.m)
         }
+        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom } action: { tabBar = $0 }
         .fullScreenCover(item: $search) { purpose in
             SearchView(app: app, purpose: purpose) { place in
                 search = nil
@@ -63,7 +66,7 @@ struct RideView: View {
             VelixMap(style: MapStyleKind(app.mapStyle), mode: scheme == .dark ? .night : .day,
                      bikeLanes: app.bikeLanes, transitLines: app.transitLines, camera: camera,
                      userLocation: app.isOutsideRegion ? nil : app.location.coordinate, userHeading: app.location.heading,
-                     onUserPan: { following = false })
+                     coveredBottom: tabBar, onUserPan: { following = false })
         } else {
             Color.velix.surface2
         }

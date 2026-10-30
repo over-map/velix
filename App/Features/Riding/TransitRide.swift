@@ -207,6 +207,7 @@ final class TransitRide {
             // The leg being ridden is the session's (fade, rider); the train leg and the last ride come after it.
             let trip = MapRouteModel(transit: plan, endName: destination.name)
             s.map.legs = trip.legs
+            s.map.changes = trip.changes
             s.map.rides = trip.rides
             s.map.end = trip.end
             s.map.endName = destination.name

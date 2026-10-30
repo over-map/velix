@@ -39,7 +39,7 @@ struct RouteOptionsView: View {
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
                 // The map fits the route above the sheet, whatever its height (open, folded, the transit card).
-                sheet.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { sheetHeight = $0 }
+                sheet.onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { sheetHeight = VelixMap.covered(fromTop: $0) }
             }
             .ignoresSafeArea(edges: .bottom)
         }

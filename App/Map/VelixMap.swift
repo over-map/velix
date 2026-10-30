@@ -40,12 +40,21 @@ struct VelixMap: UIViewRepresentable {
     var motion: MapCameraMotion = .standard
     /// Riding: coarser tiles far from the camera in the pitched 3D view (see ``Coordinator/applyDetail(on:)``).
     var riding = false
+    /// How much of the map's bottom a panel covers, when it isn't `insets.bottom` (riding: the ETA bar): the ⓘ sits
+    /// just above it.
+    var coveredBottom: CGFloat?
     /// The rider moved the map (S1b: the Recenter button appears).
     var onUserPan: () -> Void = {}
     /// Routes tab: a tap on a listed route's line (its relation id).
     var onTapRoute: ((Int64) -> Void)?
     /// The camera settled after the rider moved the map: its centre (Routes: "Search routes in this area").
     var onRegionChange: ((LatLon) -> Void)?
+
+    /// How much of the screen's bottom a panel covers, from its top to the screen's bottom edge (the map's insets and
+    /// ⓘ follow the panel as it grows or folds).
+    static func covered(fromTop minY: CGFloat) -> CGFloat {
+        max(0, UIScreen.main.bounds.height - minY)
+    }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -75,6 +84,7 @@ struct VelixMap: UIViewRepresentable {
         if old?.riding != riding { c.applyDetail(on: map) }
         if old?.style != style || old?.mode != mode { c.loadStyle(on: map) } else { c.applyStyleState(on: map) }
         if old?.camera != camera || old?.insets != insets || old?.fit != fit { c.applyCamera(on: map, animated: old != nil) }
+        else if old?.coveredBottom != coveredBottom { c.placeAttribution(on: map) }
     }
 
     @MainActor
@@ -120,6 +130,7 @@ struct VelixMap: UIViewRepresentable {
                                            bottom: i.bottom + Self.fitMargin, right: i.right + Self.fitMargin)
                 guard let fit = Self.fitting(pts, in: map.bounds.size, padding: padding) else { return }
                 map.contentInset = padding
+                placeAttribution(on: map)
                 let cam = MLNMapCamera(lookingAtCenter: CLLocationCoordinate2D(latitude: fit.center.lat, longitude: fit.center.lon),
                                        altitude: Self.altitude(for: fit, from: map), pitch: 0, heading: 0)
                 map.setCamera(cam, withDuration: duration ?? (animated ? 0.35 : 0),
@@ -128,6 +139,7 @@ struct VelixMap: UIViewRepresentable {
             }
             guard let c = state?.camera else { return }
             map.contentInset = Self.insets(state?.insets ?? .zero, anchor: c.anchor, height: map.bounds.height)
+            placeAttribution(on: map)
             guard let duration else {
                 map.setCenter(CLLocationCoordinate2D(latitude: c.center.lat, longitude: c.center.lon), zoomLevel: c.zoom,
                               direction: c.bearing, animated: animated)
@@ -146,6 +158,18 @@ struct VelixMap: UIViewRepresentable {
         static let fitMargin: CGFloat = 40
 
         /// Timed motions; nil for MapLibre's default flight.
+        /// The ⓘ in the bottom-right corner of the map left free (above the sheet), whatever extra inset the fit or the
+        /// camera anchor adds: MapLibre lays its ornaments out inside the content inset.
+        func placeAttribution(on map: MLNMapView) {
+            let free = state?.insets ?? .zero
+            let bottom = state?.coveredBottom ?? free.bottom
+            map.attributionButtonPosition = .bottomRight
+            map.attributionButtonMargins = CGPoint(x: Self.attributionMargin - (map.contentInset.right - free.right),
+                                                   y: Self.attributionMargin - (map.contentInset.bottom - bottom))
+        }
+
+        static let attributionMargin: CGFloat = 8
+
         static func duration(_ motion: MapCameraMotion) -> TimeInterval? {
             switch motion {
             case .standard: nil

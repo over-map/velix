@@ -22,6 +22,7 @@ enum MapImages {
         case "metro": return parts.count >= 2 ? metroTile(parts.dropFirst().joined(separator: "-"), pal) : nil
         case "rail": return railTile(pal)
         case "start": return start(pal)
+        case "change": return change(metro: parts.count > 1 && parts[1] == "metro", mode)
         case "end": return end(pal)
         case "puck": return puck(CGFloat(Int(parts.last ?? "34") ?? 34), pal)
         case "avoided": return avoidedTexts[parts.dropFirst().joined(separator: "-")].flatMap { swiftUI(AvoidedTag(reason: $0), mode) }
@@ -125,6 +126,16 @@ enum MapImages {
             c.setFillColor(UIColor.white.cgColor); c.fillEllipse(in: r)
             c.setStrokeColor(p.casing.cgColor); c.setLineWidth(3); c.strokeEllipse(in: r)
         }
+    }
+
+    /// Bike + transit: where the ride meets the train or metro. A surface disc ringed in casing with the mode's glyph,
+    /// a little smaller than the end marker (a waypoint, not a stop on the map's own transit layer).
+    private static func change(metro: Bool, _ mode: MapMode) -> UIImage? {
+        swiftUI(ZStack {
+            Circle().fill(Color.velix.surface)
+            Circle().strokeBorder(Color.velix.casing, lineWidth: 2.5)
+            VelixIconView(metro ? .metro : .train, size: 14).foregroundStyle(Color.velix.ink)
+        }.frame(width: 24, height: 24), mode)
     }
 
     /// End: casing disc r 11, white 2 pt ring, accent core at 0.42 R.

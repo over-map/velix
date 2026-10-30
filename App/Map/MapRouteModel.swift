@@ -33,6 +33,18 @@ struct MapRouteModel: Equatable, Sendable {
         var state: State
     }
     var legs: [Leg] = []
+    /// Bike + transit: where the ride meets the train or metro (getting on, getting off), marked on the map.
+    var changes: [Change] = []
+
+    struct Change: Equatable {
+        var at: LatLon
+        var metro: Bool
+    }
+
+    /// The train / metro leg's line between its stops. Off: GTFS has no shapes, and straight lines between the stops
+    /// cross the city over buildings (Filippo, 30 Oct: snapped to the rails, or not at all). The changes mark where
+    /// the ride stops and starts again.
+    static let drawsTransitLegs = false
     /// Riding: the stretch of Best around the rider (drawn after `best`, which then holds the rest), and the share of it
     /// already ridden, faded out on the map (a line-gradient).
     var near: [LatLon]?
@@ -89,8 +101,12 @@ struct MapRouteModel: Equatable, Sendable {
         tubes += out.tubes
         hazards += out.hazards
         end = p.rideOut.analysis.shape.last
-        legs = [Leg(metro: p.departure.route.mode == .metro, line: p.stops.map(\.stop.location),
-                    color: p.departure.route.mode == .metro ? p.departure.route.color.map { "#\($0)" } : nil)]
+        let metro = p.departure.route.mode == .metro
+        legs = [Leg(metro: metro, line: p.stops.map(\.stop.location),
+                    color: metro ? p.departure.route.color.map { "#\($0)" } : nil)]
+        // Where the bike legs end and start (the station entrance the router reached), else the stops.
+        changes = [Change(at: p.rideIn.analysis.shape.last ?? p.departure.board.location, metro: metro),
+                   Change(at: p.rideOut.analysis.shape.first ?? p.departure.alight.location, metro: metro)]
     }
 
     // MARK: GeoJSON
@@ -101,7 +117,7 @@ struct MapRouteModel: Equatable, Sendable {
         for alt in alternatives { f.append(line(alt, ["role": "alt"])) }
         if best.count > 1 { f.append(line(best, ["role": "best"])) }
         for r in rides where r.count > 1 { f.append(line(r, ["role": "best"])) }
-        for l in legs where l.line.count > 1 {
+        for l in legs where Self.drawsTransitLegs && l.line.count > 1 {
             // A metro leg takes its line colour from the GTFS; without one it is drawn like a train leg.
             if l.metro, let color = l.color { f.append(line(l.line, ["role": "leg-metro", "color": color])) }
             else { f.append(line(l.line, ["role": "leg-train"])) }
@@ -125,6 +141,7 @@ struct MapRouteModel: Equatable, Sendable {
         var f: [[String: Any]] = []
         if let start { f.append(point(start, ["role": "start"])) }
         if let end { f.append(point(end, ["role": "end", "name": endName ?? ""])) }
+        for c in changes { f.append(point(c.at, ["role": "change", "mode": c.metro ? "metro" : "train"])) }
         for a in avoided where a.shape.count > 1 {
             f.append(point(RuleChecker.point(at: Geo.length(a.shape) / 2, on: a.shape, along: RouteAnalyzer.cumulative(a.shape)),
                            ["role": "avoided-tag", "id": a.id]))
