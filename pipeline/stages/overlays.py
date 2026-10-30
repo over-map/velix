@@ -7,6 +7,8 @@ small vector layers, built from the same OSM extract as routing:
   velix_routes    EuroVelo (route=bicycle, network=icn), ref                (z8–14)
   velix_transit   mode = metro | train, ref, family, alt, tunnel             (z8–14)
   velix_stations  mode = metro | train, name, lines ("M1,M3"), tiles ("M1.red.0,M3.yellow.0")   (z11–14)
+                  mode = entrance: a metro or station entrance (railway=subway_entrance / train_station_entrance),
+                  kind = metro | train, ref, name                                                  (z14)
 
 Cycle-lane tags follow hazards.py (one definition of "protected" / "painted" for the map and the comfort mix).
 Metro families: metro_colors.py (P3 mapRules). Tiles: tippecanoe, written straight to PMTiles."""
@@ -93,11 +95,18 @@ class Geometry(osmium.SimpleHandler):
         self.rel, self.families = rel, families
         self.layers: dict[str, list[dict]] = defaultdict(list)
         self.stop_points: dict[int, tuple[float, float]] = {}
+        self.entrances: list[dict] = []
 
     def node(self, n):
         t = n.tags
         if n.id in self.rel.stops:
             self.stop_points[n.id] = (n.location.lon, n.location.lat)
+        # Entrances (riding to a station: where the stairs or the lift are, not the station's centre point).
+        if t.get("railway") in ENTRANCES:
+            self.entrances.append(feature(
+                {"type": "Point", "coordinates": [round(n.location.lon, 6), round(n.location.lat, 6)]},
+                {"mode": "entrance", "kind": ENTRANCES[t["railway"]], "ref": t.get("ref", ""), "name": t.get("name", ""),
+                 "lift": t.get("wheelchair") == "yes" or t.get("entrance") == "lift"}))
         if t.get("railway") != "station" and t.get("public_transport") != "station":
             return
         name = t.get("name")
@@ -178,6 +187,7 @@ def dedupe_stations(stations: list[dict]) -> list[dict]:
 
 
 ZOOMS = {"velix_cycling": (11, 14), "velix_routes": (8, 14), "velix_transit": (8, 14), "velix_stations": (11, 14)}
+ENTRANCES = {"subway_entrance": "metro", "train_station_entrance": "train"}
 
 
 def main():
@@ -193,6 +203,10 @@ def main():
     geo.apply_file(pbf, locations=True, idx="flex_mem")
     geo.layers["velix_stations"] = dedupe_stations(geo.layers["velix_stations"])
     attach_lines(geo.layers["velix_stations"], geo.stop_points, rel.stops, families)
+    for e in geo.entrances:
+        e["tippecanoe"] = {"minzoom": 14, "maxzoom": 14}
+    geo.layers["velix_stations"] += geo.entrances
+    log(f"{len(geo.entrances)} station entrances")
     work = out / "overlays"
     work.mkdir(exist_ok=True)
     args = ["tippecanoe", "-o", str(out / "overlays.pmtiles"), "--force", "-Z8", "-z14",
@@ -203,7 +217,7 @@ def main():
         path = work / f"{name}.geojsonl"
         with open(path, "w") as f:
             for ft in feats:
-                ft["tippecanoe"] = {"minzoom": ZOOMS[name][0], "maxzoom": ZOOMS[name][1]}
+                ft.setdefault("tippecanoe", {"minzoom": ZOOMS[name][0], "maxzoom": ZOOMS[name][1]})
                 f.write(json.dumps(ft, ensure_ascii=False) + "\n")
         args += ["-L", json.dumps({"file": str(path), "layer": name})]
         counts[name] = len(feats)

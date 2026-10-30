@@ -23,6 +23,7 @@ enum MapImages {
         case "rail": return railTile(pal)
         case "start": return start(pal)
         case "change": return change(metro: parts.count > 1 && parts[1] == "metro", mode)
+        case "entrance": return entrance(metro: parts.count > 1 && parts[1] == "metro", mode)
         case "end": return end(pal)
         case "puck": return puck(CGFloat(Int(parts.last ?? "34") ?? 34), pal)
         case "avoided": return avoidedTexts[parts.dropFirst().joined(separator: "-")].flatMap { swiftUI(AvoidedTag(reason: $0), mode) }
@@ -136,6 +137,23 @@ enum MapImages {
             Circle().strokeBorder(Color.velix.casing, lineWidth: 2.5)
             VelixIconView(metro ? .metro : .train, size: 14).foregroundStyle(Color.velix.ink)
         }.frame(width: 24, height: 24), mode)
+    }
+
+    /// A station entrance (z16+): a small rounded tile, "M" in the metro's red or the train glyph in the train colour,
+    /// so it reads as "the way in" next to the larger station marker.
+    private static func entrance(metro: Bool, _ mode: MapMode) -> UIImage? {
+        swiftUI(Group {
+            if metro {
+                Text("M").font(.custom("AtkinsonHyperlegible-Bold", size: 11)).foregroundStyle(Color.white)
+                    .frame(width: 16, height: 16)
+                    .background(Color.velix.transitMetroRed, in: RoundedRectangle(cornerRadius: 4))
+            } else {
+                VelixIconView(.train, size: 12).foregroundStyle(Color.white)
+                    .frame(width: 16, height: 16)
+                    .background(Color.velix.transitTrain, in: RoundedRectangle(cornerRadius: 4))
+            }
+        }
+        .overlay { RoundedRectangle(cornerRadius: 4).strokeBorder(Color.white, lineWidth: 1.2) }, mode)
     }
 
     /// End: casing disc r 11, white 2 pt ring, accent core at 0.42 R.

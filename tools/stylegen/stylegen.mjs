@@ -297,17 +297,27 @@ function style(name, mode) {
   // No direction arrows on the route (docs/DECISIONS.md, 21 Oct: Filippo).
 
   // ---- stations, places, POIs ----
+  // Stations grow close in (riding zooms 16–17: Filippo, 30 Oct, too small to spot), their names moving out with them.
+  const stationSize = ['interpolate', ['linear'], ['zoom'], 14, 1, 16, 1.6, 18, 2];
+  const stationOffset = (x) => ['interpolate', ['linear'], ['zoom'], 14, ['literal', [x, 0.05]], 16, ['literal', [x * 1.5, 0.05]], 18, ['literal', [x * 1.9, 0.05]]];
   const stationName = (minzoom, id, vis) => vel('velix_stations', id, 'symbol', { minzoom, filter: ['==', ['get', 'mode'], 'metro'],
     layout: { visibility: vis, 'icon-image': ['concat', 'metro-', ['get', 'tiles'], `-${mode}`], 'icon-allow-overlap': false,
+      'icon-size': stationSize,
       'text-field': ['step', ['zoom'], '', minzoom === 12.5 ? 14 : 15.2, ['get', 'name']], 'text-font': F_BOLD,
-      'text-size': ['step', ['zoom'], 11, 16, 12], 'text-anchor': 'left', 'text-justify': 'left', 'text-offset': ['literal', [1.4, 0.05]],
+      'text-size': ['step', ['zoom'], 11, 16, 12], 'text-anchor': 'left', 'text-justify': 'left', 'text-offset': stationOffset(1.4),
       'text-optional': true, 'symbol-sort-key': 4 },
     paint: { 'text-color': P.placeMajor, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
   stationName(14.6, 'station-metro', 'visible');
   stationName(12.5, 'overlay-station-metro', 'none');
   vel('velix_stations', 'station-rail', 'symbol', { minzoom: 13.5, filter: ['==', ['get', 'mode'], 'train'],
-    layout: { 'icon-image': `rail-${mode}`, 'text-field': ['get', 'name'], 'text-font': F_BOLD, 'text-size': 11, 'text-anchor': 'left',
-      'text-offset': ['literal', [1.1, 0.05]], 'text-optional': true, 'symbol-sort-key': 4 },
+    layout: { 'icon-image': `rail-${mode}`, 'icon-size': stationSize, 'text-field': ['get', 'name'], 'text-font': F_BOLD, 'text-size': 11,
+      'text-anchor': 'left', 'text-offset': stationOffset(1.1), 'text-optional': true, 'symbol-sort-key': 4 },
+    paint: { 'text-color': P.placeMajor, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
+  // Station entrances from z16 (where the stairs and lifts are: useful with a bike, 30 Oct); their name from z17.
+  vel('velix_stations', 'station-entrance', 'symbol', { minzoom: 16, filter: ['==', ['get', 'mode'], 'entrance'],
+    layout: { 'icon-image': ['concat', 'entrance-', ['get', 'kind'], `-${mode}`], 'icon-allow-overlap': false, 'icon-padding': 1,
+      'text-field': ['step', ['zoom'], '', 17, ['coalesce', ['get', 'name'], '']], 'text-font': F_REG, 'text-size': 10.5,
+      'text-anchor': 'left', 'text-offset': ['literal', [1.0, 0.05]], 'text-optional': true, 'symbol-sort-key': 4.2 },
     paint: { 'text-color': P.placeMajor, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
   omt('place', 'label-suburb', 'symbol', { minzoom: 11.5, maxzoom: 15.6, filter: inList('class', ['suburb', 'quarter']),
     layout: { 'text-field': ['upcase', ['coalesce', ['get', 'name:it'], ['get', 'name']]], 'text-font': F_BOLD, 'text-size': 12, 'text-letter-spacing': 0.08, 'symbol-sort-key': 5 },
@@ -331,10 +341,12 @@ function style(name, mode) {
       'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
   poi('poi-civic', 15.6, true);
   poi('poi', 16.4, false);
-  // While riding (the app swaps it in for the two above): bike shops, bike parking and drinking water only, icons
+  // While riding (the app swaps it in for the two above): bike shops and drinking water only, icons
   // without names. Every shop and café of central Milan made the iPhone 11 re-place thousands of symbols each frame
   // of the moving camera (3 fps instead of 60, 30 Oct), and they aren't what a rider looks at.
-  omt('poi', 'poi-riding', 'symbol', { minzoom: 15.6, filter: ['in', poiCat, ['literal', ['bike', 'water']]],
+  // Bike parking left out too (Filippo, 30 Oct: riders park where they like): bike shops and water.
+  omt('poi', 'poi-riding', 'symbol', { minzoom: 15.6, filter: ['all', ['in', poiCat, ['literal', ['bike', 'water']]],
+      ['!', ['in', ['coalesce', ['get', 'subclass'], ''], ['literal', ['bicycle_parking', 'bicycle_rental']]]]],
     layout: { visibility: 'none', 'icon-image': ['concat', 'poi-', poiCat, `-${mode}`], 'icon-size': ['step', ['zoom'], 1, 17, 8 / 6.5],
       'symbol-sort-key': 7 } });
   omt('housenumber', 'housenumber', 'symbol', { minzoom: 17.6,
