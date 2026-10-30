@@ -212,6 +212,8 @@ struct RidingScreen: View {
                     // dot at twice the size, no cone; North up keeps the cone, which turns.
                     RiderPuck(course: camera.showsChevron ? 0 : state.course, cone: !camera.showsChevron,
                               scale: camera.showsChevron ? 2 : 1)
+                        // 3D: lying on the ground, tilted with the map's pitch (30 Oct).
+                        .rotation3DEffect(.degrees(target.pitch), axis: (x: 1, y: 0, z: 0), perspective: 0.4)
                 }
                 .position(x: g.size.width / 2, y: g.size.height * target.anchor)
             }

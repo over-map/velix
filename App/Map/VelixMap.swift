@@ -178,6 +178,8 @@ struct VelixMap: UIViewRepresentable {
         }
 
         static let attributionMargin: CGFloat = 8
+        /// 3D riding: 85 % opaque buildings.
+        static let ridingBuildingOpacity = 0.85
 
         static func duration(_ motion: MapCameraMotion) -> TimeInterval? {
             switch motion {
@@ -295,13 +297,16 @@ struct VelixMap: UIViewRepresentable {
                 for id in ["poi", "poi-civic"] { (style.layer(withIdentifier: id) as? MLNSymbolStyleLayer)?.text = nil }
             }
             #endif
-            let key = "\(s.bikeLanes)|\(s.transitLines)|\(s.route == nil)|\(s.riding)"
+            let key = "\(s.bikeLanes)|\(s.transitLines)|\(s.route == nil)|\(s.riding)|\(s.camera.pitch > 0)"
             if key != styleKey {
                 styleKey = key
                 let ids = style.layers.map(\.identifier)
                 for (id, on) in VelixMapStyle.visibility(bikeLanes: s.bikeLanes, transitLines: s.transitLines, layerIDs: ids) {
                     style.layer(withIdentifier: id)?.isVisible = on
                 }
+                // Riding in 3D: buildings a little see-through, so the street and the route read through them (30 Oct).
+                (style.layer(withIdentifier: "building-3d") as? MLNFillExtrusionStyleLayer)?.fillExtrusionOpacity =
+                    NSExpression(forConstantValue: s.riding && s.camera.pitch > 0 ? Self.ridingBuildingOpacity : 1)
                 // Riding: only the bike POIs, without names (see tools/stylegen: the full POI layers cost 3 fps).
                 for id in ["poi", "poi-civic"] { style.layer(withIdentifier: id)?.isVisible = !s.riding }
                 style.layer(withIdentifier: "poi-riding")?.isVisible = s.riding

@@ -8136,6 +8136,21 @@
      "-day"
     ],
     "icon-allow-overlap": false,
+    "icon-size": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14,
+     1,
+     16,
+     1.6,
+     18,
+     2
+    ],
     "text-field": [
      "step",
      [
@@ -8163,10 +8178,36 @@
     "text-anchor": "left",
     "text-justify": "left",
     "text-offset": [
-     "literal",
+     "interpolate",
      [
-      1.4,
-      0.05
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14,
+     [
+      "literal",
+      [
+       1.4,
+       0.05
+      ]
+     ],
+     16,
+     [
+      "literal",
+      [
+       2.0999999999999996,
+       0.05
+      ]
+     ],
+     18,
+     [
+      "literal",
+      [
+       2.6599999999999997,
+       0.05
+      ]
      ]
     ],
     "text-optional": true,
@@ -8204,6 +8245,21 @@
      "-day"
     ],
     "icon-allow-overlap": false,
+    "icon-size": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14,
+     1,
+     16,
+     1.6,
+     18,
+     2
+    ],
     "text-field": [
      "step",
      [
@@ -8231,10 +8287,36 @@
     "text-anchor": "left",
     "text-justify": "left",
     "text-offset": [
-     "literal",
+     "interpolate",
      [
-      1.4,
-      0.05
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14,
+     [
+      "literal",
+      [
+       1.4,
+       0.05
+      ]
+     ],
+     16,
+     [
+      "literal",
+      [
+       2.0999999999999996,
+       0.05
+      ]
+     ],
+     18,
+     [
+      "literal",
+      [
+       2.6599999999999997,
+       0.05
+      ]
      ]
     ],
     "text-optional": true,
@@ -8262,6 +8344,21 @@
    ],
    "layout": {
     "icon-image": "rail-day",
+    "icon-size": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14,
+     1,
+     16,
+     1.6,
+     18,
+     2
+    ],
     "text-field": [
      "get",
      "name"
@@ -8272,14 +8369,103 @@
     "text-size": 11,
     "text-anchor": "left",
     "text-offset": [
-     "literal",
+     "interpolate",
      [
-      1.1,
-      0.05
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14,
+     [
+      "literal",
+      [
+       1.1,
+       0.05
+      ]
+     ],
+     16,
+     [
+      "literal",
+      [
+       1.6500000000000001,
+       0.05
+      ]
+     ],
+     18,
+     [
+      "literal",
+      [
+       2.09,
+       0.05
+      ]
      ]
     ],
     "text-optional": true,
     "symbol-sort-key": 4
+   },
+   "paint": {
+    "text-color": "#042940",
+    "text-halo-color": "#F4F3EA",
+    "text-halo-width": 1.5
+   }
+  },
+  {
+   "id": "station-entrance",
+   "type": "symbol",
+   "source": "velix",
+   "source-layer": "velix_stations",
+   "minzoom": 16,
+   "filter": [
+    "==",
+    [
+     "get",
+     "mode"
+    ],
+    "entrance"
+   ],
+   "layout": {
+    "icon-image": [
+     "concat",
+     "entrance-",
+     [
+      "get",
+      "kind"
+     ],
+     "-day"
+    ],
+    "icon-allow-overlap": false,
+    "icon-padding": 1,
+    "text-field": [
+     "step",
+     [
+      "zoom"
+     ],
+     "",
+     17,
+     [
+      "coalesce",
+      [
+       "get",
+       "name"
+      ],
+      ""
+     ]
+    ],
+    "text-font": [
+     "Atkinson Hyperlegible Regular"
+    ],
+    "text-size": 10.5,
+    "text-anchor": "left",
+    "text-offset": [
+     "literal",
+     [
+      1,
+      0.05
+     ]
+    ],
+    "text-optional": true,
+    "symbol-sort-key": 4.2
    },
    "paint": {
     "text-color": "#042940",
@@ -10091,98 +10277,18 @@
    "source-layer": "poi",
    "minzoom": 15.6,
    "filter": [
-    "in",
+    "all",
     [
-     "match",
-     [
-      "coalesce",
-      [
-       "get",
-       "subclass"
-      ],
-      ""
-     ],
-     "cafe",
-     "food",
-     "restaurant",
-     "food",
-     "bar",
-     "food",
-     "ice_cream",
-     "food",
-     "bakery",
-     "food",
-     "fast_food",
-     "food",
-     "beer",
-     "food",
-     "shop",
-     "shop",
-     "grocery",
-     "shop",
-     "clothing_store",
-     "shop",
-     "pharmacy",
-     "health",
-     "hospital",
-     "health",
-     "school",
-     "edu",
-     "college",
-     "edu",
-     "library",
-     "edu",
-     "museum",
-     "culture",
-     "theatre",
-     "culture",
-     "cinema",
-     "culture",
-     "art_gallery",
-     "culture",
-     "attraction",
-     "culture",
-     "castle",
-     "culture",
-     "place_of_worship",
-     "worship",
-     "lodging",
-     "lodging",
-     "park",
-     "green",
-     "garden",
-     "green",
-     "playground",
-     "green",
-     "dog_park",
-     "green",
-     "pitch",
-     "green",
-     "sports_centre",
-     "green",
-     "stadium",
-     "green",
-     "swimming_pool",
-     "green",
-     "picnic_site",
-     "green",
-     "bicycle_parking",
-     "bike",
-     "bicycle_rental",
-     "bike",
-     "bicycle",
-     "bike",
-     "drinking_water",
-     "water",
-     "toilets",
-     "generic",
-     "information",
-     "generic",
+     "in",
      [
       "match",
       [
-       "get",
-       "class"
+       "coalesce",
+       [
+        "get",
+        "subclass"
+       ],
+       ""
       ],
       "cafe",
       "food",
@@ -10260,14 +10366,118 @@
       "generic",
       "information",
       "generic",
-      ""
+      [
+       "match",
+       [
+        "get",
+        "class"
+       ],
+       "cafe",
+       "food",
+       "restaurant",
+       "food",
+       "bar",
+       "food",
+       "ice_cream",
+       "food",
+       "bakery",
+       "food",
+       "fast_food",
+       "food",
+       "beer",
+       "food",
+       "shop",
+       "shop",
+       "grocery",
+       "shop",
+       "clothing_store",
+       "shop",
+       "pharmacy",
+       "health",
+       "hospital",
+       "health",
+       "school",
+       "edu",
+       "college",
+       "edu",
+       "library",
+       "edu",
+       "museum",
+       "culture",
+       "theatre",
+       "culture",
+       "cinema",
+       "culture",
+       "art_gallery",
+       "culture",
+       "attraction",
+       "culture",
+       "castle",
+       "culture",
+       "place_of_worship",
+       "worship",
+       "lodging",
+       "lodging",
+       "park",
+       "green",
+       "garden",
+       "green",
+       "playground",
+       "green",
+       "dog_park",
+       "green",
+       "pitch",
+       "green",
+       "sports_centre",
+       "green",
+       "stadium",
+       "green",
+       "swimming_pool",
+       "green",
+       "picnic_site",
+       "green",
+       "bicycle_parking",
+       "bike",
+       "bicycle_rental",
+       "bike",
+       "bicycle",
+       "bike",
+       "drinking_water",
+       "water",
+       "toilets",
+       "generic",
+       "information",
+       "generic",
+       ""
+      ]
+     ],
+     [
+      "literal",
+      [
+       "bike",
+       "water"
+      ]
      ]
     ],
     [
-     "literal",
+     "!",
      [
-      "bike",
-      "water"
+      "in",
+      [
+       "coalesce",
+       [
+        "get",
+        "subclass"
+       ],
+       ""
+      ],
+      [
+       "literal",
+       [
+        "bicycle_parking",
+        "bicycle_rental"
+       ]
+      ]
      ]
     ]
    ],
