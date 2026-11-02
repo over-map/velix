@@ -35,5 +35,14 @@ class MetroColors(unittest.TestCase):
         for hex_color, fam in js.items():
             self.assertEqual(family(hex_color), fam, hex_color)
 
+class Parse(unittest.TestCase):
+    def test_names_and_junk(self):
+        from metro_colors import assign, parse
+        self.assertEqual(parse("Red"), "#FF0000")
+        self.assertEqual(parse("#0a0"), "#0a0")
+        self.assertIsNone(parse("#rrggbb"))
+        self.assertEqual(assign([("M1", "#rrggbb")])["M1"][0], "red")    # junk → the fallback order
+
+
 if __name__ == "__main__":
     unittest.main()

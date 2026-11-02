@@ -102,11 +102,13 @@ def window_dates(dates: dict[str, set[dt.date]], start: dt.date, days: int):
 def main():
     cfg = load_config()
     out = out_dir(cfg)
-    region = prep(shape(json.loads((out / "region.geojson").read_text())["features"][0]["geometry"]))
+    region = prep(shape(json.loads((out / "coverage.geojson").read_text())["features"][0]["geometry"]))
     osm_date = json.loads((out / "sources" / "osm.json").read_text())["date"][:10]
     start = dt.date.fromisoformat(osm_date)
     days = cfg["transit"]["days"]
-    rules = yaml.safe_load((PIPELINE / "config" / cfg["transit"]["bike_rules"]).read_text())
+    feed_ids = {f["id"] for f in cfg["transit"]["feeds"]}
+    rules = [r for r in yaml.safe_load((PIPELINE / "config" / cfg["transit"]["bike_rules"]).read_text())
+             if r["operator"] in feed_ids]   # one file for every region: this region's operators
 
     path = out / "transit.sqlite"
     if path.exists():

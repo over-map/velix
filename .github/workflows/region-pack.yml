@@ -22,9 +22,13 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false        # one region failing keeps the others (the index keeps its last good pack)
+      matrix:
+        region: [lombardy, piemonte, veneto, emilia-romagna, trentino-alto-adige]
     env:
-      REGION: lombardy
+      REGION: ${{ matrix.region }}
     steps:
       - uses: actions/checkout@v4
 
@@ -32,10 +36,20 @@ jobs:
         id: month
         run: echo "key=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
 
-      - name: Cache downloads (OSM extract, DEM, GTFS, planetiler inputs)
+      # The Italy extract (≈ 2 GB) is shared by every region: one cache entry instead of one per region.
+      - name: Cache the OSM extract
         uses: actions/cache@v4
         with:
-          path: pipeline/cache
+          path: pipeline/cache/italy-latest.osm.pbf*
+          key: osm-italy-${{ steps.month.outputs.key }}
+          restore-keys: osm-italy-
+
+      - name: Cache downloads (DEM, GTFS, planetiler inputs)
+        uses: actions/cache@v4
+        with:
+          path: |
+            pipeline/cache
+            !pipeline/cache/italy-latest.osm.pbf*
           key: pack-cache-${{ env.REGION }}-${{ steps.month.outputs.key }}
           restore-keys: pack-cache-${{ env.REGION }}-
 
@@ -49,7 +63,8 @@ jobs:
         run: |
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json
-          m = json.load(open("pipeline/out/lombardy/pack/manifest.json"))
+          import os
+          m = json.load(open(f"pipeline/out/{os.environ['REGION']}/pack/manifest.json"))
           print(f"## {m['name']} pack {m['version']}\n")
           print(f"Download **{m['download_bytes']/1e6:.1f} MB** (budget {m['budget_bytes']/1e6:.0f} MB) · on phone {m['unpacked_bytes']/1e6:.0f} MB\n")
           print("| File | Download | Unpacked |\n|---|---|---|")
@@ -64,8 +79,10 @@ jobs:
           path: pipeline/out/${{ env.REGION }}/pack/
           retention-days: 7
 
+  # Golden route tests: Lombardy (the trips are in Milan); other regions have the pipeline's smoke stage.
   golden:
     needs: build
+    if: always()              # runs when Lombardy built, even if another region failed (no artifact → fails)
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -116,28 +133,62 @@ jobs:
 
   publish:
     needs: [build, golden]
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish)
+    if: always() && needs.golden.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        region: [lombardy, piemonte, veneto, emilia-romagna, trentino-alto-adige]
     env:
-      REGION: lombardy
+      REGION: ${{ matrix.region }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Download pack artifact
+        id: artifact
+        continue-on-error: true   # that region's build failed: its last release stays in the index
         uses: actions/download-artifact@v4
         with:
-          name: pack-lombardy
-          path: pipeline/out/lombardy/pack
+          name: pack-${{ matrix.region }}
+          path: pipeline/out/${{ matrix.region }}/pack
 
       - name: Publish release
+        if: steps.artifact.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           PACK=pipeline/out/$REGION/pack
+          NAME=$(python3 -c "import json;print(json.load(open('$PACK/manifest.json'))['name'])")
           VERSION=$(python3 -c "import json;print(json.load(open('$PACK/manifest.json'))['version'])")
-          TAG="pack-$REGION-$VERSION"; N=1; TITLE="Lombardy region pack $VERSION"
+          TAG="pack-$REGION-$VERSION"; N=1; TITLE="$NAME region pack $VERSION"
           while gh release view "$TAG" >/dev/null 2>&1; do
-            N=$((N+1)); TAG="pack-$REGION-$VERSION.$N"; TITLE="Lombardy region pack $VERSION (build $N)"
+            N=$((N+1)); TAG="pack-$REGION-$VERSION.$N"; TITLE="$NAME region pack $VERSION (build $N)"
           done
           python3 pipeline/stages/release_notes.py "$PACK/manifest.json" > notes.md
-          gh release create "$TAG" --title "$TITLE" --notes-file notes.md "$PACK"/*
+          gh release create "$TAG" --title "$TITLE" --notes-file notes.md --latest=false "$PACK"/*
+
+  # packs.json on the fixed Release `pack-index`: the newest published pack of every region (the app's catalog).
+  index:
+    needs: publish
+    if: always() && needs.publish.result != 'skipped'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish the region index
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ARGS=()
+          for cfg in pipeline/config/*.yml; do
+            REGION=$(basename "$cfg" .yml); case "$REGION" in _*|bikes_allowed_rules) continue;; esac
+            TAG=$(gh release list --limit 200 --json tagName,isDraft,isPrerelease,createdAt \
+              -q "[.[] | select(.isDraft|not) | select(.isPrerelease|not) | select(.tagName | startswith(\"pack-$REGION-\"))] | sort_by(.createdAt) | last | .tagName // empty")
+            [ -z "$TAG" ] && continue
+            gh release download "$TAG" -p manifest.json -O "manifest-$REGION.json" --clobber
+            ARGS+=("$TAG" "manifest-$REGION.json")
+          done
+          python3 pipeline/stages/index.py packs.json "${ARGS[@]}"
+          gh release view pack-index >/dev/null 2>&1 || gh release create pack-index --title "Region pack index" \
+            --notes "packs.json: the newest pack of every region (the app's catalog). Updated by the Region pack workflow." --latest=false
+          gh release upload pack-index packs.json --clobber

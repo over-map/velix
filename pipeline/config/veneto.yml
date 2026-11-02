@@ -1,0 +1,16 @@
+# Velix region pack: Veneto.
+region:
+  id: veneto
+  name: Veneto
+  osm_relation: 43648
+  timezone: Europe/Rome
+  country: {name: Italia, iso: IT, osm_relation: 2000365331}   # synthetic relation over the pack coverage, see stages/country_admin.py
+  city_area_relation: 44741    # Comune di Venezia (admin_level=8): "destination outside the city area" transit trigger
+smoke:
+  hazards: {cobbles: 100, steps: 200}
+  lit_ways: 3000
+  basemap_tiles: 6000
+  cycle_ways: 5000
+  routes: 30
+  city_in: [12.2423, 45.4904]    # Piazza Ferretto, Mestre
+  city_out: [11.8800, 45.4180]   # Padova

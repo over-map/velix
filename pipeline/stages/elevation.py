@@ -29,7 +29,7 @@ def main() -> None:
     cfg = load_config()
     out = out_dir(cfg)
     el = cfg["elevation"]
-    west, south, east, north = region_bounds(out / "region.geojson")
+    west, south, east, north = region_bounds(out / "coverage.geojson")
     tiles = [(lat, lon) for lat in range(math.floor(south), math.floor(north) + 1)
              for lon in range(math.floor(west), math.floor(east) + 1)]
     log(f"{len(tiles)} DEM tiles for bounds {west:.2f},{south:.2f},{east:.2f},{north:.2f}")

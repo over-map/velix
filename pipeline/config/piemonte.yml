@@ -1,0 +1,16 @@
+# Velix region pack: Piedmont (Piemonte).
+region:
+  id: piemonte
+  name: Piedmont
+  osm_relation: 44874
+  timezone: Europe/Rome
+  country: {name: Italia, iso: IT, osm_relation: 2000365331}   # synthetic relation over the pack coverage, see stages/country_admin.py
+  city_area_relation: 43992    # Comune di Torino (admin_level=8): "destination outside the city area" transit trigger
+smoke:
+  hazards: {tram: 100, cobbles: 200, steps: 200}
+  lit_ways: 3000
+  basemap_tiles: 6000
+  cycle_ways: 5000
+  routes: 30
+  city_in: [7.6786, 45.0623]     # Porta Nuova
+  city_out: [7.6820, 44.9990]    # Moncalieri
