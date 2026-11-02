@@ -199,6 +199,7 @@ struct RoutesView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(offer.map { "\($0.name) isn’t on your phone" } ?? "Routes cover Lombardy and its neighbours for now")
                         .velixType(VelixType.title2.sized(18, lineHeight: 22))
+                        .fixedSize(horizontal: false, vertical: true)
                     Text(offer.map { "Download it (\($0.downloadBytes / 1_000_000) MB) for the cycle routes around \(model.area.name ?? "here")." }
                          ?? "\(model.area.name ?? "This place") is outside the regions Velix offers.")
                         .velixType(VelixType.body.sized(15, lineHeight: 21)).foregroundStyle(Color.velix.ink2)
