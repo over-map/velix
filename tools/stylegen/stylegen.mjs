@@ -236,7 +236,8 @@ function style(name, mode) {
   const ramp = (v) => ['interpolate', ['linear'], ['zoom'], 14.6, 0, 15.8, v];
   const shade = (t) => ['case', landmark, P.lmRoof, ['match', roofIdx, ...P.roof.flatMap((c, i) => [i, mixHex(c, t > 0 ? '#000000' : '#FFFFFF', Math.abs(t))]).slice(0, -2),
     mixHex(P.roof[P.roof.length - 1], t > 0 ? '#000000' : '#FFFFFF', Math.abs(t))]];
-  const SLICES = 8, LIGHT = -0.14, DARK = 0;   // lighter than the roof colour at the bottom, the roof colour at the top
+  // Lighter than the roof colour at the bottom (`wallLift`: more on the pale light roofs), the roof colour at the top.
+  const SLICES = 8, LIGHT = -(P.wallLift ?? 0.14), DARK = 0;
   for (let i = 0; i < SLICES; i++) {
     const from = i / SLICES, to = (i + 1) / SLICES, t = LIGHT + (DARK - LIGHT) * (i / (SLICES - 1));
     omt('building', i === 0 ? 'building-3d' : `building-3d-${i}`, 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
