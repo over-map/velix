@@ -226,12 +226,7 @@ function style(name, mode) {
   const roof = ['match', roofIdx, ...P.roof.flatMap((c, i) => [i, c]).slice(0, -2), P.roof[P.roof.length - 1]];
   const landmark = ['>=', ['coalesce', ['get', 'render_height'], 0], 85];
   omt('building', 'building-flat', 'fill', { minzoom: 13.6, maxzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof] } });
-  // The outline, up to z15 (then the walls show the buildings). Light's is crisper, for contrast with the land without a
-  // heavier roof (overrides.json `map.light.buildingEdge`, Filippo 2 Nov).
-  const be = P.buildingEdge;
-  if (be) omt('building', 'building-edge', 'line', { minzoom: be.minzoom, maxzoom: 15, paint: { 'line-color': be.color, 'line-opacity': be.opacity,
-    'line-width': ['interpolate', ['linear'], ['zoom'], 13.6, be.width[0], 15, be.width[1]] } });
-  else omt('building', 'building-edge', 'line', { minzoom: 14.2, maxzoom: 15, paint: { 'line-color': P.wallD, 'line-width': 0.4, 'line-opacity': 0.5 } });
+  omt('building', 'building-edge', 'line', { minzoom: 14.2, maxzoom: 15, paint: { 'line-color': P.wallD, 'line-width': 0.4, 'line-opacity': 0.5 } });
   // Walls lighter at the bottom, darker at the top (Filippo, 30 Oct): MapLibre's own vertical gradient darkens the
   // bottom and can't be reversed, so each building is stacked slices of its height, lighter to darker, with the
   // built-in gradient off. `building-3d` is the bottom slice, `building-3d-1`… the ones above it. The top slice is the
