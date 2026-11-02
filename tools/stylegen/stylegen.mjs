@@ -234,10 +234,12 @@ function style(name, mode) {
   const hgt = ['coalesce', ['get', 'render_height'], 6], minH = ['coalesce', ['get', 'render_min_height'], 0];
   const at = (f) => ['+', minH, ['*', ['-', hgt, minH], f]];
   const ramp = (v) => ['interpolate', ['linear'], ['zoom'], 14.6, 0, 15.8, v];
-  const shade = (t) => ['case', landmark, P.lmRoof, ['match', roofIdx, ...P.roof.flatMap((c, i) => [i, mixHex(c, t > 0 ? '#000000' : '#FFFFFF', Math.abs(t))]).slice(0, -2),
-    mixHex(P.roof[P.roof.length - 1], t > 0 ? '#000000' : '#FFFFFF', Math.abs(t))]];
+  const lift = (c, t) => mixHex(c, t > 0 ? '#000000' : '#FFFFFF', Math.abs(t));
+  // Landmarks too (Filippo, 2 Nov): their walls shade like every building's.
+  const shade = (t) => ['case', landmark, lift(P.lmRoof, t), ['match', roofIdx, ...P.roof.flatMap((c, i) => [i, lift(c, t)]).slice(0, -2),
+    lift(P.roof[P.roof.length - 1], t)]];
   // Lighter than the roof colour at the bottom (`wallLift`: more on the pale light roofs), the roof colour at the top.
-  const SLICES = 8, LIGHT = -(P.wallLift ?? 0.14), DARK = 0;
+  const SLICES = 8, LIGHT = -(P.wallLift ?? 0.3), DARK = 0;   // 2 Nov: a stronger gradient (was 14 %, light 35 %)
   for (let i = 0; i < SLICES; i++) {
     const from = i / SLICES, to = (i + 1) / SLICES, t = LIGHT + (DARK - LIGHT) * (i / (SLICES - 1));
     omt('building', i === 0 ? 'building-3d' : `building-3d-${i}`, 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],

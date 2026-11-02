@@ -152,16 +152,14 @@ struct VelixMap: UIViewRepresentable {
             guard let c = state?.camera else { return }
             map.contentInset = Self.insets(state?.insets ?? .zero, anchor: c.anchor, height: map.bounds.height)
             placeAttribution(on: map)
-            guard let duration else {
-                map.setCenter(CLLocationCoordinate2D(latitude: c.center.lat, longitude: c.center.lon), zoomLevel: c.zoom,
-                              direction: c.bearing, animated: animated)
-                let cam = map.camera
-                cam.pitch = c.pitch
-                map.setCamera(cam, animated: animated)
-                return
-            }
             let center = CLLocationCoordinate2D(latitude: c.center.lat, longitude: c.center.lon)
             let cam = MLNMapCamera(lookingAtCenter: center, altitude: Self.altitude(for: c, from: map), pitch: c.pitch, heading: c.bearing)
+            guard let duration else {
+                // One flight to centre, zoom, tilt and heading together. (A centre animation followed by a camera built
+                // from `map.camera`, the current camera, cancelled the move: Recenter only flattened the tilt, Filippo 2 Nov.)
+                map.setCamera(cam, withDuration: animated ? 0.45 : 0, animationTimingFunction: CAMediaTimingFunction(name: .easeInEaseOut))
+                return
+            }
             let timing = state?.motion == .track ? CAMediaTimingFunction(name: .linear) : CAMediaTimingFunction(name: .easeInEaseOut)
             map.setCamera(cam, withDuration: duration, animationTimingFunction: timing)
         }

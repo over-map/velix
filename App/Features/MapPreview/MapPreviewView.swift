@@ -34,6 +34,8 @@ struct MapPreviewView: View {
         _mode = State(initialValue: arg("-map-mode").flatMap(MapMode.init(rawValue:)) ?? .day)
         _zoom = State(initialValue: arg("-map-zoom").flatMap(Double.init) ?? 15)
         pitch = arg("-map-pitch").flatMap(Double.init) ?? 0
+        center = arg("-map-center").map { $0.split(separator: ",").compactMap { Double($0) } }
+            .flatMap { $0.count == 2 ? LatLon(lat: $0[0], lon: $0[1]) : nil }
         _frame = State(initialValue: arg("-map-frame").flatMap(Frame.init(rawValue:)) ?? .route)
         _bikeLanes = State(initialValue: a.contains("-map-overlays"))
         _transitLines = State(initialValue: a.contains("-map-overlays"))
@@ -42,11 +44,13 @@ struct MapPreviewView: View {
 
     /// `-map-pitch`: tilt the camera (3D buildings).
     private let pitch: Double
+    /// `-map-center lat,lon`: anywhere instead of the frame's centre (region borders).
+    private let center: LatLon?
 
     var body: some View {
         ZStack(alignment: .bottom) {
             VelixMap(style: style, mode: mode, bikeLanes: bikeLanes, transitLines: transitLines,
-                     route: frame == .route ? route : nil, camera: MapCamera(center: frame.center, zoom: zoom, pitch: pitch))
+                     route: frame == .route ? route : nil, camera: MapCamera(center: center ?? frame.center, zoom: zoom, pitch: pitch))
                 .ignoresSafeArea()
             if chrome { controls }
         }
