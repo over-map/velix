@@ -56,6 +56,14 @@ struct MapPreviewView: View {
         }
         .task {
             if ProcessInfo.processInfo.arguments.contains("-map-planned") { await planSample() } else { loadP3Sample() }
+            // `-map-sweep`: zoom 15 → 18 over 6 s, like a pinch (with `-map-perf`: frames per second while POIs appear).
+            if ProcessInfo.processInfo.arguments.contains("-map-sweep") {
+                try? await Task.sleep(for: .seconds(4))
+                for i in 0 ... 120 {
+                    zoom = 15 + 3 * Double(i) / 120
+                    try? await Task.sleep(for: .milliseconds(50))
+                }
+            }
         }
     }
 

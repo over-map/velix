@@ -152,16 +152,14 @@ struct VelixMap: UIViewRepresentable {
             guard let c = state?.camera else { return }
             map.contentInset = Self.insets(state?.insets ?? .zero, anchor: c.anchor, height: map.bounds.height)
             placeAttribution(on: map)
-            guard let duration else {
-                map.setCenter(CLLocationCoordinate2D(latitude: c.center.lat, longitude: c.center.lon), zoomLevel: c.zoom,
-                              direction: c.bearing, animated: animated)
-                let cam = map.camera
-                cam.pitch = c.pitch
-                map.setCamera(cam, animated: animated)
-                return
-            }
             let center = CLLocationCoordinate2D(latitude: c.center.lat, longitude: c.center.lon)
             let cam = MLNMapCamera(lookingAtCenter: center, altitude: Self.altitude(for: c, from: map), pitch: c.pitch, heading: c.bearing)
+            guard let duration else {
+                // One flight to centre, zoom, tilt and heading together. (A centre animation followed by a camera built
+                // from `map.camera`, the current camera, cancelled the move: Recenter only flattened the tilt, Filippo 2 Nov.)
+                map.setCamera(cam, withDuration: animated ? 0.45 : 0, animationTimingFunction: CAMediaTimingFunction(name: .easeInEaseOut))
+                return
+            }
             let timing = state?.motion == .track ? CAMediaTimingFunction(name: .linear) : CAMediaTimingFunction(name: .easeInEaseOut)
             map.setCamera(cam, withDuration: duration, animationTimingFunction: timing)
         }
@@ -297,7 +295,7 @@ struct VelixMap: UIViewRepresentable {
                 for l in style.layers where prefixes.contains(where: { l.identifier.hasPrefix($0) }) { l.isVisible = false }
             }
             if args.contains("-map-poi-notext") {
-                for id in ["poi", "poi-civic"] { (style.layer(withIdentifier: id) as? MLNSymbolStyleLayer)?.text = nil }
+                for l in style.layers where l.identifier.hasPrefix("poi-t") { (l as? MLNSymbolStyleLayer)?.text = nil }
             }
             #endif
             let key = "\(s.bikeLanes)|\(s.transitLines)|\(s.route == nil)|\(s.riding)|\(s.camera.pitch > 0)"
@@ -313,7 +311,7 @@ struct VelixMap: UIViewRepresentable {
                         NSExpression(forConstantValue: s.riding && s.camera.pitch > 0 ? Self.ridingBuildingOpacity : 1)
                 }
                 // Riding: only the bike POIs, without names (see tools/stylegen: the full POI layers cost 3 fps).
-                for id in ["poi", "poi-civic"] { style.layer(withIdentifier: id)?.isVisible = !s.riding }
+                for l in style.layers where l.identifier.hasPrefix("poi-t") { l.isVisible = !s.riding }   // the POI tiers
                 style.layer(withIdentifier: "poi-riding")?.isVisible = s.riding
                 // P3: train & metro at 60 % while a route is shown.
                 for id in ids where id.hasPrefix("overlay-train") || id.hasPrefix("overlay-metro") {
