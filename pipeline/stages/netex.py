@@ -73,7 +73,9 @@ def _date(s: str) -> dt.date:
 
 
 def _secs(clock: str, offset: str) -> int:
-    h, m, s = (int(x) for x in clock.split(":"))
+    """Seconds after midnight of an xsd:time, `offset` days later. The clock is local time; a zone suffix
+    (TPER, 2 Nov: `08:15:00+01:00`) and fractional seconds are dropped."""
+    h, m, s = (int(x) for x in re.match(r"(\d+):(\d+):(\d+)", clock.strip()).groups())
     return (int(offset or 0) * 24 + h) * 3600 + m * 60 + s
 
 
