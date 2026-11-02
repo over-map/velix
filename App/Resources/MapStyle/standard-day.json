@@ -6099,6 +6099,7 @@
    "source": "omt",
    "source-layer": "building",
    "minzoom": 13.6,
+   "maxzoom": 15,
    "paint": {
     "line-color": "#8EA3A8",
     "line-opacity": 0.9,
@@ -6110,9 +6111,9 @@
      [
       "zoom"
      ],
-     14,
+     13.6,
      0.6,
-     17,
+     15,
      1
     ]
    }
@@ -7273,31 +7274,6 @@
     ],
     "fill-extrusion-vertical-gradient": false,
     "fill-extrusion-opacity": 1
-   }
-  },
-  {
-   "id": "building-edge-top",
-   "type": "line",
-   "source": "omt",
-   "source-layer": "building",
-   "minzoom": 15,
-   "maxzoom": 16.4,
-   "paint": {
-    "line-color": "#8EA3A8",
-    "line-width": 0.7333333333333333,
-    "line-opacity": [
-     "interpolate",
-     [
-      "linear"
-     ],
-     [
-      "zoom"
-     ],
-     15.6,
-     0.9,
-     16.2,
-     0
-    ]
    }
   },
   {
