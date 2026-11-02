@@ -11,10 +11,21 @@ ROOT = Path(os.environ.get("VELIX_ROOT", "/work"))
 PIPELINE = ROOT / "pipeline"
 
 
+def merge(base: dict, over: dict) -> dict:
+    """`over` merged into `base`, key by key (dicts recursively; anything else replaced)."""
+    out = dict(base)
+    for k, v in over.items():
+        out[k] = merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+    return out
+
+
 def load_config(region: str | None = None) -> dict:
+    """config/<region>.yml over config/_base.yml (what every region shares)."""
     region = region or os.environ.get("REGION", "lombardy")
+    with open(PIPELINE / "config" / "_base.yml") as f:
+        base = yaml.safe_load(f)
     with open(PIPELINE / "config" / f"{region}.yml") as f:
-        return yaml.safe_load(f)
+        return merge(base, yaml.safe_load(f))
 
 
 def out_dir(cfg: dict) -> Path:

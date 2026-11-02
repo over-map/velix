@@ -4,23 +4,9 @@ region:
   name: Lombardy
   osm_relation: 44879          # Lombardia, admin_level=4
   timezone: Europe/Rome
-  country: {name: Italia, iso: IT, osm_relation: 2000365331}   # synthetic id (real 365331 + 2e9), see stages/country_admin.py
+  country: {name: Italia, iso: IT, osm_relation: 2000365331}   # synthetic relation over the pack coverage, see stages/country_admin.py
   city_area_relation: 44915    # Comune di Milano (admin_level=8): "destination outside the city area" transit trigger
-osm:
-  url: https://download.geofabrik.de/europe/italy/nord-ovest-latest.osm.pbf
-  licence: ODbL-1.0
-  attribution: "© OpenStreetMap contributors"
-elevation:
-  # GEDTM30: global 30 m *terrain* model (buildings and trees removed), Cloud Optimized GeoTIFF, values in dm.
-  # Replaces Copernicus GLO-30 (a surface model: rooftops gave flat Milan streets fake 8–15 % grades).
-  source: gedtm30
-  url: "https://s3.opengeohub.org/global/edtm/gedtm_rf_m_30m_s_20060101_20151231_go_epsg.4326.3855_v20250611.tif"
-  scale: 0.1
-  licence: CC-BY-4.0
-  attribution: "GEDTM30, Ho et al. (2025), OpenGeoHub, CC BY 4.0 (doi:10.5281/zenodo.15689805)"
 transit:
-  days: 60
-  bike_rules: bikes_allowed_rules.yml   # curated, per region; used only where a feed has no trips.bikes_allowed
   feeds:
     - id: trenord
       name: Trenord (Orario Ferroviario Regionale GTFS)
@@ -34,14 +20,21 @@ transit:
       licence: CC-BY-4.0
       attribution: ATM, via Comune di Milano open data
       route_types: [1, 401, 402]                        # metro (basic + extended)
-valhalla:
-  image: ghcr.io/valhalla/valhalla@sha256:511c095b8caf393dccceb8b519ec96b6f85a0166b2288ba014a8a748acc5a63c
-  version: "3.9.0"
-basemap:
-  # OpenMapTiles-schema vector tiles for the map (P3 cartography), built offline with planetiler.
-  image: ghcr.io/onthegomap/planetiler@sha256:cf32202dbc001a9ab4bc11534b642b13de3798179817da8558e567a3d13dd403
-  version: "0.10.2"
-  maxzoom: 14
-pack:
-  budget_mb: 300            # download size (Filippo: 220 on 14 Oct 2026, 300 with the offline basemap on 16 Oct)
-  xz_preset: 9
+smoke:
+  hazards: {tram: 500, along: 200, cobbles: 1000, steps: 1000, gap: 1000, lane: 1000, dismount: 1000, door: 1}
+  hazards_near:
+    - {what: tram rails near Porta Venezia, lat: 45.4746, lon: 9.2050, m: 400, types: [tram, along]}
+    - {what: cobbles in Brera (Via Fiori Chiari), lat: 45.4720, lon: 9.1870, m: 150, types: [cobbles]}
+  lit_ways: 10000
+  basemap_tiles: 8000
+  cycle_ways: 20000
+  stations: 300
+  routes: 100
+  eurovelo: [5]
+  metro_families: {STIBM: {M1: red, M2: green, M3: yellow, M4: blue, M5: purple}}
+  trains: [{from: Milano Centrale, to: Monza}]
+  metro_stops: {"atm:M1": 30}
+  metro_feed: atm
+  bike_rule_operators: [atm, trenord]
+  city_in: [9.2050, 45.4746]     # Porta Venezia
+  city_out: [9.2740, 45.5885]    # Villa Reale, Monza

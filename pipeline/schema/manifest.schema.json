@@ -5,7 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "pack", "name", "version", "built", "valhalla", "bbox", "polygon_sha256", "files",
-               "download_bytes", "unpacked_bytes", "budget_bytes", "sources", "counts"],
+               "download_bytes", "unpacked_bytes", "budget_bytes", "sources", "counts", "polygon", "coverage"],
   "properties": {
     "schema": {"const": 1},
     "pack": {"type": "string", "pattern": "^[a-z0-9-]+$"},
@@ -15,6 +15,16 @@
     "valhalla": {"type": "string"},
     "bbox": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
     "polygon_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "polygon": {"$ref": "#/$defs/multipolygon", "description": "The region border, simplified (250 m)"},
+    "coverage": {
+      "type": "object", "additionalProperties": false, "required": ["buffer_km", "bbox", "polygon"],
+      "description": "Where the pack's routing, hazards, routes and timetable reach: the border plus buffer_km",
+      "properties": {
+        "buffer_km": {"type": "number", "minimum": 0},
+        "bbox": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
+        "polygon": {"$ref": "#/$defs/multipolygon"}
+      }
+    },
     "download_bytes": {"type": "integer", "minimum": 1},
     "unpacked_bytes": {"type": "integer", "minimum": 1},
     "budget_bytes": {"type": "integer", "minimum": 1},
@@ -47,5 +57,13 @@
       }
     },
     "counts": {"type": "object"}
+  },
+  "$defs": {
+    "multipolygon": {
+      "description": "GeoJSON MultiPolygon coordinates: polygons → rings → [lon, lat]",
+      "type": "array", "minItems": 1,
+      "items": {"type": "array", "minItems": 1, "items": {"type": "array", "minItems": 4,
+        "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}}}
+    }
   }
 }

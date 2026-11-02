@@ -59,12 +59,35 @@ def family(hex_color: str) -> str:
     return "purple"
 
 
+# OSM colour=* is often a CSS name instead of hex (Piedmont's lines, 2 Nov): the common ones.
+CSS = {"red": "#FF0000", "darkred": "#8B0000", "green": "#008000", "darkgreen": "#006400", "lime": "#00FF00",
+       "yellow": "#FFFF00", "gold": "#FFD700", "orange": "#FFA500", "blue": "#0000FF", "navy": "#000080",
+       "darkblue": "#00008B", "lightblue": "#ADD8E6", "skyblue": "#87CEEB", "purple": "#800080", "violet": "#EE82EE",
+       "magenta": "#FF00FF", "fuchsia": "#FF00FF", "pink": "#FFC0CB", "brown": "#A52A2A", "maroon": "#800000",
+       "teal": "#008080", "cyan": "#00FFFF", "aqua": "#00FFFF", "olive": "#808000", "grey": "#808080",
+       "gray": "#808080", "silver": "#C0C0C0", "black": "#000000", "white": "#FFFFFF"}
+
+
+def parse(colour: str | None) -> str | None:
+    """An OSM colour as #RRGGBB, or None when it is neither hex nor a known CSS name."""
+    if not colour:
+        return None
+    c = colour.strip().lower()
+    if c in CSS:
+        return CSS[c]
+    h = c.lstrip("#")
+    if len(h) in (3, 6) and all(ch in "0123456789abcdef" for ch in h):
+        return "#" + h
+    return None
+
+
 def assign(lines: list[tuple[str, str | None]]) -> dict[str, tuple[str, bool]]:
     """[(ref, colour or None)] for one city, in ref order → {ref: (family, alt)}."""
     out: dict[str, tuple[str, bool]] = {}
     used: dict[str, int] = {}
     fallback = iter(FALLBACK)
-    for ref, colour in sorted(lines, key=lambda x: _ref_key(x[0])):
+    for ref, raw in sorted(lines, key=lambda x: _ref_key(x[0])):
+        colour = parse(raw)
         fam = family(colour) if colour else next((f for f in fallback if f not in used), "grey")
         out[ref] = (fam, used.get(fam, 0) > 0)
         used[fam] = used.get(fam, 0) + 1

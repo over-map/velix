@@ -193,7 +193,7 @@ ENTRANCES = {"subway_entrance": "metro", "train_station_entrance": "train"}
 def main():
     cfg = load_config()
     out = out_dir(cfg)
-    pbf = str(out / "region.osm.pbf")
+    pbf = str(out / "map.osm.pbf")   # the exact border, like the basemap (extract.sh)
     rel = Relations()
     rel.apply_file(pbf)
     # The "second line of a family takes alt" rule is per city: one network at a time.

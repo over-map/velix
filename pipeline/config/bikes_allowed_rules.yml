@@ -1,4 +1,4 @@
-# Curated bikes-on-board rules for Lombardy (BRIEF §8: "bikes-allowed connections only").
+# Curated bikes-on-board rules, every region (BRIEF §8: "bikes-allowed connections only").
 # Order of evidence, same in every region: a feed's own trips.txt bikes_allowed wins; these rules fill feeds
 # that don't publish it; anything else is "check". Loaded into transit.sqlite → bike_rules. First matching rule wins.
 # operator: the feed id in the region config.

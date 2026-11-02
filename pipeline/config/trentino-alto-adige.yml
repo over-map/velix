@@ -1,0 +1,16 @@
+# Velix region pack: Trentino-South Tyrol (Trentino-Alto Adige/Südtirol).
+region:
+  id: trentino-alto-adige
+  name: Trentino-South Tyrol
+  osm_relation: 45757
+  timezone: Europe/Rome
+  country: {name: Italia, iso: IT, osm_relation: 2000365331}   # synthetic relation over the pack coverage, see stages/country_admin.py
+  city_area_relation: 46663    # Comune di Trento (admin_level=8): "destination outside the city area" transit trigger
+smoke:
+  hazards: {steps: 100}
+  lit_ways: 1000
+  basemap_tiles: 4000
+  cycle_ways: 2000
+  routes: 30
+  city_in: [11.1215, 46.0670]    # Piazza Duomo
+  city_out: [11.0400, 45.8910]   # Rovereto

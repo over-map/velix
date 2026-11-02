@@ -5,7 +5,10 @@ xz runs single-threaded (one block): the best ratio, and output that does not de
 import json
 import subprocess
 
+from shapely.geometry import shape
+
 from common import load_config, log, out_dir, sha256, write_json
+from coverage import manifest_polygon
 
 FILES = [("valhalla_tiles.tar", "routing_tiles"), ("hazards.sqlite", "hazards"),
          ("routes.sqlite", "routes"), ("transit.sqlite", "transit"),
@@ -32,23 +35,18 @@ def main():
 
     sources = [json.loads(p.read_text()) for p in sorted((out / "sources").glob("*.json"))]
     counts = {p.name.split(".")[0]: json.loads(p.read_text()) for p in sorted(out.glob("*.counts.json"))}
-    geo = json.loads((out / "region.geojson").read_text())
-    xs, ys = [], []
-
-    def walk(c):
-        if isinstance(c[0], (int, float)):
-            xs.append(c[0]); ys.append(c[1])
-        else:
-            for x in c:
-                walk(x)
-
-    walk(geo["features"][0]["geometry"]["coordinates"])
+    region = shape(json.loads((out / "region.geojson").read_text())["features"][0]["geometry"])
+    coverage = shape(json.loads((out / "coverage.geojson").read_text())["features"][0]["geometry"])
+    box = lambda g: [round(v, 5) for v in g.bounds]  # noqa: E731
     built = next(s["date"][:10] for s in sources if s["id"] == "osm")
     manifest = {
         "schema": 1, "pack": cfg["region"]["id"], "name": cfg["region"]["name"], "version": built[:7].replace("-", "."),
         "built": built, "valhalla": cfg["valhalla"]["version"],
-        "bbox": [round(min(xs), 5), round(min(ys), 5), round(max(xs), 5), round(max(ys), 5)],
+        "bbox": box(region),
         "polygon_sha256": sha256(out / "region.geojson"),
+        # The app's "which region is this point in" (exact border) and "can this pack route here" (border + buffer).
+        "polygon": manifest_polygon(region, 250),
+        "coverage": {"buffer_km": cfg["coverage"]["buffer_km"], "bbox": box(coverage), "polygon": manifest_polygon(coverage, 250)},
         "files": files,
         "download_bytes": sum(f["bytes"] for f in files),
         "unpacked_bytes": sum(f["unpacked_bytes"] for f in files),

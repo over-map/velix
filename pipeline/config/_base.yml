@@ -1,0 +1,35 @@
+# Shared by every region config (common.load_config merges the region file over this one, key by key).
+osm:
+  # The whole of Italy, so a region's border buffer reaches into its neighbours (nord-ovest alone stopped at Emilia).
+  url: https://download.geofabrik.de/europe/italy-latest.osm.pbf
+  name: OpenStreetMap (Geofabrik Italy)
+  licence: ODbL-1.0
+  attribution: "© OpenStreetMap contributors"
+coverage:
+  # Routing data (tiles, hazards, cycle routes, timetable) reaches this far past the border, so trips just across it
+  # (Milan → Novara) plan in either pack; the map tiles stop at the border. Valhalla tiles from separate builds can't be
+  # joined on the phone (DECISIONS 2026-11-02).
+  buffer_km: 10
+transit:
+  days: 60
+  bike_rules: bikes_allowed_rules.yml   # curated, per operator; used only where a feed has no trips.bikes_allowed
+  feeds: []
+elevation:
+  # GEDTM30: global 30 m *terrain* model (buildings and trees removed), Cloud Optimized GeoTIFF, values in dm.
+  # Replaces Copernicus GLO-30 (a surface model: rooftops gave flat Milan streets fake 8–15 % grades).
+  source: gedtm30
+  url: "https://s3.opengeohub.org/global/edtm/gedtm_rf_m_30m_s_20060101_20151231_go_epsg.4326.3855_v20250611.tif"
+  scale: 0.1
+  licence: CC-BY-4.0
+  attribution: "GEDTM30, Ho et al. (2025), OpenGeoHub, CC BY 4.0 (doi:10.5281/zenodo.15689805)"
+valhalla:
+  image: ghcr.io/valhalla/valhalla@sha256:511c095b8caf393dccceb8b519ec96b6f85a0166b2288ba014a8a748acc5a63c
+  version: "3.9.0"
+basemap:
+  # OpenMapTiles-schema vector tiles for the map (P3 cartography), built offline with planetiler.
+  image: ghcr.io/onthegomap/planetiler@sha256:cf32202dbc001a9ab4bc11534b642b13de3798179817da8558e567a3d13dd403
+  version: "0.10.2"
+  maxzoom: 14
+pack:
+  budget_mb: 320            # download size (Filippo: 220 on 14 Oct 2026, 300 with the offline basemap on 16 Oct, 320 with the 10 km routing buffer on 2 Nov)
+  xz_preset: 9
