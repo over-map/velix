@@ -6,7 +6,7 @@ import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stages"))
-from netex import convert, nice, route_key  # noqa: E402
+from netex import _secs, convert, nice, route_key  # noqa: E402
 
 DOC = """<?xml version="1.0"?>
 <PublicationDelivery xmlns="http://www.netex.org.uk/netex"><dataObjects><CompositeFrame><frames>
@@ -52,6 +52,10 @@ class NeTEx(unittest.TestCase):
         self.assertEqual(read(z, "trips.txt"), ["M1,s1,j1,Centrale FS,101,0"])
         self.assertEqual(read(z, "stop_times.txt"), ["j1,23:58:00,23:58:00,s1,1", "j1,24:03:00,24:03:00,s2,2"])
         self.assertEqual(read(z, "calendar_dates.txt"), ["s1,20261102,1", "s1,20261104,1"])   # the bits, not the weekdays
+
+    def test_times_with_a_zone(self):
+        self.assertEqual(_secs("08:15:00+01:00", None), 8 * 3600 + 15 * 60)   # TPER: local clock, suffix dropped
+        self.assertEqual(_secs("23:58:30.000", "1"), 24 * 3600 + 23 * 3600 + 58 * 60 + 30)
 
     def test_names(self):
         self.assertEqual(nice("TORINO PORTA NUOVA"), "Torino Porta Nuova")
