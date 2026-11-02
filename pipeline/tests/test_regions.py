@@ -31,9 +31,12 @@ class RegionConfigs(unittest.TestCase):
             self.assertGreaterEqual(c["coverage"]["buffer_km"], 0, r)
             self.assertTrue((PIPELINE / "config" / "smoke_trips" / f"{r}.txt").exists(), r)
 
-    def test_lombardy_keeps_its_feeds_and_others_inherit_none(self):
-        self.assertEqual([f["id"] for f in load_config("lombardy")["transit"]["feeds"]], ["trenord", "atm"])
-        self.assertEqual(load_config("veneto")["transit"]["feeds"], [])
+    def test_every_region_takes_trenitalia_from_the_nap(self):
+        self.assertEqual([f["id"] for f in load_config("lombardy")["transit"]["feeds"]], ["trenitalia", "trenord", "atm", "brescia"])
+        for r in REGIONS:
+            feeds = load_config(r)["transit"]["feeds"]
+            self.assertEqual(feeds[0]["nap"], {"dataset": 1077621, "asset": "TRENITALIA"}, r)
+            self.assertTrue(all(f["format"] == "netex" and f["operator"] for f in feeds), r)
         self.assertEqual(load_config("veneto")["transit"]["days"], 60)
 
 

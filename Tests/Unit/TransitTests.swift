@@ -274,6 +274,20 @@ struct RidingWithTransitCopyTests {
         #expect(BikeCarriages.positions(m1) == [false, true, false, false, true, false])
         #expect(BikeCarriages.note([false, true, false, false, true, false]) == "Bikes in the 2nd and 5th carriage")
     }
+
+    /// Packs from Nov 2026 name the operator and the metro's ticket page; older packs mean Trenord and ATM.
+    @Test func theOperatorComesFromThePack() {
+        var reg = TransitRoute(id: "trenitalia:REG", feed: "trenitalia", shortName: "REG", longName: "Regionale", mode: .rail, color: nil)
+        #expect(reg.operatorLabel == "Trenord")
+        reg.operatorName = "Trenitalia"
+        #expect(reg.operatorLabel == "Trenitalia")
+        #expect(TransitStore.displayName("TORINO PORTA NUOVA", feed: "trenitalia") == "Torino Porta Nuova")
+        #expect(TransitStore.displayName("Milano Centrale", feed: "trenord") == "Milano Centrale")
+        var gtt = TransitRoute(id: "gtt:M1", feed: "gtt", shortName: "M1", longName: "", mode: .metro, color: nil)
+        gtt.operatorName = "GTT"
+        gtt.ticket = URL(string: "https://www.gtt.to.it/cms/biglietti-abbonamenti")
+        #expect(BikeCarriages.positions(gtt) == nil)
+    }
 }
 
 struct TrainStretchLogTests {
