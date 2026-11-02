@@ -56,7 +56,7 @@ struct RideView: View {
             }
         }
         .onChange(of: app.location.coordinate) { _, here in
-            if following, let here { camera = MapCamera(center: here, zoom: camera.zoom) }
+            if following, let here { camera = MapCamera(center: here, zoom: camera.zoom, revision: camera.revision) }
         }
     }
 
@@ -131,7 +131,7 @@ struct RideView: View {
                 if !following {
                     RecenterButton(following: false) {
                         following = true
-                        if let here = app.location.coordinate { camera = MapCamera(center: here, zoom: max(camera.zoom, 15)) }
+                        if let here = app.location.coordinate { camera = MapCamera(center: here, zoom: max(camera.zoom, 15), revision: camera.revision + 1) }
                     }
                     .disabled(app.location.coordinate == nil)
                     .opacity(app.location.coordinate == nil ? 0.5 : 1)

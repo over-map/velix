@@ -11,6 +11,9 @@ struct RidingView: View {
     @State private var motion = MapCameraMotion.track
     /// The camera while panned: held so the map stays where the rider put it.
     @State private var held: MapCamera?
+    /// Bumped on every return from a pan (Recenter, or the 10 s resume): stopped, the follow camera equals the held
+    /// one and the map would stay put (``MapCamera/revision``).
+    @State private var returns = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -20,7 +23,7 @@ struct RidingView: View {
                      onVoice: { session.voice.cycle() },
                      onView: { change { camera.cycleView() } },
                      onOverview: { change { camera.toggleOverview(at: Date()) } },
-                     onRecenter: { change { camera.recenter() } },
+                     onRecenter: { change { camera.recenter(); returns += 1 } },
                      onPan: { if !camera.isPanned { held = target(state) }; camera.userPanned(at: Date()) },
                      onEnd: { if let transit { transit.end() } else { session.end() } })
             .onChange(of: session.here) { motion = .track }
@@ -33,7 +36,7 @@ struct RidingView: View {
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(1))
                     var next = camera
-                    if next.tick(at: Date()) { change { camera = next } }
+                    if next.tick(at: Date()) { change { if camera.isPanned && !next.isPanned { returns += 1 }; camera = next } }
                 }
             }
     }
@@ -58,7 +61,9 @@ struct RidingView: View {
     private func target(_ state: RideScreenState) -> MapCamera {
         if camera.isPanned, let held { return held }
         guard let rider = state.rider else { return MapCamera(center: session.destination.location, zoom: 15) }
-        return camera.follow(at: rider, course: state.course)
+        var c = camera.follow(at: rider, course: state.course)
+        c.revision = returns
+        return c
     }
 }
 

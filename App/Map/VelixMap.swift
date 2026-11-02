@@ -9,6 +9,9 @@ struct MapCamera: Equatable {
     var bearing: Double = 0
     /// Where the centre sits, as a share of the map's height from the top (riding: the rider low on screen, P5).
     var anchor: Double = 0.5
+    /// Bumped to fly back to a camera equal to the last one set: after the rider pans, the set camera hasn't changed,
+    /// so Recenter on the same position would otherwise do nothing.
+    var revision = 0
 }
 
 /// How ``VelixMap`` moves to a new camera.

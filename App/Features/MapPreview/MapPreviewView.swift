@@ -33,16 +33,20 @@ struct MapPreviewView: View {
         _style = State(initialValue: arg("-map-style").flatMap(MapStyleKind.init(rawValue:)) ?? .standard)
         _mode = State(initialValue: arg("-map-mode").flatMap(MapMode.init(rawValue:)) ?? .day)
         _zoom = State(initialValue: arg("-map-zoom").flatMap(Double.init) ?? 15)
+        pitch = arg("-map-pitch").flatMap(Double.init) ?? 0
         _frame = State(initialValue: arg("-map-frame").flatMap(Frame.init(rawValue:)) ?? .route)
         _bikeLanes = State(initialValue: a.contains("-map-overlays"))
         _transitLines = State(initialValue: a.contains("-map-overlays"))
         chrome = !a.contains("-map-bare")
     }
 
+    /// `-map-pitch`: tilt the camera (3D buildings).
+    private let pitch: Double
+
     var body: some View {
         ZStack(alignment: .bottom) {
             VelixMap(style: style, mode: mode, bikeLanes: bikeLanes, transitLines: transitLines,
-                     route: frame == .route ? route : nil, camera: MapCamera(center: frame.center, zoom: zoom))
+                     route: frame == .route ? route : nil, camera: MapCamera(center: frame.center, zoom: zoom, pitch: pitch))
                 .ignoresSafeArea()
             if chrome { controls }
         }
