@@ -141,6 +141,11 @@ final class ScreenSnapshotTests: XCTestCase {
         check(DestinationPreviewView(app: app(), place: place, onClose: {}, onFindRoute: {}), named: "S2f-preview")
         let rome = Place(id: "n1", name: "Colosseo", subtitle: "Piazza del Colosseo · Roma", kind: .poi, lat: 41.8902, lon: 12.4922)
         check(DestinationPreviewView(app: app(), place: rome, onClose: {}, onFindRoute: {}), named: "S2g-notCovered")
+        let torino = Place(id: "n2", name: "Torino Porta Nuova", subtitle: "Railway station · Torino", kind: .station, lat: 45.0623, lon: 7.6786)
+        check(DestinationPreviewView(app: app(), place: torino, onClose: {}, onFindRoute: {}), named: "S2h-needsDownload")
+        let downloading = app()
+        downloading.pack.setForTesting(.downloading(received: 84_000_000, total: 222_000_000), region: "piemonte")
+        check(DestinationPreviewView(app: downloading, place: torino, onClose: {}, onFindRoute: {}), named: "S2i-downloading")
     }
 
     // MARK: S3 Route options

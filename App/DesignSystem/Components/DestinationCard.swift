@@ -28,14 +28,18 @@ struct PlaceKindTile: View {
     }
 }
 
-/// The destination card (search first, Filippo 2 Nov): the picked place framed on the map, then Find route.
-/// Outside the region the pack covers, it says so instead of offering a route.
+/// The destination card (search first, Filippo 2 Nov): the picked place framed on the map, then Find route. In a
+/// region not on the phone, Find route asks to download it; outside every region on offer, it says so.
 struct DestinationCard: View {
     enum Availability: Equatable {
         /// Routes work: Find route.
         case routable
-        /// No pack covers it (yet): the region's name.
-        case notCovered(region: String)
+        /// In a region on offer that isn't on the phone: Find route asks to download it first.
+        case needsDownload(region: String, megabytes: Int64)
+        /// That region downloading now.
+        case downloading(region: String, fraction: Double)
+        /// Outside every region Velix offers.
+        case notCovered
     }
 
     let place: Place
@@ -58,12 +62,24 @@ struct DestinationCard: View {
                 SheetCloseButton(action: onClose)
             }
             switch availability {
-            case .routable:
+            case .routable, .needsDownload:
                 PrimaryButton(title: "Find route", icon: .route, casing: true, action: onFindRoute)
-            case let .notCovered(region):
+            case let .downloading(region, fraction):
+                VStack(alignment: .leading, spacing: CGFloat.velix.xs) {
+                    HStack {
+                        Text("Downloading \(region)").velixType(.label)
+                        Spacer()
+                        Text("\(Int((fraction * 100).rounded())) %").velixType(.label).monospacedDigit().foregroundStyle(Color.velix.ink2)
+                    }
+                    ProgressBar(fraction: fraction)
+                    Text("The route opens when the map is on the phone.").velixType(.footnote).foregroundStyle(Color.velix.ink2)
+                }
+                .foregroundStyle(Color.velix.ink)
+                .accessibilityElement(children: .combine)
+            case .notCovered:
                 HStack(alignment: .top, spacing: CGFloat.velix.xs) {
                     VelixIconView(.mapPinOff, size: 20)
-                    Text("Routes cover \(region) for now. You can still look at the map here.")
+                    Text("Velix covers Lombardy and its neighbours for now. You can still look at the map here.")
                         .velixType(VelixType.body.sized(14, lineHeight: 19))
                 }
                 .foregroundStyle(Color.velix.ink)

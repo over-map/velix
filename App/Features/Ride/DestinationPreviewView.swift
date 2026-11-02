@@ -11,6 +11,10 @@ struct DestinationPreviewView: View {
     @Environment(\.mapAppearance) private var mapAppearance
     @Environment(\.liveMap) private var liveMap
     @State private var cardHeight: CGFloat = 220
+    /// "Download Piedmont?" (Find route for a place in a region not on the phone).
+    @State private var asking: RegionCatalog.Region?
+    /// Find route waits for this region's download, then opens route options.
+    @State private var waitingFor: String?
 
     /// Close enough to read the streets around the place.
     static let zoom = 16.0
@@ -33,11 +37,29 @@ struct DestinationPreviewView: View {
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
                 DestinationCard(place: place, distance: distance, availability: availability,
-                                onFindRoute: onFindRoute, onClose: onClose)
+                                onFindRoute: findRoute, onClose: onClose)
                     .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { cardHeight = VelixMap.covered(fromTop: $0) }
             }
             .ignoresSafeArea(edges: .bottom)
         }
+        .confirmationDialog(asking.map { "Download \($0.name)?" } ?? "", isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } }),
+                            titleVisibility: .visible, presenting: asking) { r in
+            Button("Download") {
+                waitingFor = r.id
+                app.pack.install(r.id)
+            }
+            Button("Not now", role: .cancel) {}
+        } message: { r in
+            Text("Routes to \(place.name) need the \(r.name) map (\(r.downloadBytes / 1_000_000) MB).")
+        }
+        // The region arrived: on to route options.
+        .onChange(of: app.pack.installed.map(\.pack)) { _, packs in
+            if let w = waitingFor, packs.contains(w) { waitingFor = nil; onFindRoute() }
+        }
+    }
+
+    private func findRoute() {
+        if case .needsDownload = availability, let r = app.pack.offer(at: place.location) { asking = r } else { onFindRoute() }
     }
 
     @ViewBuilder private var map: some View {
@@ -60,7 +82,10 @@ struct DestinationPreviewView: View {
     }
 
     var availability: DestinationCard.Availability {
-        app.packContains(place.location) ? .routable : .notCovered(region: app.pack.regionName)
+        if app.packContains(place.location) { return .routable }
+        guard let r = app.pack.offer(at: place.location) else { return .notCovered }
+        if app.pack.downloading == r.id { return .downloading(region: r.name, fraction: app.pack.fraction) }
+        return .needsDownload(region: r.name, megabytes: r.downloadBytes / 1_000_000)
     }
 
     private var distance: String? {
