@@ -350,18 +350,27 @@ function style(name, mode) {
     paint: { 'text-color': P.parkInk, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
   const poiCat = ['match', ['coalesce', ['get', 'subclass'], ''], ...Object.entries(POI_CAT).flatMap(([k, v]) => [k, v]),
     ['match', ['get', 'class'], ...Object.entries(POI_CAT).flatMap(([k, v]) => [k, v]), '']];
-  const poi = (id, minzoom, civicOnly) => omt('poi', id, 'symbol', { minzoom, ...(civicOnly ? { maxzoom: 16.4 } : {}),
-    filter: ['all', ['!=', ['get', 'class'], 'park'], ['in', poiCat, ['literal', civicOnly ? CIVIC : Object.values(POI_CAT)]],
-      ['any', ['has', 'name'], ['in', poiCat, ['literal', ['bike', 'water']]]]],
+  // POIs come in tiers, a few categories at a time (Filippo, 2 Nov: every POI appearing at one zoom stalled the
+  // pinch for a moment while MapLibre placed them all). Sparse and useful to a rider first; shops and food last, the
+  // more important of them (OpenMapTiles `rank`, lower is more important) before the rest; names a step later.
+  const rank = ['coalesce', ['get', 'rank'], 50];
+  const POI_TIERS = [
+    ['poi-t1', 15.4, 16.8, ['bike', 'water', 'health']],
+    ['poi-t2', 15.8, 16.8, ['culture', 'worship', 'edu']],
+    ['poi-t3', 16.2, 17.0, ['green', 'lodging', 'generic']],
+    ['poi-t4', 16.6, 17.2, ['food', 'shop'], ['<=', rank, 20]],
+    ['poi-t5', 17.2, 17.8, ['food', 'shop'], ['>', rank, 20]],
+  ];
+  for (const [id, minzoom, names, cats, more] of POI_TIERS) omt('poi', id, 'symbol', { minzoom,
+    filter: ['all', ['!=', ['get', 'class'], 'park'], ['in', poiCat, ['literal', cats]],
+      ['any', ['has', 'name'], ['in', poiCat, ['literal', ['bike', 'water']]]], ...(more ? [more] : [])],
     layout: { 'icon-image': ['concat', 'poi-', poiCat, `-${mode}`], 'icon-size': ['step', ['zoom'], 1, 17, 8 / 6.5],
-      'text-field': ['step', ['zoom'], '', 16.8, ['coalesce', ['get', 'name'], '']], 'text-font': F_REG, 'text-size': 11,
-      'text-anchor': 'left', 'text-offset': ['literal', [1.0, 0.05]], 'text-optional': true, 'symbol-sort-key': ['+', 7, ['/', ['coalesce', ['get', 'rank'], 50], 100]] },
+      'text-field': ['step', ['zoom'], '', names, ['coalesce', ['get', 'name'], '']], 'text-font': F_REG, 'text-size': 11,
+      'text-anchor': 'left', 'text-offset': ['literal', [1.0, 0.05]], 'text-optional': true, 'symbol-sort-key': ['+', 7, ['/', rank, 100]] },
     // Names in their category's colour (overrides.json `poi`), so shops, food and the rest read apart.
     paint: { 'text-color': ['match', poiCat, ...Object.keys(P.poi).filter((c) => overrides.poi?.[c]).flatMap((c) => [c, poiColor(c, mode, P)]), P.poiInk],
       'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
-  poi('poi-civic', 15.6, true);
-  poi('poi', 16.4, false);
-  // While riding (the app swaps it in for the two above): bike shops and drinking water only, icons
+  // While riding (the app swaps it in for the tiers above): bike shops and drinking water only, icons
   // without names. Every shop and café of central Milan made the iPhone 11 re-place thousands of symbols each frame
   // of the moving camera (3 fps instead of 60, 30 Oct), and they aren't what a rider looks at.
   // Bike parking left out too (Filippo, 30 Oct: riders park where they like): bike shops and water.

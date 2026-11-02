@@ -295,7 +295,7 @@ struct VelixMap: UIViewRepresentable {
                 for l in style.layers where prefixes.contains(where: { l.identifier.hasPrefix($0) }) { l.isVisible = false }
             }
             if args.contains("-map-poi-notext") {
-                for id in ["poi", "poi-civic"] { (style.layer(withIdentifier: id) as? MLNSymbolStyleLayer)?.text = nil }
+                for l in style.layers where l.identifier.hasPrefix("poi-t") { (l as? MLNSymbolStyleLayer)?.text = nil }
             }
             #endif
             let key = "\(s.bikeLanes)|\(s.transitLines)|\(s.route == nil)|\(s.riding)|\(s.camera.pitch > 0)"
@@ -311,7 +311,7 @@ struct VelixMap: UIViewRepresentable {
                         NSExpression(forConstantValue: s.riding && s.camera.pitch > 0 ? Self.ridingBuildingOpacity : 1)
                 }
                 // Riding: only the bike POIs, without names (see tools/stylegen: the full POI layers cost 3 fps).
-                for id in ["poi", "poi-civic"] { style.layer(withIdentifier: id)?.isVisible = !s.riding }
+                for l in style.layers where l.identifier.hasPrefix("poi-t") { l.isVisible = !s.riding }   // the POI tiers
                 style.layer(withIdentifier: "poi-riding")?.isVisible = s.riding
                 // P3: train & metro at 60 % while a route is shown.
                 for id in ids where id.hasPrefix("overlay-train") || id.hasPrefix("overlay-metro") {
