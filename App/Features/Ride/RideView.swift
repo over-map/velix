@@ -54,7 +54,7 @@ struct RideView: View {
                 switch purpose {
                 case .setHome: app.state.home = place
                 case .setWork: app.state.work = place
-                case .destination: app.choose(place)
+                case .destination: app.show(place)
                 case .area: break
                 }
             }

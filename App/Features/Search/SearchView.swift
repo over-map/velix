@@ -153,25 +153,11 @@ struct SearchView: View {
     }
 
     @ViewBuilder private func leading(_ place: Place, _ icon: ListRow<Text>.Leading?) -> some View {
-        let tile: (AnyView) -> AnyView = { v in
-            AnyView(v.foregroundStyle(Color.velix.ink).frame(width: 40, height: 40)
-                .background(Color.velix.surface2, in: RoundedRectangle(cornerRadius: 10)))
-        }
-        switch icon {
-        case let .tile(i)?: tile(AnyView(VelixIconView(i, size: 22)))
-        default:
-            switch place.kind {
-            case .station: tile(AnyView(VelixIconView(.train, size: 22)))
-            case .metro where !place.lines.isEmpty:
-                HStack(spacing: 2) {
-                    ForEach(Array(place.lines.prefix(2).enumerated()), id: \.offset) { i, ref in
-                        MetroBadge.family(place.lineFamilies.indices.contains(i) ? place.lineFamilies[i] : "grey", name: ref)
-                    }
-                }
-            case .metro: tile(AnyView(VelixIconView(.metro, size: 22)))
-            case .park: tile(AnyView(VelixIconView(.trees, size: 22)))
-            default: tile(AnyView(VelixIconView(.mapPin, size: 22)))
-            }
+        if case let .tile(i)? = icon {
+            VelixIconView(i, size: 22).foregroundStyle(Color.velix.ink).frame(width: 40, height: 40)
+                .background(Color.velix.surface2, in: RoundedRectangle(cornerRadius: 10))
+        } else {
+            PlaceKindTile(place: place)
         }
     }
 
