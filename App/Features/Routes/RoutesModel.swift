@@ -32,7 +32,8 @@ final class RoutesModel {
     private(set) var moved: Area?
     private(set) var outside = false
 
-    private var store: RouteStore?
+    /// The cycle routes of the region holding a point (each downloaded region has its own).
+    private var storeAt: (LatLon) -> RouteStore? = { _ in nil }
     private var inside: (LatLon) -> Bool = { _ in true }
 
     init(rideType: RideType, home: Area) {
@@ -55,8 +56,8 @@ final class RoutesModel {
 
     // MARK: Search
 
-    func load(store: RouteStore?, inside: @escaping (LatLon) -> Bool) {
-        self.store = store
+    func load(store: @escaping (LatLon) -> RouteStore?, inside: @escaping (LatLon) -> Bool) {
+        storeAt = store
         self.inside = inside
         search(area)
     }
@@ -66,7 +67,7 @@ final class RoutesModel {
         moved = nil
         selected = nil
         outside = !inside(a.center)
-        all = outside ? [] : (store?.routes(in: Geo.bbox([a.center], padding: Self.radius), near: a.center, filter: .all, limit: 300) ?? [])
+        all = outside ? [] : (storeAt(a.center)?.routes(in: Geo.bbox([a.center], padding: Self.radius), near: a.center, filter: .all, limit: 300) ?? [])
         refilter()
     }
 

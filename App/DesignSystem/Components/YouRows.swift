@@ -69,6 +69,8 @@ struct OfflineRegionRow: View {
         case ready(size: String, updated: String)
         case update(size: String)
         case failed
+        /// On offer, not downloaded (Filippo, 2 Nov: other regions).
+        case available(size: String)
     }
     let region: String
     let state: State
@@ -88,6 +90,8 @@ struct OfflineRegionRow: View {
                 row("\(size) · updated \(updated)") { StatusCheck(text: "Ready") }
             case let .update(size):
                 row("Update · \(size)") { RowButton(title: "Update", action: onAction) }
+            case let .available(size):
+                row(size) { RowButton(title: "Download", action: onAction) }
             case .failed:
                 ListRow(leading: .tile(.map), title: region, subtitle: "Download stopped. Check your connection.",
                         subtitleStyle: Color.velix.danger, subtitleBold: true, divider: divider) {

@@ -54,9 +54,10 @@ struct RoutesView: View {
                 model.mapMoved(to: place.location, name: place.name)
             }
         }
+        .onChange(of: app.pack.installed.map(\.pack)) { model.search(model.area) }   // a region downloaded here
         .task {
             guard loadsOnAppear else { return }
-            model.load(store: app.routeStore, inside: { app.packContains($0) })
+            model.load(store: { app.routeStore(at: $0) }, inside: { app.packContains($0) })
         }
     }
 
@@ -188,19 +189,30 @@ struct RoutesView: View {
         .padding(.top, 22)
     }
 
+    /// The region on offer where the Routes map is, if not downloaded.
+    private var offer: RegionCatalog.Region? { app.pack.offer(at: model.area.center) }
+
     private var outside: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
                 VelixIconView(.mapPinOff, size: 24)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Routes cover \(app.pack.regionName) for now").velixType(VelixType.title2.sized(18, lineHeight: 22))
-                    Text("\(model.area.name ?? "This place") is outside the downloaded map. More regions come in phase 2.")
+                    Text(offer.map { "\($0.name) isn’t on your phone" } ?? "Routes cover Lombardy and its neighbours for now")
+                        .velixType(VelixType.title2.sized(18, lineHeight: 22))
+                    Text(offer.map { "Download it (\($0.downloadBytes / 1_000_000) MB) for the cycle routes around \(model.area.name ?? "here")." }
+                         ?? "\(model.area.name ?? "This place") is outside the regions Velix offers.")
                         .velixType(VelixType.body.sized(15, lineHeight: 21)).foregroundStyle(Color.velix.ink2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .foregroundStyle(Color.velix.ink)
             .padding(.top, 4)
+            if let offer {
+                PrimaryButton(title: "Download \(offer.name)", icon: .download, isEnabled: !app.pack.isDownloading,
+                              disabledNote: app.pack.isDownloading ? "Downloading \(app.pack.regionName) · \(Int(app.pack.fraction * 100))%" : nil) {
+                    app.pack.install(offer.id)
+                }
+            }
             PrimaryButton(title: "Back to \(model.home.name ?? "Milan")", kind: .secondary) {
                 camera = MapCamera(center: model.home.center, zoom: 11)
                 model.backHome()

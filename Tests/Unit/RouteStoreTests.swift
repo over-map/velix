@@ -163,7 +163,7 @@ struct RoutesModelTests {
 
     @Test func outsideTheRegion() {
         let m = Self.model()
-        m.load(store: nil, inside: { _ in false })
+        m.load(store: { _ in nil }, inside: { _ in false })
         m.search(.init(center: LatLon(lat: 46.0, lon: 8.95), name: "Lugano"))
         #expect(m.outside)
     }

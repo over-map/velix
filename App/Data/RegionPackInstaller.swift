@@ -100,7 +100,7 @@ struct RegionPackInstaller: Sendable {
     let root: URL
     let downloader: PackDownloading
 
-    init(root: URL = RegionPack.directory, downloader: PackDownloading = URLSessionPackDownloader()) {
+    init(root: URL = RegionPack.root(RegionPack.active), downloader: PackDownloading = URLSessionPackDownloader()) {
         self.root = root
         self.downloader = downloader
     }
@@ -169,7 +169,7 @@ struct RegionPackInstaller: Sendable {
     }
 
     /// The installed pack `current` points to, if any.
-    static func current(root: URL = RegionPack.directory) -> InstalledRegionPack? {
+    static func current(root: URL = RegionPack.root(RegionPack.active)) -> InstalledRegionPack? {
         guard let version = try? String(contentsOf: root.appending(path: "current"), encoding: .utf8)
             .trimmingCharacters(in: .whitespacesAndNewlines), !version.isEmpty
         else { return nil }

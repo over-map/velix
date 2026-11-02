@@ -168,8 +168,16 @@ struct YouView: View {
 
     private var offlineMap: some View {
         group("Offline map") {
-            OfflineRegionRow(region: app.pack.regionName, state: packState, divider: false) {
-                app.pack.install()
+            let regions = offlineRegions
+            ForEach(Array(regions.enumerated()), id: \.element) { i, id in
+                OfflineRegionRow(region: app.pack.name(of: id), state: packState(id), divider: i > 0) {
+                    app.pack.install(id)
+                }
+                .contextMenu {
+                    if app.pack.isInstalled(id), regions.filter(app.pack.isInstalled).count > 1 {
+                        Button("Remove \(app.pack.name(of: id))", role: .destructive) { app.pack.delete(id) }
+                    }
+                }
             }
             Toggle(isOn: $app.state.packAutoUpdate) {
                 ListRow(title: "Update automatically", subtitle: "On Wi-Fi only", divider: false)
@@ -179,14 +187,25 @@ struct YouView: View {
         }
     }
 
-    private var packState: OfflineRegionRow.State {
-        switch app.pack.state {
-        case let .downloading(r, t): .downloading(received: "\(r / 1_000_000)", total: "\(t / 1_000_000) MB", fraction: app.pack.fraction)
-        case .failed: .failed
+    /// Downloaded regions first, then the others on offer, each by name.
+    private var offlineRegions: [String] {
+        let installed = app.pack.installed.map(\.pack)
+        let others = app.pack.catalog.regions.map(\.id).filter { !installed.contains($0) }
+        let all = installed + others.sorted { app.pack.name(of: $0) < app.pack.name(of: $1) }
+        return all.isEmpty ? [RegionPack.active] : all
+    }
+
+    private func packState(_ id: String) -> OfflineRegionRow.State {
+        let state = app.pack.state(of: id)
+        switch state {
+        case let .downloading(r, t):
+            return .downloading(received: "\(r / 1_000_000)", total: "\(t / 1_000_000) MB", fraction: t > 0 ? Double(r) / Double(t) : 0)
+        case .failed: return .failed
         case let .ready(m):
-            .ready(size: m.downloadBytes > 0 ? "\(m.downloadBytes / 1_000_000) MB" : "Side-loaded",
-                   updated: Self.date(m.built))
-        case .none, .checking: .update(size: "")
+            return .ready(size: m.downloadBytes > 0 ? "\(m.downloadBytes / 1_000_000) MB" : "Side-loaded", updated: Self.date(m.built))
+        case .none, .checking:
+            if let r = app.pack.catalog.region(id) { return .available(size: "\(r.downloadBytes / 1_000_000) MB") }
+            return .update(size: "")
         }
     }
 
@@ -243,7 +262,7 @@ struct AboutView: View {
             List {
                 Section("Velix") {
                     LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–")
-                    if case let .ready(m) = app.pack.state { LabeledContent("Region pack", value: "\(m.name) \(m.version)") }
+                    ForEach(app.pack.installed, id: \.pack) { m in LabeledContent("Region pack", value: "\(m.name) \(m.version)") }
                     Text("Open source under Apache 2.0. github.com/over-map/velix").velixType(.footnote)
                 }
                 Section("Data") {

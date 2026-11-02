@@ -18,6 +18,10 @@ struct RideView: View {
     @State private var search: SearchPurpose?
     /// The tab bar (and the home indicator) under the map: the ⓘ sits above it.
     @State private var tabBar: CGFloat = 0
+    /// Where the rider moved the map: a region there that isn't on the phone is offered (Filippo, 2 Nov).
+    @State private var browsed: LatLon?
+    /// Regions whose offer the rider closed (this session).
+    @State private var declined: Set<String> = []
 
     static let milan = LatLon(lat: 45.4746, lon: 9.2050)   // Porta Venezia, until the first fix
 
@@ -67,7 +71,7 @@ struct RideView: View {
             VelixMap(style: MapStyleKind(app.mapStyle), mode: MapMode(scheme, mapAppearance),
                      bikeLanes: app.bikeLanes, transitLines: app.transitLines, camera: camera,
                      userLocation: app.isOutsideRegion ? nil : app.location.coordinate, userHeading: app.location.heading,
-                     coveredBottom: tabBar, onUserPan: { following = false })
+                     coveredBottom: tabBar, onUserPan: { following = false }, onRegionChange: { browsed = $0 })
         } else {
             Color.velix.surface2
         }
@@ -75,10 +79,22 @@ struct RideView: View {
 
     // MARK: Notices (S1a, S1b, S1e, S1f)
 
+    /// A region on offer where the map is (or the rider is) that isn't downloaded yet.
+    private var offer: RegionCatalog.Region? {
+        guard !app.pack.isDownloading, let p = (following ? nil : browsed) ?? app.location.coordinate,
+              let r = app.pack.offer(at: p), !declined.contains(r.id) else { return nil }
+        return r
+    }
+
     @ViewBuilder private var notices: some View {
-        if app.isOutsideRegion {
-            NoticeBanner(title: "You’re outside \(app.pack.regionName)",
-                         message: "Velix has routes for \(app.pack.regionName) for now. You can still search and look at the map.",
+        if let r = offer {
+            NoticeBanner(title: "\(r.name) isn’t on your phone",
+                         message: "Download it (\(r.downloadBytes / 1_000_000) MB) for routes there, even without signal.",
+                         icon: VelixIconView(.download, size: 22), tone: .info, onDismiss: { declined.insert(r.id) },
+                         link: ("Download \(r.name)", { app.pack.install(r.id) }))
+        } else if app.isOutsideRegion {
+            NoticeBanner(title: "You’re outside the downloaded regions",
+                         message: "Velix covers Lombardy and its neighbours for now. You can still search and look at the map.",
                          icon: VelixIconView(.mapPinOff, size: 22), tone: .info)
         } else if app.location.access == .denied || app.location.cannotFind {
             NoticeBanner(title: "Can’t find your location", message: "Turn on Location in Settings, or search from any place.",

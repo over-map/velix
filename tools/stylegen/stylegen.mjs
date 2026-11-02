@@ -1,9 +1,9 @@
 // StyleGen: the P3 cartography (design/p3v3/palettes.js + render.js) as MapLibre style JSON.
 // Writes App/Resources/MapStyle/{standard,outdoor,satellite}-{day,night}.json. `--check` fails if they are stale.
 //
-// Sources the app resolves at load time (VelixMapStyle.swift):
-//   pmtiles://velix-pack/basemap.pmtiles   OpenMapTiles schema (pack role basemap)
-//   pmtiles://velix-pack/overlays.pmtiles  velix_cycling / velix_routes / velix_transit / velix_stations
+// Sources served by the app from every installed pack (PackTileProtocol.swift):
+//   https://tiles.velix.invalid/basemap/{z}/{x}/{y}   OpenMapTiles schema (pack role basemap; OpenFreeMap outside the packs)
+//   https://tiles.velix.invalid/overlays/{z}/{x}/{y}  velix_cycling / velix_routes / velix_transit / velix_stations
 // Glyphs are bundled (asset://MapStyle/glyphs). Icons and patterns are registered at runtime (MapImages.swift):
 //   trees-<mode>, poi-<cat>-<mode>, metro-<ref.family.alt,…>-<mode>, rail-<mode>, hz-<type>-<mode>, cnt-<n>-<mode>, hz-stripe-<mode>,
 //   avoided-<mode>, start-<mode>, end-<mode>, puck.
@@ -418,8 +418,10 @@ function style(name, mode) {
     // light) renders at exactly its colour: a tinted light turned the light style's blue roofs ochre (Filippo, 2 Nov).
     light: { anchor: 'map', position: [1.15, 210, 30], color: '#FFFFFF', intensity: mode === 'day' ? 0.42 : 0.2 },
     sources: {
-      omt: { type: 'vector', url: 'pmtiles://velix-pack/basemap.pmtiles', attribution: '© OpenMapTiles © OpenStreetMap contributors' },
-      velix: { type: 'vector', url: 'pmtiles://velix-pack/overlays.pmtiles' },
+      // Every installed pack as one source, served by the app (PackTileProtocol.swift): regions side by side.
+      omt: { type: 'vector', tiles: ['https://tiles.velix.invalid/basemap/{z}/{x}/{y}'], minzoom: 0, maxzoom: 14,
+        attribution: '© OpenMapTiles © OpenStreetMap contributors' },
+      velix: { type: 'vector', tiles: ['https://tiles.velix.invalid/overlays/{z}/{x}/{y}'], minzoom: 8, maxzoom: 14 },
       'velix-route': { ...empty, lineMetrics: true },
       'velix-hazards': { ...empty, cluster: true, clusterRadius: 44, clusterMaxZoom: 14 },
       'velix-markers': empty,

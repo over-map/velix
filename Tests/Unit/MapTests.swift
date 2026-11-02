@@ -47,15 +47,13 @@ struct MapTests {
         #expect(pref.style(for: .cargo) == .standard)
     }
 
-    @Test func bundledStylesResolveThePackSources() throws {
-        let base = URL(fileURLWithPath: "/tmp/pack/basemap.pmtiles"), over = URL(fileURLWithPath: "/tmp/pack/overlays.pmtiles")
+    @Test func bundledStylesReadTheirTilesFromThePacks() throws {
         for kind in MapStyleKind.allCases {
             for mode in MapMode.allCases {
-                let url = try VelixMapStyle.url(kind, mode, basemap: base, overlays: over)
-                let json = try String(contentsOf: url, encoding: .utf8)
-                #expect(json.contains("pmtiles://file:///tmp/pack/basemap.pmtiles"))
-                #expect(json.contains("pmtiles://file:///tmp/pack/overlays.pmtiles"))
-                #expect(!json.contains("velix-pack"))
+                let json = try String(contentsOf: VelixMapStyle.url(kind, mode), encoding: .utf8)
+                #expect(json.contains("https://tiles.velix.invalid/basemap/{z}/{x}/{y}"))
+                #expect(json.contains("https://tiles.velix.invalid/overlays/{z}/{x}/{y}"))
+                #expect(!json.contains("pmtiles://"))
             }
         }
     }

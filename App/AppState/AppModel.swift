@@ -57,16 +57,15 @@ final class AppModel {
         self.mapPreference = mapPreference
         self.history = history ?? RideHistory()
         self.health = health
-        pack.onInstalled = { [weak self] in self?.engine.reset() }
+        pack.onInstalled = { [weak self] _ in self?.engine.reset() }
     }
 
     var rules: RuleSet { state.ruleSet(for: state.rideType, litStreetsOnly: litStreetsOnly) }
 
-    /// Inside the region the pack covers (S1e).
+    /// Outside every installed region (S1e).
     var isOutsideRegion: Bool {
         guard let here = location.coordinate else { return false }
-        if case let .ready(m) = pack.state { return !m.contains(here) }
-        return !RegionPackManifest.sideloaded.contains(here)
+        return !packContains(here)
     }
 
     func refreshWarning() async {
@@ -84,7 +83,14 @@ final class AppModel {
     /// S7c → S7d: Ride this route opens route options for this cycle route.
     var follow: CycleRoute?
 
-    /// The pack's cycle routes (Routes tab), opened once per installed pack.
+    /// The cycle routes around a point (Routes tab): of the installed region holding it, which becomes the active one
+    /// (not during a ride: the ride's region stays).
+    func routeStore(at p: LatLon) -> RouteStore? {
+        if ride == nil, let r = pack.installedRegion(containing: p), r.pack != RegionPack.active { RegionPack.active = r.pack }
+        return routeStore
+    }
+
+    /// The active region's cycle routes, opened once per installed pack.
     var routeStore: RouteStore? {
         guard let url = RegionPack.routes else { return nil }
         if let cached = routeStoreCache, cached.url == url { return cached.store }
@@ -105,10 +111,9 @@ final class AppModel {
         return m
     }
 
-    /// Inside the region the pack covers.
+    /// Some installed pack can route here (its region, or the 10 km past its border).
     func packContains(_ p: LatLon) -> Bool {
-        if case let .ready(m) = pack.state { return m.contains(p) }
-        return RegionPackManifest.sideloaded.contains(p)
+        pack.installed.isEmpty ? RegionPackManifest.sideloaded.contains(p) : pack.covers(p)
     }
 
     /// Open route options for a place (Home, Work, a search result): tap 1 of the commute.
