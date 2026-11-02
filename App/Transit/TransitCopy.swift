@@ -48,7 +48,7 @@ enum TransitCopy {
 
     /// Where to buy the ticket (one link, BRIEF §8). Trains: the Trenitalia app, which sells regional tickets
     /// across Italy (Filippo, 29 Oct 2026; outside Italy this changes): its URL scheme first, its App Store page
-    /// otherwise (with Open when installed). The metro: ATM's ticket page.
+    /// otherwise (with Open when installed). A metro: its operator's ticket page (the pack's `feeds.ticket`).
     struct Ticket: Equatable, Sendable {
         let label: String
         let app: URL?
@@ -56,10 +56,12 @@ enum TransitCopy {
     }
 
     static func ticket(_ p: TransitPlan) -> Ticket {
-        p.departure.route.feed == "atm"
-            ? Ticket(label: "Ticket · ATM", app: nil, fallback: URL(string: "https://www.atm.it/it/ViaggiaConNoi/Biglietti/Pagine/default.aspx")!)
-            : Ticket(label: "Ticket · Trenitalia app", app: URL(string: "trenitalia://"),
-                     fallback: URL(string: "https://apps.apple.com/it/app/trenitalia/id331050847")!)
+        let r = p.departure.route
+        if r.mode == .metro, let page = r.ticket ?? (r.feed == "atm" ? URL(string: "https://www.atm.it/it/ViaggiaConNoi/Biglietti/Pagine/default.aspx") : nil) {
+            return Ticket(label: "Ticket · \(r.operatorLabel)", app: nil, fallback: page)
+        }
+        return Ticket(label: "Ticket · Trenitalia app", app: URL(string: "trenitalia://"),
+                      fallback: URL(string: "https://apps.apple.com/it/app/trenitalia/id331050847")!)
     }
 
     /// Replaces P4's "Illustrative timetable": the times are the static GTFS, no live delays.

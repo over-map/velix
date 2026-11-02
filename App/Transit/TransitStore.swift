@@ -20,6 +20,13 @@ struct TransitRoute: Hashable, Sendable {
     let mode: Mode
     /// Line colour, hex without "#" (metro lines).
     let color: String?
+    /// The rider-facing operator ("Trenord", "Trenitalia", "GTT"), from the pack's `feeds` (packs from Nov 2026).
+    var operatorName = ""
+    /// Where to buy this feed's metro ticket, from the pack (packs from Nov 2026).
+    var ticket: URL?
+
+    /// The operator, or the one an older pack (no `feeds.operator`) can only mean.
+    var operatorLabel: String { operatorName.isEmpty ? (feed == "atm" ? "ATM" : "Trenord") : operatorName }
 }
 
 /// One train or metro run from a boarding stop to an alighting stop, on a given day.
@@ -39,7 +46,7 @@ struct TransitDeparture: Hashable, Sendable {
     /// "Trenord RE8 2816", "M1"
     var name: String {
         switch route.mode {
-        case .rail: ["Trenord", route.shortName, tripName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
+        case .rail: [route.operatorLabel, route.shortName, tripName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
         case .metro: route.shortName
         }
     }
@@ -65,8 +72,8 @@ struct BikeRule: Hashable, Sendable {
     var offered: Bool { status != .notAllowed }
 }
 
-/// Read-only access to the pack's `transit.sqlite` (pipeline/stages/transit.py, schema 1): Trenord rail and ATM metro
-/// from GTFS, times in seconds after local midnight of the service day, days in the meta timezone.
+/// Read-only access to the pack's `transit.sqlite` (pipeline/stages/transit.py, schema 1): rail and metro from the
+/// operators' GTFS or NeTEx, times in seconds after local midnight of the service day, days in the meta timezone.
 final class TransitStore: @unchecked Sendable {
     private var db: OpaquePointer?
     private let lock = NSLock()
@@ -87,10 +94,16 @@ final class TransitStore: @unchecked Sendable {
             if let id = Self.text(s, 0), let z = TimeZone(identifier: id) { timeZone = z }
         }
         rows("SELECT value FROM meta WHERE key = 'hops'") { _ in hasTrack = true }
+        var feeds: [String: (name: String, ticket: URL?)] = [:]
+        rows("SELECT id, operator, ticket FROM feeds") { s in   // no such columns before Nov 2026: nothing
+            feeds[Self.text(s, 0) ?? ""] = (Self.text(s, 1) ?? "", Self.text(s, 2).flatMap(URL.init(string:)))
+        }
         rows("SELECT id, feed, short_name, long_name, mode, color FROM routes") { s in
-            let r = TransitRoute(id: Self.text(s, 0) ?? "", feed: Self.text(s, 1) ?? "", shortName: Self.text(s, 2) ?? "",
+            var r = TransitRoute(id: Self.text(s, 0) ?? "", feed: Self.text(s, 1) ?? "", shortName: Self.text(s, 2) ?? "",
                                  longName: Self.text(s, 3) ?? "", mode: TransitRoute.Mode(rawValue: Self.text(s, 4) ?? "") ?? .rail,
                                  color: Self.text(s, 5))
+            r.operatorName = feeds[r.feed]?.name ?? ""
+            r.ticket = feeds[r.feed]?.ticket
             routes[r.id] = r
         }
         rows("SELECT id, feed, name, lat, lon FROM stops") { s in
@@ -233,10 +246,10 @@ final class TransitStore: @unchecked Sendable {
         return s.components(separatedBy: " - ").last?.trimmingCharacters(in: .whitespaces)
     }
 
-    /// ATM publishes stop names in capitals ("CENTRALE FS", "P.TA VENEZIA"): title case, keeping short all-caps
-    /// abbreviations ("FS").
+    /// Names published in capitals ("CENTRALE FS", "P.TA VENEZIA"; ATM's in older packs, the pipeline title-cases them
+    /// since Nov 2026): title case, keeping short all-caps abbreviations ("FS").
     static func displayName(_ name: String, feed: String) -> String {
-        guard feed == "atm", name == name.uppercased() else { return name }
+        guard name == name.uppercased(), name.contains(where: \.isLetter) else { return name }
         return name.split(separator: " ").map { w in
             let word = String(w)
             if ["DI", "DA", "DE", "DEL", "DELLA", "LA", "IL", "LE"].contains(word) { return word.lowercased() }

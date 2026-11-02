@@ -22,7 +22,7 @@ These files are the GitHub Release assets. The app downloads them one by one and
 | `valhalla_tiles.tar.xz` | Valhalla 3.9.0 routing tiles. Grades come from GEDTM30; cobbles are a bad surface for routing; the country and region come from the admin build |
 | `hazards.sqlite.xz` | `hazards` table + `hazards_rtree`: tram, along, cobbles, steps, gap, dismount, lane (with heading), door; `ways` table: lighting and paths per way id (schema 2, see `stages/hazards.py`) |
 | `routes.sqlite.xz` | OSM cycle-route relations (`route=bicycle|mtb`), merged geometry as polyline6, EuroVelo number; schema 2: S7 mix shares (car-free / quiet / unpaved), climb both ways, description, from, to |
-| `transit.sqlite.xz` | Trenord rail + ATM metro GTFS subset for 60 days, `bike_rules` from `config/bikes_allowed_rules.yml`, and `hops`: the OSM track between consecutive stops (`stages/transit_paths.py`; GTFS has no shapes) |
+| `transit.sqlite.xz` | rail and metro for 60 days from Italy's National Access Point (NeTEx → GTFS, `stages/netex.py`): Trenitalia everywhere, plus each region's own operators (Trenord, ATM, GTT…), `bike_rules` from `config/bikes_allowed_rules.yml`, and `hops`: the OSM track between consecutive stops (`stages/transit_paths.py`; GTFS has no shapes) |
 | `city.geojson.xz` | The city area (`region.city_area_relation`, Comune di Milano): the app suggests bike + transit when the destination is outside it |
 | `basemap.pmtiles.xz` | OpenMapTiles-schema vector tiles z0–14 for the map (planetiler), tiles uncompressed inside the PMTiles so xz compresses across them |
 | `overlays.pmtiles.xz` | Velix overlay tiles: `velix_cycling`, `velix_routes`, `velix_transit`, `velix_stations` (see `stages/overlays.py`) |
@@ -39,7 +39,7 @@ The budget is **320 MB to download** per region (Filippo: 300 on 16 Oct 2026, 32
 | `tiles.sh` | Valhalla 3.9.0 | admins, timezones, tiles with elevation, tar extract |
 | `hazards.py` | tools | pyosmium + shapely, two passes over the extract |
 | `routes.py` | tools | cycle-route relations |
-| `transit.py` | tools | GTFS download, filter, 60-day window. A feed that ends inside the window repeats its last week (`projected`) |
+| `transit.py` + `netex.py` | tools | NAP NeTEx download (the dataset's asset by name) and conversion to GTFS, keeping the feed's `modes` and `lines`; filter, 60-day window. A feed that ends inside the window repeats its last week (`projected`) |
 | basemap (Makefile) + `basemap_meta.py` | planetiler 0.10.2 + tools | OpenMapTiles profile on the extract; downloads water polygons, Natural Earth and lake centerlines into `cache/planetiler`; records sources and per-layer sizes |
 | `overlays.py` | tools | pyosmium (cycle tags shared with `hazards.py`, route relations) + `metro_colors.py` (P3 families) → tippecanoe → PMTiles |
 | `package.py` | tools | xz -9 (single-threaded: identical output on any machine) + manifest |

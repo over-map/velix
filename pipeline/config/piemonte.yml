@@ -6,11 +6,35 @@ region:
   timezone: Europe/Rome
   country: {name: Italia, iso: IT, osm_relation: 2000365331}   # synthetic relation over the pack coverage, see stages/country_admin.py
   city_area_relation: 43992    # Comune di Torino (admin_level=8): "destination outside the city area" transit trigger
+transit:
+  feeds:
+    - id: trenitalia
+      name: Trenitalia (NeTEx, Italy's National Access Point)
+      operator: Trenitalia
+      format: netex
+      nap: {dataset: 1077621, asset: TRENITALIA}
+      modes: [rail]
+      lines: [REG, RV, SFM, MET, DIR, IC]     # regional and Intercity: Frecce and night trains take no ordinary bikes
+      licence: No licence, no contract (NAP MMTIS, EU 2017/1926)
+      attribution: Trenitalia, via the National Access Point (CCISS, MIT)
+    - id: gtt
+      name: GTT Torino metro (NeTEx, Italy's National Access Point)
+      operator: GTT
+      ticket: https://www.gtt.to.it/cms/biglietti-abbonamenti
+      format: netex
+      nap: {dataset: 6, asset: CCA-GTT}
+      modes: [metro]
+      renames: {METRO: M1}
+      licence: No licence, no contract (NAP MMTIS, EU 2017/1926)
+      attribution: GTT, Regione Piemonte, via the National Access Point (CCISS, MIT)
 smoke:
   hazards: {tram: 100, cobbles: 200, steps: 200}
   lit_ways: 3000
   basemap_tiles: 6000
   cycle_ways: 5000
   routes: 30
+  trains: [{from: Torino Porta Nuova, to: Novara}]
+  metro_stops: {"gtt:M1": 18}
+  metro_feed: gtt
   city_in: [7.6786, 45.0623]     # Porta Nuova
   city_out: [7.6820, 44.9990]    # Moncalieri

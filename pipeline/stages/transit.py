@@ -1,6 +1,7 @@
 """Stage 6: train + metro timetables for the bike + transit suggestion → out/<region>/transit.sqlite
 
-- Keeps only the configured route types per feed (Trenord rail, ATM metro); no surface buses or trams.
+- Keeps only the configured route types per feed (rail, metro); no surface buses or trams. Feeds are GTFS or the
+  NeTEx of Italy's National Access Point, converted to GTFS (stages/netex.py).
 - Keeps stops inside the region polygon (and their parent stations), stop_times at those stops.
 - Service window: N days from the OSM extract date (deterministic for a given set of inputs).
 - A feed whose service ends inside the window is extended by repeating its last full week, flagged `projected`
@@ -23,6 +24,7 @@ import yaml
 from shapely.geometry import Point, shape
 from shapely.prepared import prep
 
+import netex
 from common import PIPELINE, cache_dir, load_config, log, out_dir, write_json
 
 UA = "velix-region-pack/1.0 (+https://github.com/over-map/velix)"
@@ -44,16 +46,30 @@ def ymd(s: str) -> dt.date:
     return dt.date(int(s[:4]), int(s[4:6]), int(s[6:8]))
 
 
+def feed_url(feed: dict) -> str:
+    """A GTFS feed's `url`, or the current file of a NAP NeTEx asset (`nap: {dataset, asset}`)."""
+    return netex.nap_asset_url(feed["nap"]["dataset"], feed["nap"]["asset"]) if "nap" in feed else feed["url"]
+
+
 def fetch(feed: dict) -> zipfile.ZipFile:
+    """The feed as a GTFS zip, cached for 20 h. NeTEx feeds (`format: netex`) are converted (stages/netex.py), keeping
+    the journeys of `modes`, with `renames` of line names."""
     path = cache_dir() / "gtfs" / f"{feed['id']}.zip"
     path.parent.mkdir(exist_ok=True)
     fresh = path.exists() and (dt.datetime.now().timestamp() - path.stat().st_mtime) < 20 * 3600
     if not fresh:
-        log(f"download {feed['id']}")
-        req = urllib.request.Request(feed["url"], headers={"User-Agent": UA})
-        with urllib.request.urlopen(req, timeout=300) as r, open(path.with_suffix(".part"), "wb") as f:
+        url = feed_url(feed)
+        log(f"download {feed['id']} ← {url}")
+        raw = path.with_suffix(".netex" if feed.get("format") == "netex" else ".part")
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=600) as r, open(raw, "wb") as f:
             while chunk := r.read(1 << 20):
                 f.write(chunk)
+        if feed.get("format") == "netex":
+            log(f"convert {feed['id']} NeTEx → GTFS ({', '.join(feed['modes'])})")
+            with netex.open_netex(raw) as x:
+                path.with_suffix(".part").write_bytes(netex.convert(x, set(feed["modes"]), feed.get("renames"), feed.get("lines")))
+            raw.unlink()
         path.with_suffix(".part").rename(path)
     return zipfile.ZipFile(path)
 
@@ -117,7 +133,9 @@ def main():
     db.executescript("""
         CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
         CREATE TABLE feeds (id TEXT PRIMARY KEY, name TEXT, licence TEXT, attribution TEXT,
-                            last_service_date TEXT, projected_from TEXT);
+                            last_service_date TEXT, projected_from TEXT,
+                            operator TEXT,   -- the rider-facing name ("Trenord", "Trenitalia"): "Trenord RE8 2816"
+                            ticket TEXT);    -- where to buy a ticket for this feed's metro (config), else the app's default
         CREATE TABLE routes (id TEXT PRIMARY KEY, feed TEXT NOT NULL, short_name TEXT, long_name TEXT,
                              mode TEXT NOT NULL, color TEXT);                          -- mode: rail | metro
         CREATE TABLE stops (id TEXT PRIMARY KEY, feed TEXT NOT NULL, name TEXT NOT NULL, lat REAL, lon REAL,
@@ -137,7 +155,7 @@ def main():
     for feed in cfg["transit"]["feeds"]:
         fid = feed["id"]
         z = fetch(feed)
-        types = {str(t) for t in feed["route_types"]}
+        types = {str(t) for t in feed.get("route_types") or [netex.ROUTE_TYPE[m] for m in feed["modes"]]}
         routes = {r["route_id"]: r for r in rows(z, "routes.txt") if r["route_type"] in types}
         trips = {r["trip_id"]: r for r in rows(z, "trips.txt") if r["route_id"] in routes}
         stops_all = {r["stop_id"]: r for r in rows(z, "stops.txt")}
@@ -157,9 +175,10 @@ def main():
         projected = any(p for _, _, p in dates)
         mode = "metro" if types & {"1", "401", "402"} else "rail"
 
-        db.execute("INSERT INTO feeds VALUES (?,?,?,?,?,?)", (
+        db.execute("INSERT INTO feeds VALUES (?,?,?,?,?,?,?,?)", (
             fid, feed["name"], feed["licence"], feed["attribution"], last.isoformat(),
-            (last - dt.timedelta(days=6)).isoformat() if projected else None))
+            (last - dt.timedelta(days=6)).isoformat() if projected else None, feed.get("operator", fid.title()),
+            feed.get("ticket")))
         db.executemany("INSERT INTO routes VALUES (?,?,?,?,?,?)", sorted(
             (f"{fid}:{rid}", fid, r.get("route_short_name", ""), r.get("route_long_name", ""), mode,
              r.get("route_color", "")) for rid, r in routes.items()))
@@ -205,7 +224,7 @@ def main():
     (out / "sources").mkdir(exist_ok=True)
     for feed in cfg["transit"]["feeds"]:
         write_json(out / "sources" / f"transit-{feed['id']}.json", {
-            "id": f"transit-{feed['id']}", "name": feed["name"], "url": feed["url"],
+            "id": f"transit-{feed['id']}", "name": feed["name"], "url": feed.get("url") or f"{netex.NAP}/en/catalog/Dataset/{feed['nap']['dataset']}",
             "date": dt.date.fromtimestamp((cache_dir() / "gtfs" / f"{feed['id']}.zip").stat().st_mtime).isoformat(),
             "service_until": summary[feed["id"]]["last_service_date"], "licence": feed["licence"],
             "attribution": feed["attribution"]})
