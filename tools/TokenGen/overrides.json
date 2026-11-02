@@ -50,5 +50,19 @@
       "light": "#6B767C",
       "dark": "#AEB6BA"
     }
+  },
+  "map": {
+    "_reason": "Filippo, 2 Nov 2026: light keeps one colour per feature at every zoom, like dark (the reference). Dark's chart line becomes the casing of the filled road (lesser classes the same colour toward the land), paths are the chart colour, landmarks a deeper blue of the roof family. Applies to standard and outdoor (satellite keeps its own)",
+    "light": {
+      "motorCase": "#2C5870",
+      "primaryCase": "#2C5870",
+      "secondaryCase": "#3D657A",
+      "minorCase": "#6A8894",
+      "serviceCase": "#8EA3A9",
+      "path": "#2C5870",
+      "steps": "#2C5870",
+      "lmRoof": "#BCCFD3"
+    },
+    "dark": {}
   }
 }

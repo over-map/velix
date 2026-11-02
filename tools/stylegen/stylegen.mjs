@@ -65,7 +65,9 @@ const POI_CAT = { cafe: 'food', restaurant: 'food', bar: 'food', ice_cream: 'foo
 const CIVIC = ['bike', 'water', 'culture', 'worship', 'edu', 'health'];
 
 function style(name, mode) {
-  const P = VX.PAL[name][mode], T = VX.TK[mode];
+  // overrides.json `map`: palette fixes for standard and outdoor (Filippo, 2 Nov: one colour per feature at every zoom).
+  const fix = Object.fromEntries(Object.entries(overrides.map?.[mode === 'day' ? 'light' : 'dark'] ?? {}).filter(([k]) => !k.startsWith('_')));
+  const P = VX.PAL[name][mode].sat ? VX.PAL[name][mode] : { ...VX.PAL[name][mode], ...fix }, T = VX.TK[mode];
   const sat = !!P.sat, od = name === 'outdoor';
   T.routeAlt = tokenColor('routeAlt', mode);           // cobalt alternative (overrides.json, Filippo 15 Oct)
   T.altCase = T.casing;                                // same casing as Best (Filippo 15 Oct)
@@ -226,14 +228,15 @@ function style(name, mode) {
   omt('building', 'building-flat', 'fill', { minzoom: 13.6, maxzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof] } });
   omt('building', 'building-edge', 'line', { minzoom: 14.2, maxzoom: 15, paint: { 'line-color': P.wallD, 'line-width': 0.4, 'line-opacity': 0.5 } });
   // Walls lighter at the bottom, darker at the top (Filippo, 30 Oct): MapLibre's own vertical gradient darkens the
-  // bottom and can't be reversed, so each building is three stacked slices of its height, lighter to darker, with
-  // the built-in gradient off. `building-3d` is the bottom slice, `building-3d-1`… the ones above it.
+  // bottom and can't be reversed, so each building is stacked slices of its height, lighter to darker, with the
+  // built-in gradient off. `building-3d` is the bottom slice, `building-3d-1`… the ones above it. The top slice is the
+  // roof colour itself, so roofs keep the flat z<15 colour (Filippo, 2 Nov).
   const hgt = ['coalesce', ['get', 'render_height'], 6], minH = ['coalesce', ['get', 'render_min_height'], 0];
   const at = (f) => ['+', minH, ['*', ['-', hgt, minH], f]];
   const ramp = (v) => ['interpolate', ['linear'], ['zoom'], 14.6, 0, 15.8, v];
   const shade = (t) => ['case', landmark, P.lmRoof, ['match', roofIdx, ...P.roof.flatMap((c, i) => [i, mixHex(c, t > 0 ? '#000000' : '#FFFFFF', Math.abs(t))]).slice(0, -2),
     mixHex(P.roof[P.roof.length - 1], t > 0 ? '#000000' : '#FFFFFF', Math.abs(t))]];
-  const SLICES = 8, LIGHT = -0.12, DARK = 0.10;   // lighter than the wall colour at the bottom, darker at the top
+  const SLICES = 8, LIGHT = -0.14, DARK = 0;   // lighter than the roof colour at the bottom, the roof colour at the top
   for (let i = 0; i < SLICES; i++) {
     const from = i / SLICES, to = (i + 1) / SLICES, t = LIGHT + (DARK - LIGHT) * (i / (SLICES - 1));
     omt('building', i === 0 ? 'building-3d' : `building-3d-${i}`, 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
@@ -410,8 +413,9 @@ function style(name, mode) {
     name: `Velix ${name} ${mode}`,
     metadata: { 'velix:generator': 'tools/stylegen/stylegen.mjs', 'velix:source': 'design/p3v3 (palettes.js, render.js)', 'velix:style': name, 'velix:mode': mode },
     glyphs: 'asset://MapStyle/glyphs/{fontstack}/{range}.pbf',
-    // A warm, higher sun from the south-west (30 Oct): softer walls, roofs lit; dimmer at night.
-    light: { anchor: 'map', position: [1.15, 210, 30], color: mode === 'day' ? '#FFF3E0' : '#C9D4E6', intensity: mode === 'day' ? 0.42 : 0.2 },
+    // A higher sun from the south-west (30 Oct): softer walls, roofs lit; dimmer at night. White, so a roof (facing the
+    // light) renders at exactly its colour: a tinted light turned the light style's blue roofs ochre (Filippo, 2 Nov).
+    light: { anchor: 'map', position: [1.15, 210, 30], color: '#FFFFFF', intensity: mode === 'day' ? 0.42 : 0.2 },
     sources: {
       omt: { type: 'vector', url: 'pmtiles://velix-pack/basemap.pmtiles', attribution: '© OpenMapTiles © OpenStreetMap contributors' },
       velix: { type: 'vector', url: 'pmtiles://velix-pack/overlays.pmtiles' },

@@ -15,7 +15,7 @@
    210,
    30
   ],
-  "color": "#FFF3E0",
+  "color": "#FFFFFF",
   "intensity": 0.42
  },
  "sources": {
@@ -1814,7 +1814,7 @@
     "line-join": "round"
    },
    "paint": {
-    "line-color": "#CCD1C6",
+    "line-color": "#8EA3A9",
     "line-width": [
      "interpolate",
      [
@@ -1898,7 +1898,7 @@
     "line-join": "round"
    },
    "paint": {
-    "line-color": "#BFC7BE",
+    "line-color": "#6A8894",
     "line-width": [
      "interpolate",
      [
@@ -1981,7 +1981,7 @@
     "line-join": "round"
    },
    "paint": {
-    "line-color": "#A5B4B3",
+    "line-color": "#3D657A",
     "line-width": [
      "interpolate",
      [
@@ -2064,7 +2064,7 @@
     "line-join": "round"
    },
    "paint": {
-    "line-color": "#A5B4B3",
+    "line-color": "#3D657A",
     "line-width": [
      "interpolate",
      [
@@ -2147,7 +2147,7 @@
     "line-join": "round"
    },
    "paint": {
-    "line-color": "#8FA3A8",
+    "line-color": "#2C5870",
     "line-width": [
      "interpolate",
      [
@@ -2231,7 +2231,7 @@
     "line-join": "round"
    },
    "paint": {
-    "line-color": "#5E7883",
+    "line-color": "#2C5870",
     "line-width": [
      "interpolate",
      [
@@ -2814,7 +2814,7 @@
     "line-cap": "round"
    },
    "paint": {
-    "line-color": "#6F8A8F",
+    "line-color": "#2C5870",
     "line-opacity": 0.7,
     "line-width": [
      "interpolate",
@@ -3000,7 +3000,7 @@
     "line-cap": "butt"
    },
    "paint": {
-    "line-color": "#5E7883",
+    "line-color": "#2C5870",
     "line-width": [
      "interpolate",
      [
@@ -3819,7 +3819,7 @@
     "line-join": "round"
    },
    "paint": {
-    "line-color": "#CCD1C6",
+    "line-color": "#8EA3A9",
     "line-width": [
      "interpolate",
      [
@@ -4045,7 +4045,7 @@
     "line-join": "round"
    },
    "paint": {
-    "line-color": "#BFC7BE",
+    "line-color": "#6A8894",
     "line-width": [
      "interpolate",
      [
@@ -4269,7 +4269,7 @@
     "line-join": "round"
    },
    "paint": {
-    "line-color": "#A5B4B3",
+    "line-color": "#3D657A",
     "line-width": [
      "interpolate",
      [
@@ -4492,7 +4492,7 @@
     "line-join": "round"
    },
    "paint": {
-    "line-color": "#A5B4B3",
+    "line-color": "#3D657A",
     "line-width": [
      "interpolate",
      [
@@ -4715,7 +4715,7 @@
     "line-join": "round"
    },
    "paint": {
-    "line-color": "#8FA3A8",
+    "line-color": "#2C5870",
     "line-width": [
      "interpolate",
      [
@@ -4940,7 +4940,7 @@
     "line-join": "round"
    },
    "paint": {
-    "line-color": "#5E7883",
+    "line-color": "#2C5870",
     "line-width": [
      "interpolate",
      [
@@ -6068,7 +6068,7 @@
       ],
       85
      ],
-     "#E4E7B0",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6135,7 +6135,7 @@
       ],
       85
      ],
-     "#E4E7B0",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6150,12 +6150,12 @@
        4
       ],
       0,
-      "#D9E2E0",
+      "#DAE3E1",
       1,
-      "#D6DEDD",
+      "#D7DFDD",
       2,
-      "#DDE5E2",
-      "#D3DDDB"
+      "#DDE5E3",
+      "#D4DDDC"
      ]
     ],
     "fill-extrusion-base": [
@@ -6257,7 +6257,7 @@
       ],
       85
      ],
-     "#E4E7B0",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6272,12 +6272,12 @@
        4
       ],
       0,
-      "#D8E1DF",
+      "#D9E2E0",
       1,
-      "#D4DDDB",
+      "#D6DEDD",
       2,
-      "#DBE4E1",
-      "#D1DBDA"
+      "#DDE5E2",
+      "#D3DDDB"
      ]
     ],
     "fill-extrusion-base": [
@@ -6405,7 +6405,7 @@
       ],
       85
      ],
-     "#E4E7B0",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6420,12 +6420,12 @@
        4
       ],
       0,
-      "#D6E0DE",
+      "#D8E1E0",
       1,
-      "#D3DCDA",
+      "#D5DEDC",
       2,
-      "#DAE3E0",
-      "#D0DAD8"
+      "#DCE4E1",
+      "#D2DCDA"
      ]
     ],
     "fill-extrusion-base": [
@@ -6553,7 +6553,7 @@
       ],
       85
      ],
-     "#E4E7B0",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6568,12 +6568,12 @@
        4
       ],
       0,
-      "#D5DFDD",
+      "#D7E1DF",
       1,
-      "#D1DBD9",
+      "#D4DDDB",
       2,
-      "#D9E2DF",
-      "#CED9D7"
+      "#DBE3E1",
+      "#D1DBD9"
      ]
     ],
     "fill-extrusion-base": [
@@ -6701,7 +6701,7 @@
       ],
       85
      ],
-     "#E4E7B0",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6716,12 +6716,12 @@
        4
       ],
       0,
-      "#D3DDDB",
+      "#D7E0DE",
       1,
-      "#CFD9D7",
+      "#D3DCDA",
       2,
-      "#D7E0DD",
-      "#CCD7D5"
+      "#DAE3E0",
+      "#D0DAD8"
      ]
     ],
     "fill-extrusion-base": [
@@ -6849,7 +6849,7 @@
       ],
       85
      ],
-     "#E4E7B0",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6864,12 +6864,12 @@
        4
       ],
       0,
-      "#CCD6D4",
+      "#D6DFDD",
       1,
-      "#C8D2D0",
+      "#D2DBDA",
       2,
-      "#D0D9D6",
-      "#C5D0CE"
+      "#DAE2DF",
+      "#CFDAD8"
      ]
     ],
     "fill-extrusion-base": [
@@ -6997,7 +6997,7 @@
       ],
       85
      ],
-     "#E4E7B0",
+     "#BCCFD3",
      [
       "match",
       [
@@ -7012,12 +7012,12 @@
        4
       ],
       0,
-      "#C5CFCD",
+      "#D5DFDD",
       1,
-      "#C2CBC9",
+      "#D1DBD9",
       2,
-      "#C9D2CF",
-      "#BFC9C7"
+      "#D9E2DF",
+      "#CED9D7"
      ]
     ],
     "fill-extrusion-base": [
@@ -7145,7 +7145,7 @@
       ],
       85
      ],
-     "#E4E7B0",
+     "#BCCFD3",
      [
       "match",
       [
@@ -7160,12 +7160,12 @@
        4
       ],
       0,
-      "#BFC8C6",
+      "#D4DEDC",
       1,
-      "#BBC4C2",
+      "#D0DAD8",
       2,
-      "#C2CBC8",
-      "#B9C2C1"
+      "#D8E1DE",
+      "#CDD8D6"
      ]
     ],
     "fill-extrusion-base": [
