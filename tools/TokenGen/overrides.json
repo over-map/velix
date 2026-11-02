@@ -52,7 +52,7 @@
     }
   },
   "map": {
-    "_reason": "Filippo, 2 Nov 2026: light keeps one colour per feature at every zoom, like dark (the reference). Dark's chart line becomes the casing of the filled road (lesser classes the same colour toward the land), paths are the chart colour, landmarks a deeper blue of the roof family. Applies to standard and outdoor (satellite keeps its own). Roofs 25 % toward the slate blue (#4F6E7E) so they stand off the land as dark's do (≈ 14 L* below residential, dark ≈ 15 above), landmarks a step deeper, and walls lighten 35 % at the bottom (dark 14 %: on a pale colour the same share hardly shows) (Filippo, 2 Nov)",
+    "_reason": "Filippo, 2 Nov 2026: light keeps one colour per feature at every zoom, like dark (the reference). Dark's chart line becomes the casing of the filled road (lesser classes the same colour toward the land), paths are the chart colour, landmarks a deeper blue of the roof family. Applies to standard and outdoor (satellite keeps its own). Contrast between buildings and land in light (Filippo, 2 Nov; the deeper roof was too heavy): the light-blue roof stays; buildings get a crisp outline at every zoom (#8EA3A8 at 0.9, 0.6–1 pt, also under the extrusions as a base contour), the built-up land uses move toward the land colour so the blue roofs stand off them, and walls lighten 35 % at the bottom (dark 14 %: on a pale colour the same share hardly shows)",
     "light": {
       "motorCase": "#2C5870",
       "primaryCase": "#2C5870",
@@ -61,14 +61,23 @@
       "serviceCase": "#8EA3A9",
       "path": "#2C5870",
       "steps": "#2C5870",
-      "lmRoof": "#8AA6B1",
-      "roof": [
-        "#B3C2C4",
-        "#B0BFC2",
-        "#B6C4C6",
-        "#AEBEC0"
-      ],
-      "wallLift": 0.35
+      "lmRoof": "#BCCFD3",
+      "wallLift": 0.35,
+      "residential": "#EDECE0",
+      "commercial": "#EAEADF",
+      "retail": "#EAEADF",
+      "industrial": "#EAE9DD",
+      "railway": "#EAE9DD",
+      "buildingEdge": {
+        "color": "#8EA3A8",
+        "opacity": 0.9,
+        "width": [
+          0.6,
+          1.0
+        ],
+        "minzoom": 13.6,
+        "allZooms": true
+      }
     },
     "dark": {}
   }

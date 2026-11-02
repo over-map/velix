@@ -83,7 +83,7 @@
     ]
    ],
    "paint": {
-    "fill-color": "#E7E7D9"
+    "fill-color": "#EDECE0"
    }
   },
   {
@@ -106,7 +106,7 @@
     ]
    ],
    "paint": {
-    "fill-color": "#E3E4D8"
+    "fill-color": "#EAEADF"
    }
   },
   {
@@ -129,7 +129,7 @@
     ]
    ],
    "paint": {
-    "fill-color": "#E3E4D8"
+    "fill-color": "#EAEADF"
    }
   },
   {
@@ -152,7 +152,7 @@
     ]
    ],
    "paint": {
-    "fill-color": "#E4E3D6"
+    "fill-color": "#EAE9DD"
    }
   },
   {
@@ -176,7 +176,7 @@
     ]
    ],
    "paint": {
-    "fill-color": "#E4E3D6"
+    "fill-color": "#EAE9DD"
    }
   },
   {
@@ -6068,7 +6068,7 @@
       ],
       85
      ],
-     "#8AA6B1",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6083,12 +6083,12 @@
        4
       ],
       0,
-      "#B3C2C4",
+      "#D4DEDC",
       1,
-      "#B0BFC2",
+      "#D0DAD8",
       2,
-      "#B6C4C6",
-      "#AEBEC0"
+      "#D8E1DE",
+      "#CDD8D6"
      ]
     ]
    }
@@ -6098,12 +6098,23 @@
    "type": "line",
    "source": "omt",
    "source-layer": "building",
-   "minzoom": 14.2,
-   "maxzoom": 15,
+   "minzoom": 13.6,
    "paint": {
     "line-color": "#8EA3A8",
-    "line-width": 0.4,
-    "line-opacity": 0.5
+    "line-opacity": 0.9,
+    "line-width": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14,
+     0.6,
+     17,
+     1
+    ]
    }
   },
   {
@@ -6135,7 +6146,7 @@
       ],
       85
      ],
-     "#8AA6B1",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6150,12 +6161,12 @@
        4
       ],
       0,
-      "#CED7D9",
+      "#E3EAE8",
       1,
-      "#CCD5D7",
+      "#E0E7E6",
       2,
-      "#D0D9DA",
-      "#CAD5D6"
+      "#E6ECEA",
+      "#DFE6E4"
      ]
     ],
     "fill-extrusion-base": [
@@ -6257,7 +6268,7 @@
       ],
       85
      ],
-     "#8AA6B1",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6272,12 +6283,12 @@
        4
       ],
       0,
-      "#CAD4D6",
+      "#E1E8E7",
       1,
-      "#C8D2D4",
+      "#DEE5E4",
       2,
-      "#CCD6D7",
-      "#C6D2D3"
+      "#E4EAE8",
+      "#DCE4E2"
      ]
     ],
     "fill-extrusion-base": [
@@ -6405,7 +6416,7 @@
       ],
       85
      ],
-     "#8AA6B1",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6420,12 +6431,12 @@
        4
       ],
       0,
-      "#C6D1D3",
+      "#DFE6E5",
       1,
-      "#C4CFD1",
+      "#DCE3E2",
       2,
-      "#C8D3D4",
-      "#C2CED0"
+      "#E2E9E6",
+      "#DAE2E0"
      ]
     ],
     "fill-extrusion-base": [
@@ -6553,7 +6564,7 @@
       ],
       85
      ],
-     "#8AA6B1",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6568,12 +6579,12 @@
        4
       ],
       0,
-      "#C2CED0",
+      "#DDE5E3",
       1,
-      "#C0CCCE",
+      "#D9E1E0",
       2,
-      "#C5D0D1",
-      "#BECBCD"
+      "#E0E7E5",
+      "#D7E0DE"
      ]
     ],
     "fill-extrusion-base": [
@@ -6701,7 +6712,7 @@
       ],
       85
      ],
-     "#8AA6B1",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6716,12 +6727,12 @@
        4
       ],
       0,
-      "#BECBCD",
+      "#DAE3E1",
       1,
-      "#BCC9CB",
+      "#D7E0DE",
       2,
-      "#C1CDCF",
-      "#BAC8C9"
+      "#DEE6E3",
+      "#D5DEDC"
      ]
     ],
     "fill-extrusion-base": [
@@ -6849,7 +6860,7 @@
       ],
       85
      ],
-     "#8AA6B1",
+     "#BCCFD3",
      [
       "match",
       [
@@ -6864,12 +6875,12 @@
        4
       ],
       0,
-      "#BBC8CA",
+      "#D8E1E0",
       1,
-      "#B8C5C8",
+      "#D5DEDC",
       2,
-      "#BDCACC",
-      "#B6C5C6"
+      "#DCE4E1",
+      "#D2DCDA"
      ]
     ],
     "fill-extrusion-base": [
@@ -6997,7 +7008,7 @@
       ],
       85
      ],
-     "#8AA6B1",
+     "#BCCFD3",
      [
       "match",
       [
@@ -7012,12 +7023,12 @@
        4
       ],
       0,
-      "#B7C5C7",
+      "#D6E0DE",
       1,
-      "#B4C2C5",
+      "#D2DCDA",
       2,
-      "#BAC7C9",
-      "#B2C1C3"
+      "#DAE3E0",
+      "#D0DAD8"
      ]
     ],
     "fill-extrusion-base": [
@@ -7145,7 +7156,7 @@
       ],
       85
      ],
-     "#8AA6B1",
+     "#BCCFD3",
      [
       "match",
       [
@@ -7160,12 +7171,12 @@
        4
       ],
       0,
-      "#B3C2C4",
+      "#D4DEDC",
       1,
-      "#B0BFC2",
+      "#D0DAD8",
       2,
-      "#B6C4C6",
-      "#AEBEC0"
+      "#D8E1DE",
+      "#CDD8D6"
      ]
     ],
     "fill-extrusion-base": [
@@ -7262,6 +7273,31 @@
     ],
     "fill-extrusion-vertical-gradient": false,
     "fill-extrusion-opacity": 1
+   }
+  },
+  {
+   "id": "building-edge-top",
+   "type": "line",
+   "source": "omt",
+   "source-layer": "building",
+   "minzoom": 15,
+   "maxzoom": 16.4,
+   "paint": {
+    "line-color": "#8EA3A8",
+    "line-width": 0.7333333333333333,
+    "line-opacity": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     15.6,
+     0.9,
+     16.2,
+     0
+    ]
    }
   },
   {

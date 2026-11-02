@@ -226,7 +226,12 @@ function style(name, mode) {
   const roof = ['match', roofIdx, ...P.roof.flatMap((c, i) => [i, c]).slice(0, -2), P.roof[P.roof.length - 1]];
   const landmark = ['>=', ['coalesce', ['get', 'render_height'], 0], 85];
   omt('building', 'building-flat', 'fill', { minzoom: 13.6, maxzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof] } });
-  omt('building', 'building-edge', 'line', { minzoom: 14.2, maxzoom: 15, paint: { 'line-color': P.wallD, 'line-width': 0.4, 'line-opacity': 0.5 } });
+  // The outline: up to z15 by default; light draws it at every zoom, under the extrusions too (a base contour), for
+  // contrast with the land without a heavier roof (overrides.json `map.light.buildingEdge`, Filippo 2 Nov).
+  const be = P.buildingEdge;
+  if (be) omt('building', 'building-edge', 'line', { minzoom: be.minzoom, paint: { 'line-color': be.color, 'line-opacity': be.opacity,
+    'line-width': ['interpolate', ['linear'], ['zoom'], 14, be.width[0], 17, be.width[1]] } });
+  else omt('building', 'building-edge', 'line', { minzoom: 14.2, maxzoom: 15, paint: { 'line-color': P.wallD, 'line-width': 0.4, 'line-opacity': 0.5 } });
   // Walls lighter at the bottom, darker at the top (Filippo, 30 Oct): MapLibre's own vertical gradient darkens the
   // bottom and can't be reversed, so each building is stacked slices of its height, lighter to darker, with the
   // built-in gradient off. `building-3d` is the bottom slice, `building-3d-1`… the ones above it. The top slice is the
@@ -245,6 +250,11 @@ function style(name, mode) {
         'fill-extrusion-base': ramp(i === 0 ? minH : at(from)), 'fill-extrusion-height': ramp(at(to)),
         'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
   }
+  // Light: the outline also over the still-low extrusions of the landing zooms (z15–16, flat), fading out before the
+  // buildings are tall enough for a ground line to show through them.
+  if (be) omt('building', 'building-edge-top', 'line', { minzoom: 15, maxzoom: 16.4, paint: { 'line-color': be.color,
+    'line-width': be.width[0] + (be.width[1] - be.width[0]) / 3,
+    'line-opacity': ['interpolate', ['linear'], ['zoom'], 15.6, be.opacity, 16.2, 0] } });
   if (sat && P.dim) add({ id: 'night-dim', type: 'background', paint: { 'background-color': `rgba(5,8,12,${P.dim})` } });
 
   // ---- road labels (below the route: it covers its own street names) ----
