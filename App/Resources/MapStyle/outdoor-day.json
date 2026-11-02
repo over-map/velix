@@ -6605,7 +6605,7 @@
       ],
       85
      ],
-     "#BCCFD3",
+     "#B1CCD5",
      [
       "match",
       [
@@ -6620,12 +6620,12 @@
        4
       ],
       0,
-      "#D4DEDC",
+      "#C0D6DB",
       1,
-      "#D0DAD8",
+      "#BED3D8",
       2,
-      "#D8E1DE",
-      "#CDD8D6"
+      "#C3D8DC",
+      "#BCD2D7"
      ]
     ]
    }
@@ -6638,7 +6638,7 @@
    "minzoom": 14.2,
    "maxzoom": 15,
    "paint": {
-    "line-color": "#8EA3A8",
+    "line-color": "#E7E9DD",
     "line-width": 0.4,
     "line-opacity": 0.5
    }
@@ -6672,7 +6672,7 @@
       ],
       85
      ],
-     "#BCCFD3",
+     "#B1CCD5",
      [
       "match",
       [
@@ -6687,12 +6687,12 @@
        4
       ],
       0,
-      "#E3EAE8",
+      "#D6E4E8",
       1,
-      "#E0E7E6",
+      "#D5E2E6",
       2,
-      "#E6ECEA",
-      "#DFE6E4"
+      "#D8E6E8",
+      "#D3E2E5"
      ]
     ],
     "fill-extrusion-base": [
@@ -6794,7 +6794,7 @@
       ],
       85
      ],
-     "#BCCFD3",
+     "#B1CCD5",
      [
       "match",
       [
@@ -6809,12 +6809,12 @@
        4
       ],
       0,
-      "#E1E8E7",
+      "#D3E2E6",
       1,
-      "#DEE5E4",
+      "#D2E0E4",
       2,
-      "#E4EAE8",
-      "#DCE4E2"
+      "#D5E4E7",
+      "#D0E0E3"
      ]
     ],
     "fill-extrusion-base": [
@@ -6942,7 +6942,7 @@
       ],
       85
      ],
-     "#BCCFD3",
+     "#B1CCD5",
      [
       "match",
       [
@@ -6957,12 +6957,12 @@
        4
       ],
       0,
-      "#DFE6E5",
+      "#D0E0E4",
       1,
-      "#DCE3E2",
+      "#CEDEE2",
       2,
-      "#E2E9E6",
-      "#DAE2E0"
+      "#D2E2E5",
+      "#CDDDE1"
      ]
     ],
     "fill-extrusion-base": [
@@ -7090,7 +7090,7 @@
       ],
       85
      ],
-     "#BCCFD3",
+     "#B1CCD5",
      [
       "match",
       [
@@ -7105,12 +7105,12 @@
        4
       ],
       0,
-      "#DDE5E3",
+      "#CDDEE2",
       1,
-      "#D9E1E0",
+      "#CBDCE0",
       2,
-      "#E0E7E5",
-      "#D7E0DE"
+      "#CFE0E3",
+      "#C9DBDF"
      ]
     ],
     "fill-extrusion-base": [
@@ -7238,7 +7238,7 @@
       ],
       85
      ],
-     "#BCCFD3",
+     "#B1CCD5",
      [
       "match",
       [
@@ -7253,12 +7253,12 @@
        4
       ],
       0,
-      "#DAE3E1",
+      "#C9DCE0",
       1,
-      "#D7E0DE",
+      "#C8DADE",
       2,
-      "#DEE6E3",
-      "#D5DEDC"
+      "#CCDEE1",
+      "#C6D9DD"
      ]
     ],
     "fill-extrusion-base": [
@@ -7386,7 +7386,7 @@
       ],
       85
      ],
-     "#BCCFD3",
+     "#B1CCD5",
      [
       "match",
       [
@@ -7401,12 +7401,12 @@
        4
       ],
       0,
-      "#D8E1E0",
+      "#C6DADF",
       1,
-      "#D5DEDC",
+      "#C5D7DC",
       2,
-      "#DCE4E1",
-      "#D2DCDA"
+      "#C9DCE0",
+      "#C3D7DB"
      ]
     ],
     "fill-extrusion-base": [
@@ -7534,7 +7534,7 @@
       ],
       85
      ],
-     "#BCCFD3",
+     "#B1CCD5",
      [
       "match",
       [
@@ -7549,12 +7549,12 @@
        4
       ],
       0,
-      "#D6E0DE",
+      "#C3D8DD",
       1,
-      "#D2DCDA",
+      "#C1D5DA",
       2,
-      "#DAE3E0",
-      "#D0DAD8"
+      "#C6DADE",
+      "#BFD4D9"
      ]
     ],
     "fill-extrusion-base": [
@@ -7682,7 +7682,7 @@
       ],
       85
      ],
-     "#BCCFD3",
+     "#B1CCD5",
      [
       "match",
       [
@@ -7697,12 +7697,12 @@
        4
       ],
       0,
-      "#D4DEDC",
+      "#C0D6DB",
       1,
-      "#D0DAD8",
+      "#BED3D8",
       2,
-      "#D8E1DE",
-      "#CDD8D6"
+      "#C3D8DC",
+      "#BCD2D7"
      ]
     ],
     "fill-extrusion-base": [
