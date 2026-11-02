@@ -134,6 +134,15 @@ final class ScreenSnapshotTests: XCTestCase {
         check(SearchView(app: app(), purpose: .destination, query: "Navig", offline: true, onDone: { _ in }), named: "S2e-offline")
     }
 
+    // MARK: Search first: the picked place, then Find route (Filippo, 2 Nov)
+
+    func testS2fDestinationPreview() {
+        let place = AppSamples.centrResults[0]
+        check(DestinationPreviewView(app: app(), place: place, onClose: {}, onFindRoute: {}), named: "S2f-preview")
+        let rome = Place(id: "n1", name: "Colosseo", subtitle: "Piazza del Colosseo · Roma", kind: .poi, lat: 41.8902, lon: 12.4922)
+        check(DestinationPreviewView(app: app(), place: rome, onClose: {}, onFindRoute: {}), named: "S2g-notCovered")
+    }
+
     // MARK: S3 Route options
 
     func testS3RouteOptions() {

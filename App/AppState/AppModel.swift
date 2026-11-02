@@ -72,6 +72,8 @@ final class AppModel {
         warning = await weather.current(near: location.coordinate)
     }
 
+    /// Search first (Filippo, 2 Nov): a searched place framed on the map before its route options (Find route).
+    var preview: Place?
     /// S3: the destination whose route options are open.
     var destination: Place?
     /// The ride in progress (Start).
@@ -116,10 +118,17 @@ final class AppModel {
         pack.installed.isEmpty ? RegionPackManifest.sideloaded.contains(p) : pack.covers(p)
     }
 
-    /// Open route options for a place (Home, Work, a search result): tap 1 of the commute.
+    /// Open route options for a place (Home, Work, Find route): tap 1 of the commute.
     func choose(_ place: Place) {
         state.addRecent(place)
         destination = place
+    }
+
+    /// Frame a searched or recent place first; Home and Work open route options straight away (the commute).
+    func show(_ place: Place) {
+        if place == state.home || place == state.work { return choose(place) }
+        state.addRecent(place)
+        preview = place
     }
 
     /// Tap 2: ride the chosen route.
@@ -136,7 +145,7 @@ final class AppModel {
         do {
             try session.start()
             ride = session
-            destination = nil
+            destination = nil; preview = nil
         } catch {
             print("Start failed: \(error)")
         }
@@ -156,7 +165,7 @@ final class AppModel {
             try trip.start()
             transit = trip
             ride = trip.session
-            destination = nil
+            destination = nil; preview = nil
         } catch {
             print("Start failed: \(error)")
         }
