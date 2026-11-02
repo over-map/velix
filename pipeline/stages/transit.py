@@ -13,9 +13,11 @@
 """
 import csv
 import datetime as dt
+import http.client
 import io
 import json
 import sqlite3
+import time
 import urllib.request
 import zipfile
 from collections import defaultdict
@@ -62,14 +64,26 @@ def fetch(feed: dict) -> zipfile.ZipFile:
         log(f"download {feed['id']} ← {url}")
         raw = path.with_suffix(".netex" if feed.get("format") == "netex" else ".part")
         req = urllib.request.Request(url, headers={"User-Agent": UA})
-        with urllib.request.urlopen(req, timeout=600) as r, open(raw, "wb") as f:
-            while chunk := r.read(1 << 20):
-                f.write(chunk)
-        if feed.get("format") == "netex":
-            log(f"convert {feed['id']} NeTEx → GTFS ({', '.join(feed['modes'])})")
-            with netex.open_netex(raw) as x:
-                path.with_suffix(".part").write_bytes(netex.convert(x, set(feed["modes"]), feed.get("renames"), feed.get("lines")))
-            raw.unlink()
+        # The NAP drops connections mid-file now and then (CI, 2 Nov): retry the whole download, and convert only a
+        # file that opens to the end.
+        for attempt in range(1, 5):
+            try:
+                with urllib.request.urlopen(req, timeout=600) as r, open(raw, "wb") as f:
+                    while chunk := r.read(1 << 20):
+                        f.write(chunk)
+                if feed.get("format") == "netex":
+                    log(f"convert {feed['id']} NeTEx → GTFS ({', '.join(feed['modes'])})")
+                    with netex.open_netex(raw) as x:
+                        path.with_suffix(".part").write_bytes(netex.convert(x, set(feed["modes"]), feed.get("renames"), feed.get("lines")))
+                    raw.unlink()
+                elif zipfile.ZipFile(raw).testzip() is not None:
+                    raise zipfile.BadZipFile(f"{raw.name}: corrupt member")
+                break
+            except (OSError, EOFError, http.client.HTTPException, zipfile.BadZipFile) as e:
+                if attempt == 4:
+                    raise
+                log(f"download {feed['id']} failed ({e!r}), retrying ({attempt}/3)")
+                time.sleep(30 * attempt)
         path.with_suffix(".part").rename(path)
     return zipfile.ZipFile(path)
 
