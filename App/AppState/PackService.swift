@@ -2,7 +2,9 @@ import Foundation
 import Network
 import Observation
 
-/// The region pack as the screens see it (S0e–g, S1d, S8 offline map): installed, downloading with bytes, failed.
+/// The region packs as the screens see them (S0e–g, S1d, S8 offline map; Filippo, 2 Nov: several regions): the regions
+/// on offer (``catalog``), each one installed, downloading with bytes, or failed. `state` and `regionName` are the
+/// region in focus: the one downloading, else the active one (``RegionPack/active``).
 @MainActor
 @Observable
 final class PackService {
@@ -14,29 +16,37 @@ final class PackService {
         case ready(RegionPackManifest)
     }
 
-    private(set) var state: State = .none
+    /// Every region's state (a region missing here is `.none`).
+    private(set) var states: [String: State] = [:]
+    /// The regions on offer (``RegionPackCatalog``), empty until fetched.
+    private(set) var catalog = RegionCatalog(schema: 1, regions: [])
+    /// The region whose download runs now, if one does.
+    private(set) var downloading: String?
     /// On mobile data (S0e "Switch to Wi-Fi…").
     private(set) var isExpensive = false
-    /// Region name for copy ("Downloading Lombardy").
-    private(set) var regionName = "Lombardy"
 
-    var onInstalled: () -> Void = {}
+    /// Called with the region after a pack installs or is removed.
+    var onInstalled: (String) -> Void = { _ in }
 
-    private let installer: RegionPackInstaller
-    private let catalog: () async throws -> URL?
+    private let base: URL
+    private let installerFor: (String) -> RegionPackInstaller
+    private let fetchCatalog: () async throws -> RegionCatalog
     private let monitor = NWPathMonitor()
     private var task: Task<Void, Never>?
 
-    init(installer: RegionPackInstaller = RegionPackInstaller(),
-         catalog: @escaping () async throws -> URL? = { try await RegionPackCatalog.latestManifestURL() }) {
-        self.installer = installer
-        self.catalog = catalog
-        if let current = RegionPackInstaller.current(root: installer.root) {
-            state = .ready(current.manifest)
-            regionName = current.manifest.name
-        } else if RegionPack.tileExtract != nil {
+    /// - Parameters:
+    ///   - base: `RegionPack/` (one folder per region inside).
+    ///   - catalog: the regions on offer (tests: a fixed list).
+    init(base: URL = RegionPack.directory, downloader: PackDownloading = URLSessionPackDownloader(),
+         catalog: @escaping () async throws -> RegionCatalog = { try await RegionPackCatalog.fetch() }) {
+        self.base = base
+        installerFor = { RegionPackInstaller(root: RegionPack.root($0, base: base), downloader: downloader) }
+        fetchCatalog = catalog
+        RegionPack.migrateLegacyLayout(base: base)
+        for p in RegionPack.installed(base: base) { states[p.manifest.pack] = .ready(p.manifest) }
+        if states.isEmpty, RegionPack.tileExtract != nil {
             // Side-loaded (debug): routes work, nothing to download.
-            state = .ready(RegionPackManifest.sideloaded)
+            states[RegionPack.active] = .ready(RegionPackManifest.sideloaded)
         }
         monitor.pathUpdateHandler = { [weak self] path in
             let expensive = path.isExpensive
@@ -45,8 +55,14 @@ final class PackService {
         monitor.start(queue: .global(qos: .utility))
     }
 
-    var isReady: Bool { if case .ready = state { true } else { false } }
-    var isDownloading: Bool { if case .downloading = state { true } else { false } }
+    // MARK: The region in focus (the screens of one region)
+
+    private var focus: String { downloading ?? RegionPack.active }
+    var state: State { states[focus] ?? .none }
+    var regionName: String { name(of: focus) }
+
+    var isReady: Bool { !installed.isEmpty }
+    var isDownloading: Bool { downloading != nil }
 
     /// Fraction for progress bars.
     var fraction: Double {
@@ -57,42 +73,89 @@ final class PackService {
         }
     }
 
-    private func progress(_ fraction: Double, total: Int64) {
-        guard case .downloading = state else { return }
-        state = .downloading(received: Int64(fraction * Double(total)), total: total)
+    // MARK: Regions
+
+    /// The installed regions' manifests, by name.
+    var installed: [RegionPackManifest] {
+        states.values.compactMap { if case let .ready(m) = $0 { m } else { nil } }.sorted { $0.name < $1.name }
+    }
+
+    func state(of region: String) -> State { states[region] ?? .none }
+    func isInstalled(_ region: String) -> Bool { if case .ready = states[region] { true } else { false } }
+
+    func name(of region: String) -> String {
+        if case let .ready(m) = states[region] { return m.name }
+        return catalog.region(region)?.name ?? region.capitalized
+    }
+
+    /// An installed region holding the point inside its border.
+    func installedRegion(containing p: LatLon) -> RegionPackManifest? { installed.first { $0.contains(p) } }
+
+    /// Some installed pack's routing data reaches the point.
+    func covers(_ p: LatLon) -> Bool { installed.contains { $0.covers(p) } }
+
+    /// The region on offer at a point that isn't on the phone (browsing or searching outside: offer its download).
+    func offer(at p: LatLon) -> RegionCatalog.Region? {
+        guard installedRegion(containing: p) == nil, let r = catalog.region(containing: p), !isInstalled(r.id) else { return nil }
+        return r
     }
 
     #if DEBUG
-    func setForTesting(_ state: State, expensive: Bool = false) {
-        self.state = state
+    func setForTesting(_ state: State, expensive: Bool = false, region: String = "lombardy") {
+        states[region] = state
         isExpensive = expensive
+        if case .downloading = state { downloading = region } else if downloading == region { downloading = nil }
     }
+
+    func setCatalogForTesting(_ c: RegionCatalog) { catalog = c }
     #endif
 
-    /// Install the latest release; resumes an interrupted download.
-    func install() {
+    func refreshCatalog() async {
+        if let c = try? await fetchCatalog(), !c.regions.isEmpty { catalog = c }
+    }
+
+    /// Install a region's newest pack (the active region by default: first launch); resumes an interrupted download.
+    /// One download at a time.
+    func install(_ region: String? = nil) {
         guard task == nil else { return }
-        let previous = state
+        let region = region ?? RegionPack.active
+        let previous = state(of: region)
+        downloading = region
         task = Task { [weak self] in
             guard let self else { return }
-            defer { self.task = nil }
-            self.state = .checking
+            defer { self.task = nil; self.downloading = nil }
+            self.states[region] = .checking
             do {
-                guard let url = try await self.catalog() else { self.state = previous; return }
-                let latest = try? RegionPackManifest.decode(await URLSession.shared.data(from: url).0)
-                let total = latest?.downloadBytes ?? 0
-                if let latest { self.regionName = latest.name }
-                self.state = .downloading(received: 0, total: total)
-                let installed = try await self.installer.install(manifest: url) { fraction in
-                    Task { @MainActor in self.progress(fraction, total: total) }
+                if self.catalog.regions.isEmpty { await self.refreshCatalog() }
+                guard let entry = self.catalog.region(region) else { self.states[region] = previous; return }
+                let total = entry.downloadBytes
+                self.states[region] = .downloading(received: 0, total: total)
+                let installed = try await self.installerFor(region).install(manifest: entry.manifest) { fraction in
+                    Task { @MainActor in self.progress(region, fraction, total: total) }
                 }
-                self.state = .ready(installed.manifest)
-                self.onInstalled()
+                self.states[region] = .ready(installed.manifest)
+                PackTileProtocol.use(basemaps: RegionPack.basemaps, overlays: RegionPack.overlays)
+                self.onInstalled(region)
             } catch {
-                if case let .downloading(r, t) = self.state { self.state = .failed(received: r, total: t) }
-                else { self.state = previous == .checking ? .none : previous }
+                if case let .downloading(r, t) = self.states[region] { self.states[region] = .failed(received: r, total: t) }
+                else { self.states[region] = previous == .checking ? .none : previous }
             }
         }
+    }
+
+    /// Remove a downloaded region (You → Offline map).
+    func delete(_ region: String) {
+        guard downloading != region else { return }
+        try? FileManager.default.removeItem(at: RegionPack.root(region, base: base))
+        states[region] = nil
+        if RegionPack.active == region { RegionPack.active = installed.first?.pack ?? "lombardy" }
+        PackTileProtocol.use(basemaps: RegionPack.basemaps, overlays: RegionPack.overlays)
+        onInstalled(region)
+    }
+
+    private func progress(_ region: String, _ fraction: Double, total: Int64) {
+        guard case .downloading = states[region] else { return }
+        states[region] = .downloading(received: Int64(fraction * Double(total)), total: total)
     }
 }
 
@@ -101,9 +164,4 @@ extension RegionPackManifest {
     static let sideloaded = RegionPackManifest(schema: 1, pack: "lombardy", name: "Lombardy", version: "side-loaded",
                                                built: "", valhalla: "", bbox: [8.49785, 44.67991, 11.42765, 46.63535],
                                                files: [], downloadBytes: 0, unpackedBytes: 0, budgetBytes: 0, sources: [])
-
-    /// Rough region check until the pack ships its polygon to the app: inside the bbox.
-    func contains(_ p: LatLon) -> Bool {
-        bbox.count == 4 && p.lon >= bbox[0] && p.lat >= bbox[1] && p.lon <= bbox[2] && p.lat <= bbox[3]
-    }
 }

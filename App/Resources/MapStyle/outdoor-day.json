@@ -21,12 +21,20 @@
  "sources": {
   "omt": {
    "type": "vector",
-   "url": "pmtiles://velix-pack/basemap.pmtiles",
+   "tiles": [
+    "https://tiles.velix.invalid/basemap/{z}/{x}/{y}"
+   ],
+   "minzoom": 0,
+   "maxzoom": 14,
    "attribution": "© OpenMapTiles © OpenStreetMap contributors"
   },
   "velix": {
    "type": "vector",
-   "url": "pmtiles://velix-pack/overlays.pmtiles"
+   "tiles": [
+    "https://tiles.velix.invalid/overlays/{z}/{x}/{y}"
+   ],
+   "minzoom": 8,
+   "maxzoom": 14
   },
   "velix-route": {
    "type": "geojson",

@@ -53,7 +53,7 @@ final class RouteOptionsModel {
         fastestSelected = false
         if let follow { return await planFollow(follow, app: app, from: origin) }
         do {
-            let planner = try await app.engine.planner()
+            let planner = try await app.engine.planner(covering: [origin, destination.location])
             switch try await planner.plan(from: origin, to: destination.location, heading: app.location.travelHeading, rules: app.rules) {
             case let .options(o):
                 state = .options(o)
@@ -63,6 +63,8 @@ final class RouteOptionsModel {
             }
         } catch EngineHost.Failure.noPack {
             state = .failed("Routes start when the \(app.pack.regionName) download is done.")
+        } catch EngineHost.Failure.acrossRegions {
+            state = .failed(Self.acrossRegions(app: app, to: destination.location))
         } catch {
             state = .failed("Velix couldn’t plan this route.")
         }
@@ -75,19 +77,27 @@ final class RouteOptionsModel {
         destination = Place(id: "route-\(route.id)", name: route.name, subtitle: leg.to, kind: .poi, lat: end.lat, lon: end.lon)
         followVias = RouteRide.vias(leg.line)
         do {
-            let planner = try await app.engine.planner()
+            let planner = try await app.engine.planner(covering: [origin, end])
             guard let option = try await planner.follow(from: origin, through: followVias, to: end, heading: app.location.travelHeading,
                                                         rules: app.rules) else { state = .noRoute; return }
             approachMeters = RouteRide.approachMeters(option, join: leg.line[0])
             state = .options(Self.followOptions(option, rules: app.rules, leg: leg, approachMeters: approachMeters))
         } catch EngineHost.Failure.noPack {
             state = .failed("Routes start when the \(app.pack.regionName) download is done.")
+        } catch EngineHost.Failure.acrossRegions {
+            state = .failed(Self.acrossRegions(app: app, to: destination.location))
         } catch {
             state = .failed("Velix couldn’t plan this route.")
         }
     }
 
     static let followName = "To the route and along it"
+
+    /// No one region covers the trip: the destination's region still to download, or a trip across two regions.
+    static func acrossRegions(app: AppModel, to p: LatLon) -> String {
+        if let r = app.pack.offer(at: p) { return "Download \(r.name) to plan routes there." }
+        return "Routes between two regions come in a later version. Velix plans them up to 10 km past a region’s border."
+    }
 
     static func followOptions(_ option: RouteOption, rules: RuleSet, leg: RouteRide.Leg, approachMeters: Double) -> RouteOptions {
         let approachSeconds = option.meters > 0 ? option.seconds * approachMeters / option.meters : 0

@@ -7,6 +7,13 @@ struct VelixApp: App {
     /// map down to 3–5 frames a second).
     @MainActor private static let model = AppModel()
 
+    init() {
+        RegionPack.migrateLegacyLayout()
+        // Every map reads its tiles through the packs (several regions as one source, PackTileProtocol).
+        PackTileProtocol.install()
+        PackTileProtocol.use(basemaps: RegionPack.basemaps, overlays: RegionPack.overlays)
+    }
+
     var body: some Scene {
         WindowGroup {
             #if DEBUG

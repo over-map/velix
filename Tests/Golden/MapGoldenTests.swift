@@ -9,6 +9,20 @@ import XCTest
 final class MapGoldenTests: XCTestCase {
     private var pack: URL? { ProcessInfo.processInfo.environment["VELIX_PACK_DIR"].map { URL(filePath: $0) } }
 
+    /// The app's PMTiles reader returns real vector tiles from the pack (layers first: field 3).
+    func testPackTilesReadAsVectorTiles() throws {
+        guard let dir = pack, FileManager.default.fileExists(atPath: dir.appending(path: "basemap.pmtiles").path) else {
+            throw XCTSkip("No basemap.pmtiles in VELIX_PACK_DIR")
+        }
+        for name in ["basemap.pmtiles", "overlays.pmtiles"] where FileManager.default.fileExists(atPath: dir.appending(path: name).path) {
+            let p = try PMTiles(url: dir.appending(path: name))
+            for (z, x, y) in [(14, 8610, 5864), (10, 538, 366), (8, 134, 91)] {
+                let t = try XCTUnwrap(p.vectorTile(z: z, x: x, y: y), "\(name) \(z)/\(x)/\(y) missing")
+                XCTAssertEqual(t.first, 0x1a, "\(name) \(z)/\(x)/\(y): \(t.prefix(8).map { String(format: "%02x", $0) })")
+            }
+        }
+    }
+
     func testStylesRenderFromThePack() throws {
         guard let dir = pack, FileManager.default.fileExists(atPath: dir.appending(path: "basemap.pmtiles").path) else {
             throw XCTSkip("No basemap.pmtiles in VELIX_PACK_DIR")
@@ -16,11 +30,14 @@ final class MapGoldenTests: XCTestCase {
         let out = ProcessInfo.processInfo.environment["VELIX_GOLDEN_OUT"].map { URL(filePath: $0).appending(path: "map") }
         if let out { try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true) }
         let overlays = dir.appending(path: "overlays.pmtiles")
+        // The styles read their tiles through the app's pack tile protocol, as on the phone.
+        PackTileProtocol.install()
+        PackTileProtocol.use(basemaps: [dir.appending(path: "basemap.pmtiles")],
+                             overlays: FileManager.default.fileExists(atPath: overlays.path) ? [overlays] : [])
         for kind in MapStyleKind.allCases {
             for mode in MapMode.allCases {
                 for zoom in [13.0, 15, 17] {
-                    let style = try VelixMapStyle.url(kind, mode, basemap: dir.appending(path: "basemap.pmtiles"),
-                                                      overlays: FileManager.default.fileExists(atPath: overlays.path) ? overlays : nil)
+                    let style = try VelixMapStyle.url(kind, mode)
                     let image = try snapshot(style, center: LatLon(lat: 45.473220, lon: 9.216726), zoom: zoom)
                     let distinct = distinctColours(image)
                     XCTAssertGreaterThan(distinct, 6, "\(kind)-\(mode)-z\(Int(zoom)) looks blank (\(distinct) colours)")

@@ -1,10 +1,47 @@
 import Foundation
 
-/// Where the offline region pack lives on the phone: `Application Support/RegionPack/`
-/// (`current` names the installed version under `versions/`, see ``RegionPackInstaller``).
+/// Where the offline region packs live on the phone: `Application Support/RegionPack/<region>/`, one per downloaded
+/// region (`current` names the installed version under `versions/`, see ``RegionPackInstaller``). Every downloaded
+/// region stays; the routing engine, hazards, timetable and cycle routes read the *active* one (``active``), the one
+/// covering the trip (``region(covering:among:)``); the map shows them all (``PackTileProtocol``).
 enum RegionPack {
     static var directory: URL {
         URL.applicationSupportDirectory.appending(path: "RegionPack", directoryHint: .isDirectory)
+    }
+
+    /// One region's installer root.
+    static func root(_ region: String, base: URL = directory) -> URL {
+        base.appending(path: region, directoryHint: .isDirectory)
+    }
+
+    /// The region the pack files below come from (set by ``EngineHost`` for a trip; the first installed one otherwise).
+    nonisolated(unsafe) static var active: String = installed().first?.manifest.pack ?? "lombardy"
+
+    /// Every installed region, by name.
+    static func installed(base: URL = directory) -> [InstalledRegionPack] {
+        let dirs = (try? FileManager.default.contentsOfDirectory(at: base, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
+        return dirs.compactMap { RegionPackInstaller.current(root: $0) }.sorted { $0.manifest.name < $1.manifest.name }
+    }
+
+    /// The installed region whose routing data covers every point (both ends of a trip), preferring the one whose
+    /// border holds the first point.
+    static func region(covering points: [LatLon], among packs: [InstalledRegionPack] = installed()) -> String? {
+        let fits = packs.filter { p in points.allSatisfy { p.manifest.covers($0) } }
+        return (fits.first { p in points.first.map { p.manifest.contains($0) } ?? false } ?? fits.first)?.manifest.pack
+    }
+
+    /// Before Nov 2026 the one pack lived straight in `RegionPack/`: move it into its region's folder, once.
+    static func migrateLegacyLayout(base: URL = directory) {
+        let fm = FileManager.default
+        guard let legacy = RegionPackInstaller.current(root: base) else { return }
+        let target = root(legacy.manifest.pack, base: base)
+        try? fm.createDirectory(at: target, withIntermediateDirectories: true)
+        for name in ["versions", "staging", "current"] {
+            let from = base.appending(path: name)
+            guard fm.fileExists(atPath: from.path) else { continue }
+            try? fm.removeItem(at: target.appending(path: name))
+            try? fm.moveItem(at: from, to: target.appending(path: name))
+        }
     }
 
     /// M1 side-loading lands files in Documents (devicectl / simctl can write there). Debug fallback only.
@@ -20,19 +57,15 @@ enum RegionPack {
     /// Debug: `-use-sideloaded` prefers files side-loaded into Documents over the installed pack (testing a new build).
     static var preferSideloaded: Bool { ProcessInfo.processInfo.arguments.contains("-use-sideloaded") }
 
-    static var hazardStore: URL? {
-        let side = URL.documentsDirectory.appending(path: "hazards.sqlite")
-        if preferSideloaded, FileManager.default.fileExists(atPath: side.path) { return side }
-        if let installed = try? RegionPackInstaller.current()?.file(.hazards), FileManager.default.fileExists(atPath: installed.path) {
-            return installed
-        }
-        return FileManager.default.fileExists(atPath: side.path) ? side : nil
-    }
+    /// The active region's installed pack.
+    static var current: InstalledRegionPack? { RegionPackInstaller.current(root: root(active)) }
 
-    /// Map tiles (M5): `basemap.pmtiles` and `overlays.pmtiles`, installed or side-loaded into Documents.
-    static var basemap: URL? { packFile(.basemap, sideloaded: "basemap.pmtiles") }
-    static var overlays: URL? { packFile(.overlays, sideloaded: "overlays.pmtiles") }
-    /// Bike + transit (M8): the Trenord and ATM timetable, and the city area.
+    static var hazardStore: URL? { packFile(.hazards, sideloaded: "hazards.sqlite") }
+
+    /// Map tiles (M5): `basemap.pmtiles` and `overlays.pmtiles` of every installed region, or side-loaded into Documents.
+    static var basemaps: [URL] { mapFiles(.basemap, sideloaded: "basemap.pmtiles") }
+    static var overlays: [URL] { mapFiles(.overlays, sideloaded: "overlays.pmtiles") }
+    /// Bike + transit (M8): the active region's timetable, and the city area.
     static var transit: URL? { packFile(.transit, sideloaded: "transit.sqlite") }
     static var city: URL? { packFile(.city, sideloaded: "city.geojson") }
     /// Routes tab (M9): OSM cycle-route relations.
@@ -41,18 +74,38 @@ enum RegionPack {
     private static func packFile(_ role: RegionPackManifest.File.Role, sideloaded name: String) -> URL? {
         let side = URL.documentsDirectory.appending(path: name)
         if preferSideloaded, FileManager.default.fileExists(atPath: side.path) { return side }
-        if let installed = try? RegionPackInstaller.current()?.file(role), FileManager.default.fileExists(atPath: installed.path) {
+        if let installed = try? current?.file(role), FileManager.default.fileExists(atPath: installed.path) {
             return installed
         }
         return FileManager.default.fileExists(atPath: side.path) ? side : nil
     }
 
+    private static func mapFiles(_ role: RegionPackManifest.File.Role, sideloaded name: String) -> [URL] {
+        let side = URL.documentsDirectory.appending(path: name)
+        if preferSideloaded, FileManager.default.fileExists(atPath: side.path) { return [side] }
+        let all = installed().compactMap { try? $0.file(role) }.filter { FileManager.default.fileExists(atPath: $0.path) }
+        if !all.isEmpty { return all }
+        return FileManager.default.fileExists(atPath: side.path) ? [side] : []
+    }
+
     static var tileExtract: URL? {
         if preferSideloaded, FileManager.default.fileExists(atPath: sideloadedTileExtract.path) { return sideloadedTileExtract }
-        if let installed = try? RegionPackInstaller.current()?.file(.routingTiles),
-           FileManager.default.fileExists(atPath: installed.path) {
+        if let installed = try? current?.file(.routingTiles), FileManager.default.fileExists(atPath: installed.path) {
             return installed
         }
         return FileManager.default.fileExists(atPath: sideloadedTileExtract.path) ? sideloadedTileExtract : nil
+    }
+}
+
+extension RegionPackManifest {
+    /// Inside the region's border (older packs: its bbox).
+    func contains(_ p: LatLon) -> Bool {
+        if let polygon { return polygon.contains(p) }
+        return bbox.count == 4 && p.lon >= bbox[0] && p.lat >= bbox[1] && p.lon <= bbox[2] && p.lat <= bbox[3]
+    }
+
+    /// Where its routing data reaches: the border plus the buffer (older packs: the border).
+    func covers(_ p: LatLon) -> Bool {
+        coverage.map { $0.polygon.contains(p) } ?? contains(p)
     }
 }

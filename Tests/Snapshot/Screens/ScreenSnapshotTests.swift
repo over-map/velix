@@ -30,14 +30,28 @@ final class ScreenSnapshotTests: XCTestCase {
         store.save(s)
         let location = LocationService()
         location.setForTesting(access: access, location: here, cannotFind: cannotFind)
-        let packService = PackService(installer: RegionPackInstaller(root: dir.appending(path: "RegionPack")), catalog: { nil })
+        let packService = PackService(base: dir.appending(path: "RegionPack"), catalog: { RegionCatalog(schema: 1, regions: []) })
         packService.setForTesting(pack, expensive: expensive)
+        packService.setCatalogForTesting(Self.catalog)
         let prefs = MapStylePreference(defaults: UserDefaults(suiteName: "velix-snap-\(UUID().uuidString)")!)
         let history = RideHistory(inMemory: true)
         if rides { Self.sampleRides.forEach(history.add) }
         return AppModel(store: store, location: location, pack: packService, search: NoSearch(), weather: weather,
                         mapPreference: prefs, history: history)
     }
+
+    /// Lombardy and two neighbours, as boxes (the index ships simplified borders).
+    static let catalog: RegionCatalog = {
+        func region(_ id: String, _ name: String, _ b: [Double], mb: Int64) -> RegionCatalog.Region {
+            .init(id: id, name: name, tag: "pack-\(id)-2026.11", version: "2026.11", bbox: b,
+                  polygon: RegionShape(polygons: [[[[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]], [b[0], b[1]]]]]),
+                  downloadBytes: mb * 1_000_000, manifest: URL(string: "https://example.invalid/\(id)/manifest.json")!)
+        }
+        return RegionCatalog(schema: 1, regions: [
+            region("lombardy", "Lombardy", RegionPackManifest.sideloaded.bbox, mb: 299),
+            region("piemonte", "Piedmont", [6.63, 44.06, 8.49, 46.46], mb: 222),
+            region("veneto", "Veneto", [10.62, 44.79, 13.10, 46.68], mb: 240)])
+    }()
 
     static let ridesNow = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 29, hour: 18))!
 
@@ -102,6 +116,7 @@ final class ScreenSnapshotTests: XCTestCase {
         let mb = Int64(1_000_000)
         check(RootView(app: app(pack: .downloading(received: 132 * mb, total: 220 * mb))), named: "S1d-downloading")
         check(RootView(app: app(here: LatLon(lat: 41.9, lon: 12.5))), named: "S1e-outside")
+        check(RootView(app: app(here: LatLon(lat: 45.0623, lon: 7.6786))), named: "S1j-offerRegion")   // in Torino
         check(RootView(app: app(here: nil, cannotFind: true), following: false), named: "S1f-noGPS")
         check(RootView(app: app(), sheet: .rideType), named: "S1g-rideType")
         check(RootView(app: app(), sheet: .mapStyle), named: "S1h-mapStyle-city")
@@ -265,9 +280,13 @@ final class ScreenSnapshotTests: XCTestCase {
             m.filterIndex = 4
         }, named: "S7f-noRoutes")
         check(routes { m in
-            m.load(store: nil, inside: { _ in false })
+            m.load(store: { _ in nil }, inside: { _ in false })
             m.search(.init(center: LatLon(lat: 46.0037, lon: 8.9511), name: "Lugano"))
         }, named: "S7g-outside")
+        check(routes { m in
+            m.load(store: { _ in nil }, inside: { _ in false })
+            m.search(.init(center: LatLon(lat: 45.0703, lon: 7.6869), name: "Torino"))
+        }, named: "S7h-offerRegion")
         let route = Self.p7Routes[0]
         let leg = RouteRide.Leg(line: route.line, from: route.from, to: route.to, reversed: false)
         let option = AppSamples.rideOption()
@@ -296,5 +315,8 @@ final class ScreenSnapshotTests: XCTestCase {
         check(YouView(app: app()), named: "S8a-you")
         check(YouView(app: app(rides: true), now: Self.ridesNow).defaultScrollAnchor(.bottom), named: "S8a-you-rides")
         check(RideHistoryView(history: app(rides: true).history, now: Self.ridesNow), named: "S8b-allRides")
+        let two = app()
+        two.pack.setForTesting(.downloading(received: 84_000_000, total: 222_000_000), region: "piemonte")
+        check(YouView(app: two).defaultScrollAnchor(.bottom), named: "S8c-offlineRegions")
     }
 }

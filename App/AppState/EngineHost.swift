@@ -1,21 +1,41 @@
 import Foundation
 
-/// One Valhalla engine + hazard store per session (mmapping the tiles is expensive), rebuilt after a pack install.
+/// One Valhalla engine + hazard store per session (mmapping the tiles is expensive), for the active region; rebuilt
+/// after a pack install, or when a trip needs another region (``planner(covering:)``).
 @MainActor
 final class EngineHost {
+    /// The region the engine and stores below were opened for.
+    private(set) var region: String?
     private var engine: ValhallaOnDeviceProvider?
     private var hazards: HazardStore?
     private var loading: Task<RoutePlanner, Error>?
     private var transit: TransitStore?
     private var city: CityArea?
 
-    enum Failure: Error { case noPack }
+    enum Failure: Error {
+        case noPack
+        /// No installed region's routing data covers both ends (a trip across regions, beyond the border buffer).
+        case acrossRegions
+    }
+
+    /// The planner of the installed region covering every point (a trip's two ends), opening it if needed. Valhalla
+    /// doesn't fail for a point outside its tiles, it snaps to their edge: never plan with a pack that doesn't cover.
+    func planner(covering points: [LatLon]) async throws -> RoutePlanner {
+        if RegionPack.preferSideloaded || RegionPack.installed().isEmpty { return try await planner() }
+        guard let r = RegionPack.region(covering: points) else { throw Failure.acrossRegions }
+        if r != RegionPack.active || region != r {
+            reset()
+            RegionPack.active = r
+        }
+        return try await planner()
+    }
 
     /// The planner, creating the engine on first use.
     func planner() async throws -> RoutePlanner {
         if let engine, let hazards { return RoutePlanner(engine: engine, hazards: hazards) }
         if let loading { return try await loading.value }
         guard let tiles = RegionPack.tileExtract, let hz = RegionPack.hazardStore else { throw Failure.noPack }
+        region = RegionPack.active
         let task = Task { () throws -> RoutePlanner in
             let profile = try RideProfile.load(.city).best
             let e = try await Task.detached(priority: .userInitiated) {
@@ -60,6 +80,7 @@ final class EngineHost {
 
     /// Drop the engine (after installing a new pack).
     func reset() {
+        region = nil
         engine = nil
         hazards = nil
         transit = nil

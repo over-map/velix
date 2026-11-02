@@ -10,8 +10,9 @@ enum PlaceSearchError: Error, Equatable { case offline, badResponse }
 /// Photon geocoder (https://photon.komoot.io, fair use): biased to the rider, limited to the pack region.
 struct PhotonSearch: PlaceSearch {
     var endpoint = URL(string: "https://photon.komoot.io/api/")!
-    /// Lombardy (the pack bbox): routes only work inside it.
-    var bbox: [Double] = [8.49785, 44.67991, 11.42765, 46.63535]
+    /// Around the regions Velix offers (Lombardy and its neighbours, Filippo 2 Nov): a place found outside the
+    /// downloaded ones offers its region's download (search first, Find route).
+    var bbox: [Double] = [6.62, 43.73, 13.10, 47.10]
     var limit = 8
     var session: URLSession = .shared
 
