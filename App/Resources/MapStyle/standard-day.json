@@ -83,7 +83,7 @@
     ]
    ],
    "paint": {
-    "fill-color": "#F0EDDE"
+    "fill-color": "#E7E7D9"
    }
   },
   {
@@ -106,7 +106,7 @@
     ]
    ],
    "paint": {
-    "fill-color": "#EEEBDD"
+    "fill-color": "#E3E4D8"
    }
   },
   {
@@ -129,7 +129,7 @@
     ]
    ],
    "paint": {
-    "fill-color": "#EEEBDD"
+    "fill-color": "#E3E4D8"
    }
   },
   {
@@ -152,7 +152,7 @@
     ]
    ],
    "paint": {
-    "fill-color": "#EDEADC"
+    "fill-color": "#E4E3D6"
    }
   },
   {
@@ -176,7 +176,7 @@
     ]
    ],
    "paint": {
-    "fill-color": "#EDEADC"
+    "fill-color": "#E4E3D6"
    }
   },
   {
@@ -6101,7 +6101,7 @@
    "minzoom": 14.2,
    "maxzoom": 15,
    "paint": {
-    "line-color": "#E7E9DD",
+    "line-color": "#E0E4D9",
     "line-width": 0.4,
     "line-opacity": 0.5
    }
