@@ -20,8 +20,13 @@ struct RideView: View {
     @State private var tabBar: CGFloat = 0
     /// Where the rider moved the map: a region there that isn't on the phone is offered (Filippo, 2 Nov).
     @State private var browsed: LatLon?
+    /// Its zoom: a region is offered from city scale (Filippo, 5 Nov: "if I browse there at high LOD").
+    @State private var browsedZoom: Double = 15
+    static let offerZoom = 10.0
     /// Regions whose offer the rider closed (this session).
     @State private var declined: Set<String> = []
+    /// The rider closed "No routes here yet" (this session).
+    @State private var uncoveredDismissed = false
 
     static let milan = LatLon(lat: 45.4746, lon: 9.2050)   // Porta Venezia, until the first fix
 
@@ -71,7 +76,7 @@ struct RideView: View {
             VelixMap(style: MapStyleKind(app.mapStyle), mode: MapMode(scheme, mapAppearance),
                      bikeLanes: app.bikeLanes, transitLines: app.transitLines, camera: camera,
                      userLocation: app.isOutsideRegion ? nil : app.location.coordinate, userHeading: app.location.heading,
-                     coveredBottom: tabBar, onUserPan: { following = false }, onRegionChange: { browsed = $0 })
+                     coveredBottom: tabBar, onUserPan: { following = false }, onRegionChange: { browsed = $0; browsedZoom = $1 })
         } else {
             Color.velix.surface2
         }
@@ -81,7 +86,8 @@ struct RideView: View {
 
     /// A region on offer where the map is (or the rider is) that isn't downloaded yet.
     private var offer: RegionCatalog.Region? {
-        guard !app.pack.isDownloading, let p = (following ? nil : browsed) ?? app.location.coordinate,
+        guard !app.pack.isDownloading, following || browsedZoom >= Self.offerZoom,
+              let p = (following ? nil : browsed) ?? app.location.coordinate,
               let r = app.pack.offer(at: p), !declined.contains(r.id) else { return nil }
         return r
     }
@@ -90,6 +96,13 @@ struct RideView: View {
     private var offlineHere: Bool {
         guard !app.pack.isOnline, let p = (following ? nil : browsed) ?? app.location.coordinate else { return false }
         return app.pack.installedRegion(containing: p) == nil
+    }
+
+    /// Panned at city scale to a place no region on offer covers.
+    private var browsedUncovered: Bool {
+        guard !following, !uncoveredDismissed, browsedZoom >= Self.offerZoom, let p = browsed,
+              !app.pack.catalog.regions.isEmpty else { return false }
+        return app.pack.installedRegion(containing: p) == nil && app.pack.catalog.region(containing: p) == nil
     }
 
     @ViewBuilder private var notices: some View {
@@ -102,6 +115,10 @@ struct RideView: View {
                          message: "Download it (\(r.downloadBytes / 1_000_000) MB) for routes there, even without signal.",
                          icon: VelixIconView(.download, size: 22), tone: .info, onDismiss: { declined.insert(r.id) },
                          link: ("Download \(r.name)", { app.pack.install(r.id) }))
+        } else if browsedUncovered {
+            NoticeBanner(title: "No routes here yet",
+                         message: "Velix covers Lombardy and its neighbours for now. You can still look at the map.",
+                         icon: VelixIconView(.mapPinOff, size: 22), tone: .info, onDismiss: { uncoveredDismissed = true })
         } else if app.isOutsideRegion {
             NoticeBanner(title: "You’re outside the downloaded regions",
                          message: "Velix covers Lombardy and its neighbours for now. You can still search and look at the map.",
@@ -157,6 +174,7 @@ struct RideView: View {
                 if !following {
                     RecenterButton(following: false) {
                         following = true
+                        browsed = nil
                         if let here = app.location.coordinate { camera = MapCamera(center: here, zoom: max(camera.zoom, 15), revision: camera.revision + 1) }
                     }
                     .disabled(app.location.coordinate == nil)

@@ -62,7 +62,8 @@ struct ConnectionRow: View {
     }
 }
 
-/// OfflineRegionRow (P2 §08, You · offline maps): downloading, ready, update available, failed.
+/// OfflineRegionRow (P2 §08, You · offline maps): downloading, ready, update available, failed, on offer. A downloaded
+/// region shows Remove when it can go (Filippo, 5 Nov: the long-press wasn't found).
 struct OfflineRegionRow: View {
     enum State: Equatable {
         case downloading(received: String, total: String, fraction: Double)
@@ -75,21 +76,32 @@ struct OfflineRegionRow: View {
     let region: String
     let state: State
     var divider = true
+    /// Download, Update or Retry; Cancel while downloading.
     var onAction: () -> Void = {}
+    /// Remove a downloaded region (`nil`: it stays, e.g. the last one).
+    var onRemove: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             switch state {
             case let .downloading(received, total, fraction):
                 row("\(received) of \(total) · \(Int((fraction * 100).rounded()))%") {
-                    Button(action: onAction) { VelixIconView(.pause, size: 20).foregroundStyle(Color.velix.ink).frame(width: 44, height: 44) }
-                        .buttonStyle(.plain).accessibilityLabel("Pause download")
+                    RowButton(title: "Cancel", action: onAction).accessibilityLabel("Cancel download")
                 }
                 ProgressBar(fraction: fraction).padding(.leading, 52).padding(.bottom, CGFloat.velix.xs)
             case let .ready(size, updated):
-                row("\(size) · updated \(updated)") { StatusCheck(text: "Ready") }
+                if let onRemove {
+                    row("\(size) · updated \(updated)") { RowButton(title: "Remove", danger: true, action: onRemove) }
+                } else {
+                    row("\(size) · updated \(updated)") { StatusCheck(text: "Ready") }
+                }
             case let .update(size):
-                row("Update · \(size)") { RowButton(title: "Update", action: onAction) }
+                row("Update · \(size)") {
+                    HStack(spacing: CGFloat.velix.xs) {
+                        if let onRemove { RowButton(title: "Remove", danger: true, action: onRemove) }
+                        RowButton(title: "Update", action: onAction)
+                    }
+                }
             case let .available(size):
                 row(size) { RowButton(title: "Download", action: onAction) }
             case .failed:
@@ -99,7 +111,7 @@ struct OfflineRegionRow: View {
                 }
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 
     private func row(_ subtitle: String, @ViewBuilder trailing: () -> some View) -> some View {

@@ -240,7 +240,10 @@ enum ComponentCatalog {
             OfflineRegionRow(region: "Lombardy", state: .downloading(received: "141", total: "220 MB", fraction: 0.64), divider: false)
         },
         e("OfflineRegionRow", "ready") { OfflineRegionRow(region: "Lombardy", state: .ready(size: "220 MB", updated: "2 Oct"), divider: false) },
-        e("OfflineRegionRow", "update") { OfflineRegionRow(region: "Lombardy", state: .update(size: "18 MB"), divider: false) },
+        e("OfflineRegionRow", "ready, removable") {
+            OfflineRegionRow(region: "Piedmont", state: .ready(size: "450 MB", updated: "5 Nov"), divider: false, onRemove: {})
+        },
+        e("OfflineRegionRow", "update") { OfflineRegionRow(region: "Lombardy", state: .update(size: "18 MB"), divider: false, onRemove: {}) },
         e("OfflineRegionRow", "failed") { OfflineRegionRow(region: "Lombardy", state: .failed, divider: false) },
         e("OnboardingStep", "location", width: 282) {
             OnboardingStep(step: 0, title: "Use your location", message: "Velix routes from where you are. Location stays on this phone.",

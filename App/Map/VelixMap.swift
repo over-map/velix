@@ -50,8 +50,9 @@ struct VelixMap: UIViewRepresentable {
     var onUserPan: () -> Void = {}
     /// Routes tab: a tap on a listed route's line (its relation id).
     var onTapRoute: ((Int64) -> Void)?
-    /// The camera settled after the rider moved the map: its centre (Routes: "Search routes in this area").
-    var onRegionChange: ((LatLon) -> Void)?
+    /// The camera settled after the rider moved the map: its centre and zoom (Routes: "Search routes in this area";
+    /// Ride: offer the region there).
+    var onRegionChange: ((LatLon, Double) -> Void)?
 
     /// How much of the screen's bottom a panel covers, from its top to the screen's bottom edge (the map's insets and
     /// ⓘ follow the panel as it grows or folds).
@@ -247,7 +248,7 @@ struct VelixMap: UIViewRepresentable {
                 guard movedByUser else { return }
                 movedByUser = false
                 let c = mapView.centerCoordinate
-                state?.onRegionChange?(LatLon(lat: c.latitude, lon: c.longitude))
+                state?.onRegionChange?(LatLon(lat: c.latitude, lon: c.longitude), mapView.zoomLevel)
             }
         }
 

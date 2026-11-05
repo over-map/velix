@@ -60,6 +60,42 @@ struct RegionsTests {
         #expect(c.regions[0].downloadBytes == 221_900_000)
     }
 
+    /// Filippo, 5 Nov: Remove is a button, and the last region stays (routes need one). Cancel stops a download.
+    @Test @MainActor func regionsCanBeRemovedWhileOneStays() {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "velix-regions-\(UUID().uuidString)")
+        let pack = PackService(base: dir, catalog: { RegionCatalog(schema: 1, regions: []) })
+        let border = Self.box(0, 0, 1, 1)
+        let old = RegionPackManifest(schema: 1, pack: "lombardy", name: "Lombardy", version: "2026.10", built: "2026-10-01",
+                                 valhalla: "3.9.0", bbox: [0, 0, 1, 1], files: [], downloadBytes: 1, unpackedBytes: 1,
+                                 budgetBytes: 1, sources: [])
+        pack.setForTesting(.ready(old), region: "lombardy")
+        pack.setForTesting(.ready(Self.manifest("piemonte", border: border, coverage: border)), region: "piemonte")
+        let saved = RegionPack.active
+        defer { RegionPack.active = saved }
+        RegionPack.active = "piemonte"
+
+        #expect(pack.canRemove("lombardy") && pack.canRemove("piemonte"))
+        pack.delete("piemonte")
+        #expect(!pack.isInstalled("piemonte"))
+        #expect(RegionPack.active == "lombardy")        // never an uninstalled region
+        #expect(!pack.canRemove("lombardy"))
+        pack.delete("lombardy")
+        #expect(pack.isInstalled("lombardy"))
+
+        // A newer pack on offer: the row offers its update.
+        pack.setCatalogForTesting(RegionCatalog(schema: 1, regions: [
+            .init(id: "lombardy", name: "Lombardy", tag: "pack-lombardy-2026.11", version: "2026.11", bbox: [0, 0, 1, 1],
+                  polygon: border, downloadBytes: 299_000_000, manifest: URL(string: "https://example.invalid/m.json")!)]))
+        #expect(pack.hasUpdate("lombardy"))
+        #expect(!pack.hasUpdate("piemonte"))
+
+        // Cancel only touches the running download.
+        pack.setForTesting(.downloading(received: 1, total: 2), region: "veneto")
+        #expect(!pack.canRemove("veneto"))
+        pack.cancel("lombardy")
+        #expect(pack.downloading == "veneto")
+    }
+
     // MARK: Map tiles
 
     @Test func pmtilesTileIDsFollowTheSpec() {

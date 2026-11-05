@@ -8,6 +8,8 @@ struct YouView: View {
     @State private var expanded: RideType?
     @State private var showAbout = false
     @State private var notice: String?
+    /// The downloaded region asked to be removed (confirmation).
+    @State private var removing: String?
     @State private var showHistory = false
     @State private var past: (model: RideSummaryModel, record: RideRecord)?
 
@@ -167,17 +169,15 @@ struct YouView: View {
     // MARK: Offline map
 
     private var offlineMap: some View {
-        group("Offline map") {
+        group("Offline map", footnote: app.pack.installed.count == 1
+              ? "Keep one region on the phone to plan routes. Download another to remove this one." : nil) {
             let regions = offlineRegions
             ForEach(Array(regions.enumerated()), id: \.element) { i, id in
-                OfflineRegionRow(region: app.pack.name(of: id), state: packState(id), divider: i > 0) {
-                    app.pack.install(id)
-                }
-                .contextMenu {
-                    if app.pack.isInstalled(id), regions.filter(app.pack.isInstalled).count > 1 {
-                        Button("Remove \(app.pack.name(of: id))", role: .destructive) { app.pack.delete(id) }
-                    }
-                }
+                OfflineRegionRow(region: app.pack.name(of: id), state: packState(id), divider: i > 0,
+                                 onAction: {
+                                     if app.pack.downloading == id { app.pack.cancel(id) } else { app.pack.install(id) }
+                                 },
+                                 onRemove: app.pack.canRemove(id) ? { removing = id } : nil)
             }
             Toggle(isOn: $app.state.packAutoUpdate) {
                 ListRow(title: "Update automatically", subtitle: "On Wi-Fi only", divider: false)
@@ -185,6 +185,21 @@ struct YouView: View {
             .toggleStyle(VelixToggleStyle())
             .overlay(alignment: .top) { Rectangle().fill(Color.velix.line).frame(height: 1) }
         }
+        .confirmationDialog(removing.map { "Remove \(app.pack.name(of: $0))?" } ?? "",
+                            isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+                            titleVisibility: .visible, presenting: removing) { id in
+            Button("Remove", role: .destructive) { app.pack.delete(id) }
+            Button("Cancel", role: .cancel) {}
+        } message: { id in
+            Text("Frees \(Self.megabytes(onPhone: id, app.pack)). You can download it again anytime.")
+        }
+    }
+
+    /// The region's size on the phone (its unpacked files).
+    static func megabytes(onPhone id: String, _ pack: PackService) -> String {
+        guard case let .ready(m) = pack.state(of: id) else { return "its space" }
+        let bytes = m.files.reduce(Int64(0)) { $0 + $1.unpackedBytes }
+        return bytes > 0 ? "\(bytes / 1_000_000) MB" : "its space"
     }
 
     /// Downloaded regions first, then the others on offer, each by name.
@@ -201,6 +216,8 @@ struct YouView: View {
         case let .downloading(r, t):
             return .downloading(received: "\(r / 1_000_000)", total: "\(t / 1_000_000) MB", fraction: t > 0 ? Double(r) / Double(t) : 0)
         case .failed: return .failed
+        case .ready where app.pack.hasUpdate(id):
+            return .update(size: app.pack.catalog.region(id).map { "\($0.downloadBytes / 1_000_000) MB" } ?? "")
         case let .ready(m):
             return .ready(size: m.downloadBytes > 0 ? "\(m.downloadBytes / 1_000_000) MB" : "Side-loaded", updated: Self.date(m.built))
         case .none, .checking:

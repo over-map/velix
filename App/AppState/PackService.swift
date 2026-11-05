@@ -153,12 +153,29 @@ final class PackService {
         }
     }
 
-    /// Remove a downloaded region (You → Offline map).
+    /// Stop the running download (You → Offline map: Cancel). Its files so far stay, so Retry resumes.
+    func cancel(_ region: String) {
+        guard downloading == region else { return }
+        task?.cancel()
+    }
+
+    /// A downloaded region can be removed while another one stays: routes need one (and launch re-downloads it).
+    func canRemove(_ region: String) -> Bool {
+        isInstalled(region) && downloading != region && installed.count > 1
+    }
+
+    /// A newer pack of an installed region is on offer.
+    func hasUpdate(_ region: String) -> Bool {
+        guard case let .ready(m) = states[region], let r = catalog.region(region) else { return false }
+        return r.version > m.version
+    }
+
+    /// Remove a downloaded region (You → Offline map), unless it's the last one.
     func delete(_ region: String) {
-        guard downloading != region else { return }
+        guard canRemove(region) else { return }
         try? FileManager.default.removeItem(at: RegionPack.root(region, base: base))
         states[region] = nil
-        if RegionPack.active == region { RegionPack.active = installed.first?.pack ?? "lombardy" }
+        if RegionPack.active == region, let other = installed.first?.pack { RegionPack.active = other }
         PackTileProtocol.use(RegionPack.mapSources)
         onInstalled(region)
     }

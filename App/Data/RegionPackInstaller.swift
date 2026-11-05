@@ -30,7 +30,8 @@ struct URLSessionPackDownloader: PackDownloading {
             temp = try await withTaskCancellationHandler {
                 try await delegate.run(task, progress: progress)
             } onCancel: {
-                task.cancel(byProducingResumeData: { _ in })
+                // Cancel in You → Offline map: keep what came, so Retry resumes.
+                task.cancel(byProducingResumeData: { data in try? data?.write(to: resumeFile) })
             }
         } catch {
             if let data = (error as? URLError)?.downloadTaskResumeData { try? data.write(to: resumeFile) }
