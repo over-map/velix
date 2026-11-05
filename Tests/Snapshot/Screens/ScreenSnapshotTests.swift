@@ -17,7 +17,7 @@ final class ScreenSnapshotTests: XCTestCase {
 
     private func app(onboarded: Bool = true, home: Bool = true, work: Bool = true, recents: Bool = true,
                      access: LocationService.Access = .allowed, here: LatLon? = LatLon(lat: 45.4746, lon: 9.2050),
-                     cannotFind: Bool = false, pack: PackService.State = .ready(.sideloaded), expensive: Bool = false,
+                     cannotFind: Bool = false, pack: PackService.State = .ready(.sideloaded), expensive: Bool = false, online: Bool = true,
                      rideType: RideType = .city, weather: WeatherWarnings = NoWeatherWarnings(), rides: Bool = false) -> AppModel {
         let dir = FileManager.default.temporaryDirectory.appending(path: "velix-snap-\(UUID().uuidString)")
         let store = AppStore(url: dir.appending(path: "state.json"))
@@ -31,7 +31,7 @@ final class ScreenSnapshotTests: XCTestCase {
         let location = LocationService()
         location.setForTesting(access: access, location: here, cannotFind: cannotFind)
         let packService = PackService(base: dir.appending(path: "RegionPack"), catalog: { RegionCatalog(schema: 1, regions: []) })
-        packService.setForTesting(pack, expensive: expensive)
+        packService.setForTesting(pack, expensive: expensive, online: online)
         packService.setCatalogForTesting(Self.catalog)
         let prefs = MapStylePreference(defaults: UserDefaults(suiteName: "velix-snap-\(UUID().uuidString)")!)
         let history = RideHistory(inMemory: true)
@@ -117,6 +117,7 @@ final class ScreenSnapshotTests: XCTestCase {
         check(RootView(app: app(pack: .downloading(received: 132 * mb, total: 220 * mb))), named: "S1d-downloading")
         check(RootView(app: app(here: LatLon(lat: 41.9, lon: 12.5))), named: "S1e-outside")
         check(RootView(app: app(here: LatLon(lat: 45.0623, lon: 7.6786))), named: "S1j-offerRegion")   // in Torino
+        check(RootView(app: app(here: LatLon(lat: 41.9, lon: 12.5), online: false)), named: "S1k-offline")   // Rome, no signal
         check(RootView(app: app(here: nil, cannotFind: true), following: false), named: "S1f-noGPS")
         check(RootView(app: app(), sheet: .rideType), named: "S1g-rideType")
         check(RootView(app: app(), sheet: .mapStyle), named: "S1h-mapStyle-city")

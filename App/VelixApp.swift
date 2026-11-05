@@ -11,7 +11,7 @@ struct VelixApp: App {
         RegionPack.migrateLegacyLayout()
         // Every map reads its tiles through the packs (several regions as one source, PackTileProtocol).
         PackTileProtocol.install()
-        PackTileProtocol.use(basemaps: RegionPack.basemaps, overlays: RegionPack.overlays)
+        PackTileProtocol.use(RegionPack.mapSources)
     }
 
     var body: some Scene {

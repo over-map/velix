@@ -86,8 +86,18 @@ struct RideView: View {
         return r
     }
 
+    /// Offline where no downloaded region has the map (Filippo, 5 Nov: the map elsewhere comes online).
+    private var offlineHere: Bool {
+        guard !app.pack.isOnline, let p = (following ? nil : browsed) ?? app.location.coordinate else { return false }
+        return app.pack.installedRegion(containing: p) == nil
+    }
+
     @ViewBuilder private var notices: some View {
-        if let r = offer {
+        if offlineHere {
+            NoticeBanner(title: "You’re offline",
+                         message: "The map here needs a connection. Places you’ve seen and your downloaded regions still show.",
+                         icon: VelixIconView(.wifiOff, size: 22), tone: .info)
+        } else if let r = offer {
             NoticeBanner(title: "\(r.name) isn’t on your phone",
                          message: "Download it (\(r.downloadBytes / 1_000_000) MB) for routes there, even without signal.",
                          icon: VelixIconView(.download, size: 22), tone: .info, onDismiss: { declined.insert(r.id) },
