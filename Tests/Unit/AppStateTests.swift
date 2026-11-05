@@ -77,6 +77,36 @@ struct AppStateTests {
         #expect(RideType.road.ruleDefaults.contains { $0.0 == .bikeLanesOnly && !$0.1 })
     }
 
+    /// Filippo, 5 Nov: tap a POI or station on the map and route to it.
+    @Test func tappedFeaturesBecomePlaces() throws {
+        let at = LatLon(lat: 45.45, lon: 9.16)
+        let cafe = try #require(MapFeaturePlace.place(attributes: ["name": "Bar Magenta", "class": "cafe", "subclass": "cafe", "id": NSNumber(value: 42)], at: at))
+        #expect(cafe.kind == .poi && cafe.subtitle == "Café" && cafe.id == "tap-42" && cafe.lat == 45.45)
+        let bikes = try #require(MapFeaturePlace.place(attributes: ["name": "Rossignoli", "class": "shop", "subclass": "bicycle"], at: at))
+        #expect(bikes.subtitle == "Bike shop" && bikes.id.hasPrefix("tap-45.45"))
+        let park = try #require(MapFeaturePlace.place(attributes: ["name": "Parco Sempione", "class": "park", "subclass": "park"], at: at))
+        #expect(park.kind == .park && park.subtitle == "Park")
+        let rail = try #require(MapFeaturePlace.place(attributes: ["name": "Porta Nuova", "mode": "train"], at: at))
+        #expect(rail.kind == .station && rail.subtitle == "Railway station")
+        let metro = try #require(MapFeaturePlace.place(attributes: ["name": "Loreto", "mode": "metro", "tiles": "M1.red.0,M2.green.0"], at: at))
+        #expect(metro.kind == .metro && metro.lines == ["M1", "M2"] && metro.lineFamilies == ["red", "green"])
+        // Online tiles have no velix_stations: OpenMapTiles' railway POIs.
+        let online = try #require(MapFeaturePlace.place(attributes: ["name": "Gare de Lyon", "class": "railway", "subclass": "station"], at: at))
+        #expect(online.kind == .station)
+        #expect(MapFeaturePlace.place(attributes: ["class": "cafe"], at: at) == nil)    // no name: nothing to route to
+        #expect(PoiCategory.name("ice_rink") == "Ice rink" && PoiCategory.name("yes") == nil)
+    }
+
+    @Test func photonPOIsSayWhatTheyAre() throws {
+        let json = #"""
+        {"features":[{"geometry":{"coordinates":[9.17,45.45]},"properties":{"osm_id":7,"osm_type":"N","osm_key":"shop",
+         "osm_value":"bicycle","type":"house","name":"Cicli Rossignoli","street":"Corso Garibaldi","housenumber":"71",
+         "city":"Milano"}}]}
+        """#
+        let places = try PhotonSearch.parse(Data(json.utf8))
+        #expect(places.first?.subtitle == "Bike shop · Corso Garibaldi 71 · Milano")
+    }
+
     @Test func photonResultsParse() throws {
         let url = try #require(Bundle(for: Token.self).url(forResource: "photon-centr", withExtension: "json"))
         let places = try PhotonSearch.parse(Data(contentsOf: url))
@@ -92,7 +122,9 @@ struct AppStateTests {
         #expect(PhotonSearch.kind(key: "railway", value: "station", type: "house") == .station)
         #expect(PhotonSearch.kind(key: "highway", value: "residential", type: "street") == .street)
         #expect(PhotonSearch.kind(key: "leisure", value: "park", type: nil) == .park)
-        #expect(PhotonSearch.kind(key: "amenity", value: "cafe", type: "house") == .address)
+        // A café with a house number is a POI (Filippo, 5 Nov: search a POI); a plain house is an address.
+        #expect(PhotonSearch.kind(key: "amenity", value: "cafe", type: "house") == .poi)
+        #expect(PhotonSearch.kind(key: "building", value: "yes", type: "house") == .address)
     }
 
     @Test func regionBoxContainsMilanNotRome() {

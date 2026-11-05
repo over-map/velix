@@ -50,6 +50,8 @@ struct VelixMap: UIViewRepresentable {
     var onUserPan: () -> Void = {}
     /// Routes tab: a tap on a listed route's line (its relation id).
     var onTapRoute: ((Int64) -> Void)?
+    /// Ride map: a tapped POI, park or station, as a place to route to (``MapFeaturePlace``).
+    var onTapFeature: ((Place) -> Void)?
     /// The camera settled after the rider moved the map: its centre and zoom (Routes: "Search routes in this area";
     /// Ride: offer the region there).
     var onRegionChange: ((LatLon, Double) -> Void)?
@@ -75,7 +77,7 @@ struct VelixMap: UIViewRepresentable {
         context.coordinator.applyDetail(on: map)
         context.coordinator.loadStyle(on: map)
         context.coordinator.applyCamera(on: map, animated: false)
-        if onTapRoute != nil {
+        if onTapRoute != nil || onTapFeature != nil {
             let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
             // After the map's own double-tap zoom fails.
             for g in map.gestureRecognizers ?? [] where (g as? UITapGestureRecognizer)?.numberOfTapsRequired == 2 { tap.require(toFail: g) }
@@ -252,14 +254,30 @@ struct VelixMap: UIViewRepresentable {
             }
         }
 
-        /// The listed route nearest the tap, within a finger's width.
+        /// The listed route nearest the tap, within a finger's width; else the POI or station there.
         @objc func tapped(_ g: UITapGestureRecognizer) {
-            guard let map = g.view as? MLNMapView, let onTap = state?.onTapRoute else { return }
+            guard let map = g.view as? MLNMapView else { return }
             let p = g.location(in: map)
             let rect = CGRect(x: p.x - 22, y: p.y - 22, width: 44, height: 44)
-            let ids: Set<String> = ["route-list", "route-focus", "route-list-grey"]
-            let hit = map.visibleFeatures(in: rect, styleLayerIdentifiers: ids).compactMap { ($0.attribute(forKey: "id") as? NSNumber)?.int64Value }
-            if let id = hit.first { onTap(id) }
+            if let onTap = state?.onTapRoute {
+                let ids: Set<String> = ["route-list", "route-focus", "route-list-grey"]
+                let hit = map.visibleFeatures(in: rect, styleLayerIdentifiers: ids).compactMap { ($0.attribute(forKey: "id") as? NSNumber)?.int64Value }
+                if let id = hit.first { return onTap(id) }
+            }
+            guard let onTapFeature = state?.onTapFeature else { return }
+            let present = Set(map.style?.layers.map(\.identifier) ?? [])
+            let ids = MapFeaturePlace.layers.intersection(present)
+            guard !ids.isEmpty else { return }
+            // The nearest named feature to the finger.
+            let places: [(Place, CGFloat)] = map.visibleFeatures(in: rect, styleLayerIdentifiers: ids).compactMap { f in
+                var a = f.attributes
+                if a["id"] == nil, let id = f.identifier as? NSNumber { a["id"] = id }
+                let c = f.coordinate
+                let at = map.convert(c, toPointTo: map)
+                guard let place = MapFeaturePlace.place(attributes: a, at: LatLon(lat: c.latitude, lon: c.longitude)) else { return nil }
+                return (place, hypot(at.x - p.x, at.y - p.y))
+            }
+            if let nearest = places.min(by: { $0.1 < $1.1 }) { onTapFeature(nearest.0) }
         }
 
         #if DEBUG
