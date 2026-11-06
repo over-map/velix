@@ -19,7 +19,7 @@ struct MapControlStack: View {
             divider
             cell(viewIcon, viewLabel, a11y: "View: \(viewA11y)", hint: "Double-tap cycles: \(viewHint).", action: onView)
             divider
-            cell(.route, "Overview", a11y: "Route overview", on: overview, action: onOverview)
+            cell(.route, "Overview", a11y: "Route overview", on: overview, toggle: true, action: onOverview)
         }
         .frame(width: 60)
         .background(Color.velix.surface)
@@ -30,7 +30,7 @@ struct MapControlStack: View {
     private var divider: some View { Rectangle().fill(Color.velix.line).frame(height: 1) }
 
     private func cell(_ icon: VelixIcon, _ label: String, a11y: String, hint: String? = nil, on: Bool = false,
-                      action: @escaping () -> Void) -> some View {
+                      toggle: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 3) {
                 VelixIconView(icon, size: 24)
@@ -44,7 +44,9 @@ struct MapControlStack: View {
         .buttonStyle(VelixPressStyle())
         .accessibilityLabel(a11y)
         .accessibilityHint(hint ?? "")
-        .accessibilityAddTraits(on ? .isSelected : [])
+        // P8: Overview is a toggle (on / off); the cycling cells are plain buttons.
+        .accessibilityAddTraits(toggle ? .isToggle : [])
+        .accessibilityValue(toggle ? (on ? "On" : "Off") : "")
     }
 
     private var voiceIcon: VelixIcon { switch voice { case .all: .volume2; case .alerts: .volume1; case .mute: .volumeX } }

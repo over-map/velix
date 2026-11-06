@@ -53,7 +53,7 @@ struct RideTypePicker: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(type.name), \(type.bestName)")
+        .accessibilityLabel("\(type.name). \(type.bestName).")
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : .isButton)
     }
 }
@@ -99,7 +99,7 @@ struct RideTypeGrid: View {
             }
         }
         .buttonStyle(VelixPressStyle())
-        .accessibilityLabel("\(type.name), \(type.bestName)")
+        .accessibilityLabel("\(type.name). \(type.bestName).")
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : .isButton)
     }
 

@@ -18,8 +18,9 @@ struct VelixType: Sendable {
         self.trackingEm = trackingEm; self.tabularNumbers = tabularNumbers; self.riding = riding; self.relativeTo = relativeTo
     }
 
-    /// Riding sizes of 30 pt and more stay fixed; everything else follows Dynamic Type.
-    var fixed: Bool { riding && size >= 30 }
+    /// Sizes of 30 pt and more stay fixed on riding screens, and big numbers (tabular) of 30 pt and more everywhere
+    /// (P8: route-card times don't scale); everything else follows Dynamic Type.
+    var fixed: Bool { size >= 30 && (riding || tabularNumbers) }
 
     var font: Font {
         let f = fixed ? Font.custom(postScriptName, fixedSize: size) : Font.custom(postScriptName, size: size, relativeTo: relativeTo)

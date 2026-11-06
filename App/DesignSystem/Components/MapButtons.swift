@@ -25,7 +25,7 @@ struct MapButton: View {
     var active = false
     var action: () -> Void = {}
     var body: some View {
-        RoundMapButton(active: active, label: "Map styles and overlays", action: action) { VelixIconView(.layers, size: 24) }
+        RoundMapButton(active: active, label: "Map style and overlays", action: action) { VelixIconView(.layers, size: 24) }
     }
 }
 

@@ -78,13 +78,14 @@ struct PageDots: View {
         }
         .accessibilityElement()
         .accessibilityLabel("Step \(step + 1) of \(count)")
-        .accessibilityAddTraits(.updatesFrequently)
+        .accessibilityAddTraits(.isStaticText)
     }
 }
 
 /// S0e–g: Lombardy downloading / ready / paused, over the live map.
 struct DownloadSheet: View {
     let pack: PackService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var onClose: () -> Void
 
     var body: some View {
@@ -102,7 +103,7 @@ struct DownloadSheet: View {
         .background(Color.velix.surface, in: UnevenRoundedRectangle(topLeadingRadius: CGFloat.velix.radius.sheet, topTrailingRadius: CGFloat.velix.radius.sheet))
         .velixElevation(VelixElevations.e3, in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.sheet))
         .background(alignment: .bottom) { Color.velix.surface.frame(height: 60).offset(y: 50) }
-        .transition(.move(edge: .bottom))
+        .transition(.velixRise(reduceMotion: reduceMotion))
     }
 
     private func downloading(_ r: Int64, _ t: Int64) -> some View {
@@ -165,5 +166,8 @@ struct DownloadSheet: View {
         }
         .accessibilityElement()
         .accessibilityLabel("Downloading \(pack.regionName), \(r / 1_000_000) of \(t / 1_000_000) megabytes")
+        // P8: a progress value that moves in 10 % steps, so VoiceOver isn't flooded.
+        .accessibilityValue(t > 0 ? "\(Int(Double(r) / Double(t) * 10) * 10) percent" : "")
+        .accessibilityAddTraits(.updatesFrequently)
     }
 }

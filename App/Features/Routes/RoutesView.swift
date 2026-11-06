@@ -10,6 +10,7 @@ struct RoutesView: View {
     /// Load from the pack when the tab appears (snapshot tests show fixture routes instead).
     var loadsOnAppear = true
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.mapAppearance) private var mapAppearance
     @Environment(\.liveMap) private var liveMap
     @State private var sheetHeight: CGFloat = 400
@@ -70,7 +71,7 @@ struct RoutesView: View {
                      userLocation: app.location.coordinate, userHeading: app.location.heading,
                      insets: UIEdgeInsets(top: 120, left: 0, bottom: sheetHeight, right: 0),
                      fit: model.moved == nil ? model.fitPoints : nil,
-                     onTapRoute: { id in withAnimation(.easeOut(duration: 0.2)) { model.tapped(id); top = id } },
+                     onTapRoute: { id in withAnimation(.velix(.easeOut(duration: 0.2), reduceMotion: reduceMotion)) { model.tapped(id); top = id } },
                      onRegionChange: { center, _ in model.mapMoved(to: center) })
         } else {
             Color.velix.surface2
@@ -92,7 +93,7 @@ struct RoutesView: View {
                 Spacer(minLength: 0)
             }
             .foregroundStyle(Color.velix.ink)
-            .padding(.horizontal, 14).frame(height: 52)
+            .padding(.horizontal, 14).frame(minHeight: 52)
             .background(Color.velix.surface, in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.card))
             .velixElevation(VelixElevations.e1)
             .contentShape(Rectangle())
@@ -102,13 +103,13 @@ struct RoutesView: View {
     }
 
     private var areaPill: some View {
-        Button { withAnimation(.easeOut(duration: 0.2)) { model.searchHere() } } label: {
+        Button { withAnimation(.velix(.easeOut(duration: 0.2), reduceMotion: reduceMotion)) { model.searchHere() } } label: {
             HStack(spacing: 8) {
                 VelixIconView(.rotateCw, size: 18)
                 Text("Search routes in this area").velixType(VelixType.label.sized(16, lineHeight: 20))
             }
             .foregroundStyle(Color.velix.surface)
-            .padding(.horizontal, 16).frame(height: 44)
+            .padding(.horizontal, 16).frame(minHeight: 44)
             .background(Color.velix.ink, in: Capsule())
             .velixElevation(VelixElevations.e2, in: Capsule())
         }
@@ -152,7 +153,7 @@ struct RoutesView: View {
 
     private var sheetTitle: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(model.title).velixType(VelixType.title2.sized(22, lineHeight: 25)).lineLimit(1).accessibilityAddTraits(.isHeader)
+            Text(model.title).velixType(VelixType.title2.sized(22, lineHeight: 25)).lineLimit(2).accessibilityAddTraits(.isHeader)
             Spacer(minLength: 0)
             Text(model.count).velixType(VelixType.body.sized(14, lineHeight: 18)).foregroundStyle(Color.velix.ink2)
         }

@@ -42,7 +42,7 @@ struct MapStyleSheet: View {
                         Button { appearance.wrappedValue = a } label: {
                             Text(a.title).velixType(.label)
                                 .foregroundStyle(on ? Color.velix.surface : Color.velix.ink)
-                                .frame(maxWidth: .infinity).frame(height: 40)
+                                .frame(maxWidth: .infinity).frame(minHeight: 40)
                                 .background(on ? Color.velix.ink : Color.velix.surface, in: Capsule())
                                 .overlay { if !on { Capsule().strokeBorder(Color.velix.line, lineWidth: 1) } }
                                 .frame(minHeight: CGFloat.velix.touch.min)
@@ -80,7 +80,7 @@ struct MapStyleSheet: View {
             }
         }
         .buttonStyle(VelixPressStyle())
-        .accessibilityLabel(s.rawValue)
+        .accessibilityLabel("\(s.rawValue) map")
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : .isButton)
     }
 

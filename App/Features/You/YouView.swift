@@ -3,6 +3,7 @@ import SwiftUI
 /// S8 You (P7 §03): rules per ride type, tonight's lit streets, rides, offline map, privacy, about.
 struct YouView: View {
     @Bindable var app: AppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Today for "Today" / "Yesterday" (snapshots pin it).
     var now: Date?
     @State private var expanded: RideType?
@@ -62,7 +63,7 @@ struct YouView: View {
         let set = app.state.ruleSet(for: type)
         let total = type.ruleDefaults.count
         return Button {
-            withAnimation(.easeOut(duration: 0.2)) { expanded = isExpanded(type) && type != app.state.rideType ? app.state.rideType : type }
+            withAnimation(.velix(.easeOut(duration: 0.2), reduceMotion: reduceMotion)) { expanded = isExpanded(type) && type != app.state.rideType ? app.state.rideType : type }
         } label: {
             HStack(spacing: CGFloat.velix.s) {
                 VelixIconView(type.glyph, size: 24)

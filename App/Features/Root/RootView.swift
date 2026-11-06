@@ -5,6 +5,7 @@ struct RootView: View {
     @State private var app: AppModel
     @State private var tab: TabBar.Tab = .ride
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var sheet: RideSheet?
     /// S0e–g: the download sheet over the live map, right after onboarding.
     @State private var showDownload = false
@@ -29,6 +30,8 @@ struct RootView: View {
             }
         }
         .environment(\.mapAppearance, app.state.mapAppearance)
+        // P8: non-riding screens grow to XL (135 %) and reflow; riding screens cap lower (VelixType).
+        .dynamicTypeSize(...DynamicTypeSize.velixScreenCap)
         .onChange(of: app.state.packAutoUpdate) { _, on in app.pack.autoUpdate = on }
         .task {
             app.pack.autoUpdate = app.state.packAutoUpdate
@@ -79,14 +82,14 @@ struct RootView: View {
                                  onStartFollow: { option, place, vias in app.follow = nil; app.start(option, to: place, follow: vias) },
                                  onEditRules: { app.follow = nil; tab = .you })
                     .id("follow-\(route.id)" + app.state.rideType.rawValue)
-                    .transition(.move(edge: .bottom))
+                    .transition(.velixRise(reduceMotion: reduceMotion))
             }
             if let place = app.preview {
                 DestinationPreviewView(app: app, place: place,
                                        onClose: { app.preview = nil },
                                        onFindRoute: { app.choose(place) })
                     .id("preview-\(place.id)")
-                    .transition(.move(edge: .bottom))
+                    .transition(.velixRise(reduceMotion: reduceMotion))
             }
             if let place = app.destination {
                 RouteOptionsView(app: app, model: RouteOptionsModel(destination: place),
@@ -95,7 +98,7 @@ struct RootView: View {
                                  onStartTransit: { app.startTransit($0, to: place) },
                                  onEditRules: { app.destination = nil; app.preview = nil; tab = .you })
                     .id(place.id + app.state.rideType.rawValue)
-                    .transition(.move(edge: .bottom))
+                    .transition(.velixRise(reduceMotion: reduceMotion))
             }
         }
         // The ride, then its summary in the same cover (S4 → S6 without a flash of the Ride map).
@@ -140,6 +143,16 @@ enum Format {
     static func km(_ meters: Double) -> String {
         let km = meters / 1000
         return km < 10 ? String(format: "%.1f km", km) : "\(Int(km.rounded())) km"
+    }
+
+    /// Read aloud (P8: units spelled out, no symbols): "0.3 km" → "0.3 kilometres", "160 m" → "160 metres",
+    /// "23 min" → "23 minutes", "220 MB" → "220 megabytes".
+    static func spoken(_ text: String) -> String {
+        var s = text
+        for (unit, word) in [("km", "kilometres"), ("min", "minutes"), ("MB", "megabytes"), ("m", "metres")] {
+            s = s.replacingOccurrences(of: #"(\d) \#(unit)\b"#, with: "$1 \(word)", options: .regularExpression)
+        }
+        return s
     }
 
     /// "132 of 220 MB"
