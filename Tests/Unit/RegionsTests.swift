@@ -96,6 +96,44 @@ struct RegionsTests {
         #expect(pack.downloading == "veneto")
     }
 
+    @Test @MainActor func updatesInstallInTheBackgroundAndGiveWayToDownloads() async throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "velix-updates-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let border = Self.box(0, 0, 1, 1)
+        func region(_ id: String, _ version: String) -> RegionCatalog.Region {
+            .init(id: id, name: id.capitalized, tag: "pack-\(id)-\(version)", version: version, bbox: [0, 0, 1, 1],
+                  polygon: border, downloadBytes: 100, manifest: URL(string: "https://example.invalid/\(id)/manifest.json")!)
+        }
+        let pack = PackService(base: dir, downloader: StalledDownloader(),
+                               catalog: { RegionCatalog(schema: 1, regions: []) })
+        let old = RegionPackManifest(schema: 1, pack: "lombardy", name: "Lombardy", version: "2026.10", built: "2026-10-01",
+                                     valhalla: "3.9.0", bbox: [0, 0, 1, 1], files: [], downloadBytes: 1, unpackedBytes: 1,
+                                     budgetBytes: 1, sources: [])
+        pack.setForTesting(.ready(old), region: "lombardy")
+        pack.setCatalogForTesting(RegionCatalog(schema: 1, regions: [region("lombardy", "2026.11"), region("veneto", "2026.11")]))
+
+        pack.installUpdates()
+        #expect(pack.downloading == nil)                  // Update automatically is off
+        pack.autoUpdate = true
+        #expect(pack.downloading == "lombardy")
+        #expect(pack.isInstalled("lombardy") && !pack.isDownloading)   // the old pack serves meanwhile, no banner
+
+        // The rider's download goes first; the update comes back after it.
+        pack.install("veneto")
+        try await Self.until { pack.downloading == "veneto" }
+        #expect(pack.isDownloading && pack.isInstalled("lombardy"))
+        pack.cancel("veneto")
+        try await Self.until { pack.downloading == "lombardy" }
+        #expect(pack.isInstalled("lombardy"))
+        pack.autoUpdate = false
+        pack.cancel("lombardy")
+    }
+
+    @MainActor private static func until(_ condition: () -> Bool) async throws {
+        for _ in 0..<200 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(condition())
+    }
+
     // MARK: Map tiles
 
     @Test func pmtilesTileIDsFollowTheSpec() {
@@ -186,5 +224,12 @@ private extension JSONEncoder {
         let e = JSONEncoder()
         e.keyEncodingStrategy = .convertToSnakeCase
         return e
+    }
+}
+
+/// A download that never finishes (until cancelled).
+private struct StalledDownloader: PackDownloading {
+    func download(_ url: URL, to destination: URL, progress: @escaping @Sendable (Int64) -> Void) async throws {
+        try await Task.sleep(for: .seconds(60))
     }
 }
