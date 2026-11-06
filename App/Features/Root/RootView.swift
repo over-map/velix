@@ -41,6 +41,11 @@ struct RootView: View {
             app.history.importLogs()
             #if DEBUG
             if let region = Self.launchRegion { await Self.install(region, pack: app.pack) }
+            if let dry = Self.purgeSimulated {
+                let (records, files) = app.history.removeSimulated(dryRun: dry)
+                NSLog("[purge] %@ %d simulated rides from the history, %d files to rides-simulated/: %@",
+                      dry ? "would remove" : "removed", records.count, files.count, records.joined(separator: ", "))
+            }
             if let place = Self.launchDestination { app.choose(place) }
             #endif
             await app.refreshWarning()
@@ -165,6 +170,13 @@ extension RootView {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: "-install-region"), i + 1 < args.count else { return nil }
         return args[i + 1]
+    }
+
+    /// `-purge-simulated-rides [dry]`: simulated rides out of the history (`dry`: only say which). Nil without the flag.
+    static var purgeSimulated: Bool? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-purge-simulated-rides") else { return nil }
+        return i + 1 < args.count && args[i + 1] == "dry"
     }
 
     static func install(_ region: String, pack: PackService) async {

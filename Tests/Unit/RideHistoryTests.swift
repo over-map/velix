@@ -74,6 +74,30 @@ struct RideHistoryTests {
         #expect(h.rides.count == 1)
     }
 
+    @Test func simulatedRidesCanBeParked() throws {
+        let rides = FileManager.default.temporaryDirectory.appending(path: "velix-purge-\(UUID().uuidString)/rides")
+        try FileManager.default.createDirectory(at: rides, withIntermediateDirectories: true)
+        // The simulator's constant 5.0 m accuracy (before the flag), and a real ride's varying accuracy.
+        let sim = log(fixes: 30), real = log(fixes: 30).enumerated().map { i, l in l.replacingOccurrences(of: "\"acc\":5", with: "\"acc\":\(4 + i % 6)") }
+        try sim.joined(separator: "\n").write(to: rides.appending(path: "sim.jsonl"), atomically: true, encoding: .utf8)
+        try "<gpx/>".write(to: rides.appending(path: "sim.gpx"), atomically: true, encoding: .utf8)
+        try real.joined(separator: "\n").write(to: rides.appending(path: "real.jsonl"), atomically: true, encoding: .utf8)
+        #expect(RideLog.looksSimulated(lines: sim) && !RideLog.looksSimulated(lines: real))
+        let h = RideHistory(inMemory: true)
+        for name in ["sim.jsonl", "real.jsonl"] {
+            h.add(RideRecord(started: .now, ended: .now, destination: name, rideType: .city, meters: 900, movingSeconds: 300,
+                             climb: 0, arrived: true, track: [], logFile: name, gpxFile: nil))
+        }
+        let dry = h.removeSimulated(dryRun: true, directory: rides)
+        #expect(dry.records == ["sim.jsonl"] && dry.files == ["sim.jsonl", "sim.gpx"] && h.rides.count == 2)
+        h.removeSimulated(dryRun: false, directory: rides)
+        #expect(h.rides.map(\.logFile) == ["real.jsonl"])
+        let parked = rides.deletingLastPathComponent().appending(path: "rides-simulated")
+        #expect(FileManager.default.fileExists(atPath: parked.appending(path: "sim.gpx").path))
+        #expect(!FileManager.default.fileExists(atPath: rides.appending(path: "sim.jsonl").path))
+        #expect(FileManager.default.fileExists(atPath: rides.appending(path: "real.jsonl").path))
+    }
+
     @Test func rowDetailFollowsP7() {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "Europe/Rome")!
