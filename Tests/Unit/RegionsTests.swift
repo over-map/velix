@@ -112,6 +112,37 @@ struct RegionsTests {
         #expect(PackTileProtocol.covers(lombardy, z: 14, x: 8610, y: 5864))     // Milan
         #expect(!PackTileProtocol.covers(lombardy, z: 14, x: 8760, y: 6088))    // Rome
     }
+
+    /// Filippo, 5 Nov: a blank world outside the pack. Only a tile wholly inside a pack's border comes from the pack;
+    /// low zooms, border tiles and the rest of the world come online.
+    @Test func onlyTilesInsideTheBorderComeFromThePack() {
+        // A diamond around Milan (9.19 E, 45.46 N), ±1°.
+        let border = RegionShape(polygons: [[[[9.19, 44.46], [10.19, 45.46], [9.19, 46.46], [8.19, 45.46], [9.19, 44.46]]]])
+        let bounds = [8.19, 44.46, 10.19, 46.46]
+        let milan14 = (z: 14, x: 8610, y: 5864)
+        #expect(PackTileProtocol.holds(border, bounds: bounds, z: milan14.z, x: milan14.x, y: milan14.y))
+        // z8 around Milan pokes past the diamond's sides; z5 holds the whole region (vertices inside).
+        #expect(!PackTileProtocol.holds(border, bounds: bounds, z: 8, x: 134, y: 91))
+        #expect(!PackTileProtocol.holds(border, bounds: bounds, z: 5, x: 16, y: 11))
+        // Inside the bbox but outside the diamond (its south-west corner): online.
+        let corner = Self.tile(lat: 44.6, lon: 8.3, z: 12)
+        #expect(!PackTileProtocol.holds(border, bounds: bounds, z: 12, x: corner.x, y: corner.y))
+        // No border (side-loaded): the tiles' bounds decide.
+        #expect(PackTileProtocol.holds(nil, bounds: bounds, z: 12, x: corner.x, y: corner.y))
+        #expect(!PackTileProtocol.holds(nil, bounds: bounds, z: 5, x: 16, y: 11))
+    }
+
+    @Test func tileBoundsAndOnlineURL() {
+        let b = PackTileProtocol.bounds(z: 1, x: 1, y: 0)
+        #expect(b[0] == 0 && b[2] == 180 && abs(b[3] - 85.0511) < 0.001 && abs(b[1]) < 1e-9)
+        let url = PackTileProtocol.url("https://tiles.openfreemap.org/planet/20261101_080013_pt/{z}/{x}/{y}.pbf", z: 5, x: 17, y: 11)
+        #expect(url?.absoluteString == "https://tiles.openfreemap.org/planet/20261101_080013_pt/5/17/11.pbf")
+    }
+
+    private static func tile(lat: Double, lon: Double, z: Int) -> (x: Int, y: Int) {
+        let n = Double(1 << z), r = lat * .pi / 180
+        return (Int((lon + 180) / 360 * n), Int((1 - log(tan(r) + 1 / cos(r)) / .pi) / 2 * n))
+    }
 }
 
 private extension JSONEncoder {

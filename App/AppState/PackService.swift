@@ -24,6 +24,10 @@ final class PackService {
     private(set) var downloading: String?
     /// On mobile data (S0e "Switch to Wi-Fi…").
     private(set) var isExpensive = false
+    /// Has a connection: outside the downloaded regions the map comes online (Filippo, 5 Nov).
+    private(set) var isOnline = true
+    /// Tests set the connection; the monitor leaves it.
+    private var connectionPinned = false
 
     /// Called with the region after a pack installs or is removed.
     var onInstalled: (String) -> Void = { _ in }
@@ -49,8 +53,12 @@ final class PackService {
             states[RegionPack.active] = .ready(RegionPackManifest.sideloaded)
         }
         monitor.pathUpdateHandler = { [weak self] path in
-            let expensive = path.isExpensive
-            Task { @MainActor in self?.isExpensive = expensive }
+            let expensive = path.isExpensive, online = path.status == .satisfied
+            Task { @MainActor in
+                guard let self, !self.connectionPinned else { return }
+                self.isExpensive = expensive
+                self.isOnline = online
+            }
         }
         monitor.start(queue: .global(qos: .utility))
     }
@@ -101,9 +109,11 @@ final class PackService {
     }
 
     #if DEBUG
-    func setForTesting(_ state: State, expensive: Bool = false, region: String = "lombardy") {
+    func setForTesting(_ state: State, expensive: Bool = false, region: String = "lombardy", online: Bool = true) {
         states[region] = state
         isExpensive = expensive
+        isOnline = online
+        connectionPinned = true
         if case .downloading = state { downloading = region } else if downloading == region { downloading = nil }
     }
 
@@ -134,7 +144,7 @@ final class PackService {
                     Task { @MainActor in self.progress(region, fraction, total: total) }
                 }
                 self.states[region] = .ready(installed.manifest)
-                PackTileProtocol.use(basemaps: RegionPack.basemaps, overlays: RegionPack.overlays)
+                PackTileProtocol.use(RegionPack.mapSources)
                 self.onInstalled(region)
             } catch {
                 if case let .downloading(r, t) = self.states[region] { self.states[region] = .failed(received: r, total: t) }
@@ -149,7 +159,7 @@ final class PackService {
         try? FileManager.default.removeItem(at: RegionPack.root(region, base: base))
         states[region] = nil
         if RegionPack.active == region { RegionPack.active = installed.first?.pack ?? "lombardy" }
-        PackTileProtocol.use(basemaps: RegionPack.basemaps, overlays: RegionPack.overlays)
+        PackTileProtocol.use(RegionPack.mapSources)
         onInstalled(region)
     }
 

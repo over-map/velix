@@ -62,9 +62,22 @@ enum RegionPack {
 
     static var hazardStore: URL? { packFile(.hazards, sideloaded: "hazards.sqlite") }
 
-    /// Map tiles (M5): `basemap.pmtiles` and `overlays.pmtiles` of every installed region, or side-loaded into Documents.
-    static var basemaps: [URL] { mapFiles(.basemap, sideloaded: "basemap.pmtiles") }
-    static var overlays: [URL] { mapFiles(.overlays, sideloaded: "overlays.pmtiles") }
+    /// Map tiles (M5): `basemap.pmtiles` and `overlays.pmtiles` of every installed region with its border, for
+    /// ``PackTileProtocol``, or side-loaded into Documents (no border).
+    static var mapSources: [PackTileProtocol.Source] {
+        let fm = FileManager.default
+        func existing(_ url: URL?) -> URL? { url.flatMap { fm.fileExists(atPath: $0.path) ? $0 : nil } }
+        let side = URL.documentsDirectory
+        let sideloaded = PackTileProtocol.Source(basemap: existing(side.appending(path: "basemap.pmtiles")),
+                                                 overlays: existing(side.appending(path: "overlays.pmtiles")))
+        if preferSideloaded, sideloaded.basemap != nil { return [sideloaded] }
+        let packs = installed().map { p in
+            PackTileProtocol.Source(basemap: existing(try? p.file(.basemap)), overlays: existing(try? p.file(.overlays)),
+                                    border: p.manifest.polygon)
+        }.filter { $0.basemap != nil || $0.overlays != nil }
+        if !packs.isEmpty { return packs }
+        return sideloaded.basemap != nil || sideloaded.overlays != nil ? [sideloaded] : []
+    }
     /// Bike + transit (M8): the active region's timetable, and the city area.
     static var transit: URL? { packFile(.transit, sideloaded: "transit.sqlite") }
     static var city: URL? { packFile(.city, sideloaded: "city.geojson") }
@@ -78,14 +91,6 @@ enum RegionPack {
             return installed
         }
         return FileManager.default.fileExists(atPath: side.path) ? side : nil
-    }
-
-    private static func mapFiles(_ role: RegionPackManifest.File.Role, sideloaded name: String) -> [URL] {
-        let side = URL.documentsDirectory.appending(path: name)
-        if preferSideloaded, FileManager.default.fileExists(atPath: side.path) { return [side] }
-        let all = installed().compactMap { try? $0.file(role) }.filter { FileManager.default.fileExists(atPath: $0.path) }
-        if !all.isEmpty { return all }
-        return FileManager.default.fileExists(atPath: side.path) ? [side] : []
     }
 
     static var tileExtract: URL? {
