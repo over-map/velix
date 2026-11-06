@@ -8066,7 +8066,7 @@
       ],
       85
      ],
-     "#7D9BA8",
+     "#8EABB7",
      [
       "match",
       [
@@ -8081,12 +8081,12 @@
        4
       ],
       0,
-      "#88A2AC",
+      "#9AB3BC",
       1,
-      "#86A0AA",
+      "#99B1BA",
       2,
-      "#8AA4AD",
-      "#859FAA"
+      "#9DB5BD",
+      "#97B0B9"
      ]
     ],
     "fill-extrusion-base": [
@@ -8135,27 +8135,12 @@
        [
         "-",
         [
-         "max",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
+          "get",
+          "render_height"
          ],
-         [
-          "-",
-          [
-           "coalesce",
-           [
-            "get",
-            "render_height"
-           ],
-           6
-          ],
-          0.4
-         ]
+         6
         ],
         [
          "coalesce",
@@ -8166,7 +8151,7 @@
          0
         ]
        ],
-       0.14285714285714285
+       0.125
       ]
      ]
     ],
@@ -8203,7 +8188,7 @@
       ],
       85
      ],
-     "#96B2BD",
+     "#93B0BB",
      [
       "match",
       [
@@ -8218,12 +8203,12 @@
        4
       ],
       0,
-      "#A2BBC2",
+      "#A0B8C0",
       1,
-      "#A1B8C0",
+      "#9EB6BE",
       2,
-      "#A5BCC3",
-      "#9FB7BF"
+      "#A2BAC1",
+      "#9CB5BD"
      ]
     ],
     "fill-extrusion-base": [
@@ -8252,27 +8237,12 @@
        [
         "-",
         [
-         "max",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
+          "get",
+          "render_height"
          ],
-         [
-          "-",
-          [
-           "coalesce",
-           [
-            "get",
-            "render_height"
-           ],
-           6
-          ],
-          0.4
-         ]
+         6
         ],
         [
          "coalesce",
@@ -8283,7 +8253,7 @@
          0
         ]
        ],
-       0.14285714285714285
+       0.125
       ]
      ]
     ],
@@ -8313,27 +8283,12 @@
        [
         "-",
         [
-         "max",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
+          "get",
+          "render_height"
          ],
-         [
-          "-",
-          [
-           "coalesce",
-           [
-            "get",
-            "render_height"
-           ],
-           6
-          ],
-          0.4
-         ]
+         6
         ],
         [
          "coalesce",
@@ -8344,12 +8299,12 @@
          0
         ]
        ],
-       0.2857142857142857
+       0.25
       ]
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 0.91
+    "fill-extrusion-opacity": 1
    }
   },
   {
@@ -8381,7 +8336,7 @@
       ],
       85
      ],
-     "#AEC9D3",
+     "#98B5C0",
      [
       "match",
       [
@@ -8396,12 +8351,12 @@
        4
       ],
       0,
-      "#BDD3D8",
+      "#A5BDC5",
       1,
-      "#BBD0D5",
+      "#A3BBC2",
       2,
-      "#C0D5D9",
-      "#B9CFD4"
+      "#A8BFC6",
+      "#A2BAC1"
      ]
     ],
     "fill-extrusion-base": [
@@ -8430,27 +8385,12 @@
        [
         "-",
         [
-         "max",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
+          "get",
+          "render_height"
          ],
-         [
-          "-",
-          [
-           "coalesce",
-           [
-            "get",
-            "render_height"
-           ],
-           6
-          ],
-          0.4
-         ]
+         6
         ],
         [
          "coalesce",
@@ -8461,7 +8401,7 @@
          0
         ]
        ],
-       0.2857142857142857
+       0.25
       ]
      ]
     ],
@@ -8491,27 +8431,12 @@
        [
         "-",
         [
-         "max",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
+          "get",
+          "render_height"
          ],
-         [
-          "-",
-          [
-           "coalesce",
-           [
-            "get",
-            "render_height"
-           ],
-           6
-          ],
-          0.4
-         ]
+         6
         ],
         [
          "coalesce",
@@ -8522,12 +8447,12 @@
          0
         ]
        ],
-       0.42857142857142855
+       0.375
       ]
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 0.82
+    "fill-extrusion-opacity": 1
    }
   },
   {
@@ -8559,7 +8484,7 @@
       ],
       85
      ],
-     "#BBD2DA",
+     "#9DB9C4",
      [
       "match",
       [
@@ -8574,12 +8499,12 @@
        4
       ],
       0,
-      "#C8DBE0",
+      "#ABC2C9",
       1,
-      "#C6D9DD",
+      "#A9C0C7",
       2,
-      "#CBDDE0",
-      "#C4D8DC"
+      "#ADC4CA",
+      "#A7BFC6"
      ]
     ],
     "fill-extrusion-base": [
@@ -8608,27 +8533,12 @@
        [
         "-",
         [
-         "max",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
+          "get",
+          "render_height"
          ],
-         [
-          "-",
-          [
-           "coalesce",
-           [
-            "get",
-            "render_height"
-           ],
-           6
-          ],
-          0.4
-         ]
+         6
         ],
         [
          "coalesce",
@@ -8639,7 +8549,7 @@
          0
         ]
        ],
-       0.42857142857142855
+       0.375
       ]
      ]
     ],
@@ -8669,27 +8579,12 @@
        [
         "-",
         [
-         "max",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
+          "get",
+          "render_height"
          ],
-         [
-          "-",
-          [
-           "coalesce",
-           [
-            "get",
-            "render_height"
-           ],
-           6
-          ],
-          0.4
-         ]
+         6
         ],
         [
          "coalesce",
@@ -8700,12 +8595,12 @@
          0
         ]
        ],
-       0.5714285714285714
+       0.5
       ]
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 0.73
+    "fill-extrusion-opacity": 1
    }
   },
   {
@@ -8737,7 +8632,7 @@
       ],
       85
      ],
-     "#C6DAE0",
+     "#A2BEC8",
      [
       "match",
       [
@@ -8752,12 +8647,12 @@
        4
       ],
       0,
-      "#D1E1E5",
+      "#B0C7CE",
       1,
-      "#CFDFE2",
+      "#AEC4CB",
       2,
-      "#D3E2E5",
-      "#CEDEE2"
+      "#B3C9CF",
+      "#ACC4CA"
      ]
     ],
     "fill-extrusion-base": [
@@ -8786,27 +8681,12 @@
        [
         "-",
         [
-         "max",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
+          "get",
+          "render_height"
          ],
-         [
-          "-",
-          [
-           "coalesce",
-           [
-            "get",
-            "render_height"
-           ],
-           6
-          ],
-          0.4
-         ]
+         6
         ],
         [
          "coalesce",
@@ -8817,7 +8697,7 @@
          0
         ]
        ],
-       0.5714285714285714
+       0.5
       ]
      ]
     ],
@@ -8847,27 +8727,12 @@
        [
         "-",
         [
-         "max",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
+          "get",
+          "render_height"
          ],
-         [
-          "-",
-          [
-           "coalesce",
-           [
-            "get",
-            "render_height"
-           ],
-           6
-          ],
-          0.4
-         ]
+         6
         ],
         [
          "coalesce",
@@ -8878,12 +8743,12 @@
          0
         ]
        ],
-       0.7142857142857143
+       0.625
       ]
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 0.63
+    "fill-extrusion-opacity": 1
    }
   },
   {
@@ -8915,7 +8780,7 @@
       ],
       85
      ],
-     "#D1E1E6",
+     "#A7C3CC",
      [
       "match",
       [
@@ -8930,12 +8795,12 @@
        4
       ],
       0,
-      "#DAE7EA",
+      "#B5CCD2",
       1,
-      "#D9E5E8",
+      "#B3C9CF",
       2,
-      "#DCE8EA",
-      "#D7E4E7"
+      "#B8CED3",
+      "#B1C8CE"
      ]
     ],
     "fill-extrusion-base": [
@@ -8964,27 +8829,12 @@
        [
         "-",
         [
-         "max",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
+          "get",
+          "render_height"
          ],
-         [
-          "-",
-          [
-           "coalesce",
-           [
-            "get",
-            "render_height"
-           ],
-           6
-          ],
-          0.4
-         ]
+         6
         ],
         [
          "coalesce",
@@ -8995,7 +8845,7 @@
          0
         ]
        ],
-       0.7142857142857143
+       0.625
       ]
      ]
     ],
@@ -9025,27 +8875,12 @@
        [
         "-",
         [
-         "max",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
+          "get",
+          "render_height"
          ],
-         [
-          "-",
-          [
-           "coalesce",
-           [
-            "get",
-            "render_height"
-           ],
-           6
-          ],
-          0.4
-         ]
+         6
         ],
         [
          "coalesce",
@@ -9056,12 +8891,12 @@
          0
         ]
        ],
-       0.8571428571428571
+       0.75
       ]
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 0.54
+    "fill-extrusion-opacity": 1
    }
   },
   {
@@ -9093,7 +8928,7 @@
       ],
       85
      ],
-     "#DCE8EC",
+     "#ACC7D1",
      [
       "match",
       [
@@ -9108,12 +8943,12 @@
        4
       ],
       0,
-      "#E3EDEF",
+      "#BBD1D7",
       1,
-      "#E2EBED",
+      "#B9CED4",
       2,
-      "#E4EDEF",
-      "#E1EBED"
+      "#BED3D8",
+      "#B7CDD3"
      ]
     ],
     "fill-extrusion-base": [
@@ -9142,27 +8977,12 @@
        [
         "-",
         [
-         "max",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
+          "get",
+          "render_height"
          ],
-         [
-          "-",
-          [
-           "coalesce",
-           [
-            "get",
-            "render_height"
-           ],
-           6
-          ],
-          0.4
-         ]
+         6
         ],
         [
          "coalesce",
@@ -9173,7 +8993,7 @@
          0
         ]
        ],
-       0.8571428571428571
+       0.75
       ]
      ]
     ],
@@ -9203,27 +9023,12 @@
        [
         "-",
         [
-         "max",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
+          "get",
+          "render_height"
          ],
-         [
-          "-",
-          [
-           "coalesce",
-           [
-            "get",
-            "render_height"
-           ],
-           6
-          ],
-          0.4
-         ]
+         6
         ],
         [
          "coalesce",
@@ -9234,12 +9039,12 @@
          0
         ]
        ],
-       1
+       0.875
       ]
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 0.45
+    "fill-extrusion-opacity": 1
    }
   },
   {
@@ -9306,7 +9111,7 @@
      0,
      15.8,
      [
-      "max",
+      "+",
       [
        "coalesce",
        [
@@ -9316,16 +9121,27 @@
        0
       ],
       [
-       "-",
+       "*",
        [
-        "coalesce",
+        "-",
         [
-         "get",
-         "render_height"
+         "coalesce",
+         [
+          "get",
+          "render_height"
+         ],
+         6
         ],
-        6
+        [
+         "coalesce",
+         [
+          "get",
+          "render_min_height"
+         ],
+         0
+        ]
        ],
-       0.4
+       0.875
       ]
      ]
     ],
@@ -9341,12 +9157,38 @@
      0,
      15.8,
      [
-      "coalesce",
+      "+",
       [
-       "get",
-       "render_height"
+       "coalesce",
+       [
+        "get",
+        "render_min_height"
+       ],
+       0
       ],
-      6
+      [
+       "*",
+       [
+        "-",
+        [
+         "coalesce",
+         [
+          "get",
+          "render_height"
+         ],
+         6
+        ],
+        [
+         "coalesce",
+         [
+          "get",
+          "render_min_height"
+         ],
+         0
+        ]
+       ],
+       1
+      ]
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
