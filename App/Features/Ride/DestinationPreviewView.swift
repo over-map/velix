@@ -52,6 +52,8 @@ struct DestinationPreviewView: View {
         } message: { r in
             Text("Routes to \(place.name) need the \(r.name) map (\(r.downloadBytes / 1_000_000) MB).")
         }
+        // A place tapped on the map knows only what it is: add its street and area (online).
+        .task { if place.id.hasPrefix("tap-") { await app.describe(place) } }
         // The region arrived: on to route options.
         .onChange(of: app.pack.installed.map(\.pack)) { _, packs in
             if let w = waitingFor, packs.contains(w) { waitingFor = nil; onFindRoute() }

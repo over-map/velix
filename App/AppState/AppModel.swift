@@ -124,11 +124,22 @@ final class AppModel {
         destination = place
     }
 
-    /// Frame a searched or recent place first; Home and Work open route options straight away (the commute).
-    func show(_ place: Place) {
+    /// Frame a searched or recent place first; Home and Work open route options straight away (the commute). A place
+    /// tapped on the map joins the recents only when routed to (`remember: false`).
+    func show(_ place: Place, remember: Bool = true) {
         if place == state.home || place == state.work { return choose(place) }
-        state.addRecent(place)
+        if remember { state.addRecent(place) }
         preview = place
+    }
+
+    /// A tapped place's street and area, when online ("Café" → "Café · Via Tortona 12, Milano").
+    func describe(_ place: Place) async {
+        guard let found = try? await search.reverse(place.location), preview?.id == place.id else { return }
+        let area = found.subtitle.isEmpty ? found.name : found.name == place.name ? found.subtitle : "\(found.name), \(found.subtitle)"
+        guard !area.isEmpty else { return }
+        var p = place
+        p.subtitle = place.subtitle.isEmpty ? area : "\(place.subtitle) · \(area)"
+        preview = p
     }
 
     /// Tap 2: ride the chosen route.

@@ -76,7 +76,8 @@ struct RideView: View {
             VelixMap(style: MapStyleKind(app.mapStyle), mode: MapMode(scheme, mapAppearance),
                      bikeLanes: app.bikeLanes, transitLines: app.transitLines, camera: camera,
                      userLocation: app.isOutsideRegion ? nil : app.location.coordinate, userHeading: app.location.heading,
-                     coveredBottom: tabBar, onUserPan: { following = false }, onRegionChange: { browsed = $0; browsedZoom = $1 })
+                     coveredBottom: tabBar, onUserPan: { following = false },
+                     onTapFeature: { app.show($0, remember: false) }, onRegionChange: { browsed = $0; browsedZoom = $1 })
         } else {
             Color.velix.surface2
         }

@@ -3,6 +3,12 @@ import Foundation
 /// Finds places for S2 Search. The live one is Photon (komoot, OpenStreetMap data); tests use fixtures.
 protocol PlaceSearch: Sendable {
     func search(_ query: String, near: LatLon?) async throws -> [Place]
+    /// The address at a point (a place tapped on the map), if the source knows one.
+    func reverse(_ point: LatLon) async throws -> Place?
+}
+
+extension PlaceSearch {
+    func reverse(_ point: LatLon) async throws -> Place? { nil }
 }
 
 enum PlaceSearchError: Error, Equatable { case offline, badResponse }
@@ -27,7 +33,19 @@ struct PhotonSearch: PlaceSearch {
             items += [URLQueryItem(name: "lat", value: String(near.lat)), URLQueryItem(name: "lon", value: String(near.lon))]
         }
         c.queryItems = items
-        var request = URLRequest(url: c.url!, timeoutInterval: 10)
+        return try await fetch(c.url!)
+    }
+
+    /// Photon's reverse geocoder: the nearest address or named place.
+    func reverse(_ point: LatLon) async throws -> Place? {
+        var c = URLComponents(url: endpoint.deletingLastPathComponent().appending(path: "reverse"), resolvingAgainstBaseURL: false)!
+        c.queryItems = [URLQueryItem(name: "lat", value: String(point.lat)), URLQueryItem(name: "lon", value: String(point.lon)),
+                        URLQueryItem(name: "lang", value: "en"), URLQueryItem(name: "limit", value: "1")]
+        return try await fetch(c.url!).first
+    }
+
+    private func fetch(_ url: URL) async throws -> [Place] {
+        var request = URLRequest(url: url, timeoutInterval: 10)
         request.setValue("Velix/0.1 (https://github.com/over-map/velix)", forHTTPHeaderField: "User-Agent")
         do {
             let (data, response) = try await session.data(for: request)
@@ -62,6 +80,9 @@ struct PhotonSearch: PlaceSearch {
             switch kind {
             case .station: subtitle.append("Railway station")
             case .metro: subtitle.append("Metro station")
+            case .poi where p.name != nil:
+                // "Café · Via Tortona 12 · Milano": what the place is (Filippo, 5 Nov: search a POI).
+                if let c = PoiCategory.name(p.osm_value) { subtitle.append(c) }
             default: break
             }
             if p.name != nil, !streetLine.isEmpty, kind != .street { subtitle.append(streetLine) }
@@ -80,6 +101,9 @@ struct PhotonSearch: PlaceSearch {
         case ("leisure", "park"), ("leisure", "garden"), ("boundary", "national_park"): return .park
         case ("highway", _): return .street
         case ("place", "city"), ("place", "town"), ("place", "village"): return .city
+        // A shop or café with a house number is still a POI (Photon types it "house").
+        case ("amenity", _), ("shop", _), ("tourism", _), ("leisure", _), ("historic", _), ("craft", _), ("healthcare", _):
+            return .poi
         default: return type == "house" ? .address : (type == "street" ? .street : .poi)
         }
     }
