@@ -33,7 +33,7 @@ Competitors to study: Komoot, Bikemap, Geovelo, bbbike, Cyclers, Naviki, Google 
 
 ### Iteration 1 (phase 1, €0 showcase)
 - iPhone only (free Apple ID install) + demo video. Pilot: **Milan** (Lombardy region pack).
-- Six ride types; Best + Fastest; why-this-route; turn-by-turn with hazard alerts (EN voice, haptics, Live Activity); bike + transit (train + metro) as a suggestion; Routes tab (OSM cycle routes); ride history, GPX share, Strava + Apple Health auto-sync; map styles per ride type + overlays; severe-weather notice; lit-streets-only rule (manual, off at ride end).
+- Six ride types; Best + Fastest; why-this-route; turn-by-turn with hazard alerts (EN voice, haptics, Live Activity); bike + transit (train + metro) as a suggestion; Routes tab (OSM cycle routes); ride history, GPX share (no Strava or Apple Health sync: dropped 6 Nov); map styles per ride type + overlays; severe-weather notice; lit-streets-only rule (manual, off at ride end).
 - Routing **offline only** on the phone; the region pack (~220 MB) downloads at first launch.
 
 ### Phase 2 (store fees only)
@@ -61,7 +61,6 @@ Competitors to study: Komoot, Bikemap, Geovelo, bbbike, Cyclers, Naviki, Google 
 | Weather | MeteoAlarm / Open-Meteo warnings (to verify) | One notice on app open |
 | Satellite | Source and licence to verify (Lombardy orthophoto WMS, Sentinel-2) | |
 | Storage | SwiftData on device, iCloud backup | No account |
-| Integrations | HealthKit, Strava API | Auto-sync after each ride |
 
 ## 6. Next steps
 
@@ -93,9 +92,9 @@ Competitors to study: Komoot, Bikemap, Geovelo, bbbike, Cyclers, Naviki, Google 
 | Bike + transit | No switch. Computed in the background; ONE highlighted suggestion row under the bike routes when a trigger fires: saves ≥20 min or ≥30%; or bike-only >45 min / >12 km and saves ≥10 min; or avoids ≥200 m climbing; or destination outside the city area. Never under 5 km. Trains + metro only, bikes-allowed connections only. Copy: "Long ride? Hop on the train/metro with your bike". Tapping expands: timeline, legs, train, planned platform ("check the board"), bikes allowed, next trains, one ticket link. No memory per destination |
 | Riding (own bike) | Apple Maps-like. Maneuver banner + "Then…" + road-type pill. Map controls: Voice (All / Alerts only / Mute), View (2D follow / 3D follow / North up), Route overview. Next hazard card floats above the bottom bar. Bottom: arrival, minutes, km, End. Auto-end on arrival. No comfort number while riding. Avoided roads shown only near the rider |
 | Riding with transit | Stages: Ride to station → On the train → Ride. Late → switch to fastest automatically with a notice of the cost. Still missing → next train automatically with a notice. On the train: get off in X min, stops, carriage position, buzz before the stop |
-| Ride summary | Shown once after a ride: km, moving time, climb, synced to Strava and Health, report a data issue, Share (GPX), Done |
+| Ride summary | Shown once after a ride: km, moving time, climb, report a data issue, Share (GPX), Done |
 | Routes tab | OSM cycle routes near you; filters: Fits {ride type}, All, Paved, Gravel, MTB; "Search routes in this area"; Ride this route = plan to nearest point, then follow |
-| You | Ride types and rules; Lit streets only (switch; turns off when the ride ends); your rides; connections (Strava, Apple Health); offline map (region, size, auto-update); privacy line |
+| You | Ride types and rules; Lit streets only (switch; turns off when the ride ends); your rides; offline map (region, size, auto-update); privacy line |
 | Map styles | Follow the ride type, everywhere: City/Road/Cargo → Standard or Satellite; Gravel/MTB/E-bike → Outdoor or Satellite. First is default; choice remembered per type. Overlays: bike lanes, train & metro lines. Set only before riding. No traffic overlay |
 | Weather | No overlay. One severe-weather notice on app open |
 | Data | Local only, no account. Voice English only |

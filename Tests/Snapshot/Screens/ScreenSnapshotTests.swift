@@ -319,9 +319,8 @@ final class ScreenSnapshotTests: XCTestCase {
                                      place: "Politecnico", rideType: .city, option: "Calmest for city", meters: 5400,
                                      movingSeconds: 21 * 60, climb: 8, track: AppSamples.rideOption().analysis.shape,
                                      gpx: URL(fileURLWithPath: "/tmp/ride.gpx"))
-        check(RideSummaryView(model: model, connections: .synced), named: "S6a-synced")
-        check(RideSummaryView(model: model), named: "S6b-notConnected")
-        check(RideSummaryView(model: model, connections: .synced, issue: RideSummary.sampleIssue), named: "S6c-dataIssue")
+        check(RideSummaryView(model: model), named: "S6a")
+        check(RideSummaryView(model: model, issue: RideSummary.sampleIssue), named: "S6c-dataIssue")
     }
 
     // MARK: S8 You

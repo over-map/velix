@@ -104,10 +104,7 @@ struct RootView: View {
             if let ride = app.ride {
                 RidingView(session: ride, app: app, transit: app.transit)
             } else if let summary = app.summary {
-                RideSummaryView(model: summary, connections: app.state.healthOn ? .synced : .notConnected,
-                                mapStyle: MapStyleKind(app.mapStyle),
-                                onConnect: { Task { await app.saveToHealth() } },
-                                onDone: { app.summary = nil })
+                RideSummaryView(model: summary, mapStyle: MapStyleKind(app.mapStyle), onDone: { app.summary = nil })
             }
         }
     }
