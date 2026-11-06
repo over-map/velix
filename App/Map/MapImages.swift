@@ -15,6 +15,7 @@ enum MapImages {
         let pal = mode == .day ? MapPalette.day : MapPalette.night
         switch parts.first {
         case "trees": return trees(pal)
+        case "dot": return dot(pal)
         case "hz" where parts.count == 2 && parts[1] == "stripe": return stripe(pal)
         case "hz": return HazardType(rawValue: parts.dropFirst().joined(separator: "-")).flatMap { swiftUI(HazardMarker(type: $0, style: .map), mode) }
         case "cnt": return Int(parts.last ?? "").flatMap { swiftUI(HazardMarker(style: .cluster($0)), mode) }
@@ -45,6 +46,16 @@ enum MapImages {
         let format = UIGraphicsImageRendererFormat()
         format.scale = UIScreen.main.scale
         return UIGraphicsImageRenderer(size: size, format: format).image { body($0.cgContext) }
+    }
+
+    /// A city zoomed out (z3–9): a dot in the place colour, ringed by the label halo, its name beside it.
+    private static func dot(_ p: MapPalette) -> UIImage {
+        draw(CGSize(width: 9, height: 9)) { c in
+            c.setFillColor(p.halo.cgColor)
+            c.fillEllipse(in: CGRect(x: 0, y: 0, width: 9, height: 9))
+            c.setFillColor(p.placeMajor.cgColor)
+            c.fillEllipse(in: CGRect(x: 1.75, y: 1.75, width: 5.5, height: 5.5))
+        }
     }
 
     // MARK: Patterns

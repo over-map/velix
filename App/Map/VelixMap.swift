@@ -231,6 +231,7 @@ struct VelixMap: UIViewRepresentable {
         nonisolated func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
             MainActor.assumeIsolated {
                 loaded = true
+                if let style = mapView.style { VelixMapStyle.localize(style) }
                 applyStyleState(on: mapView)
                 if cameraPending { applyCamera(on: mapView, animated: false) }
             }
