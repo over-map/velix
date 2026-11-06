@@ -56,11 +56,17 @@ struct MapPreviewView: View {
         }
         .task {
             if ProcessInfo.processInfo.arguments.contains("-map-planned") { await planSample() } else { loadP3Sample() }
-            // `-map-sweep`: zoom 15 → 18 over 6 s, like a pinch (with `-map-perf`: frames per second while POIs appear).
-            if ProcessInfo.processInfo.arguments.contains("-map-sweep") {
+            // `-map-sweep [from,to,seconds]`: zoom 15 → 18 over 6 s by default, like a pinch (with `-map-perf`: frames per
+            // second while POIs appear); `-map-sweep 4,17,26` films every zoom's transitions.
+            let a = ProcessInfo.processInfo.arguments
+            if let i = a.firstIndex(of: "-map-sweep") {
+                let v = a.indices.contains(i + 1) ? a[i + 1].split(separator: ",").compactMap { Double($0) } : []
+                let (from, to, seconds) = v.count == 3 ? (v[0], v[1], v[2]) : (15, 18, 6)
+                zoom = from
                 try? await Task.sleep(for: .seconds(4))
-                for i in 0 ... 120 {
-                    zoom = 15 + 3 * Double(i) / 120
+                let steps = max(1, Int(seconds * 20))
+                for s in 0 ... steps {
+                    zoom = from + (to - from) * Double(s) / Double(steps)
                     try? await Task.sleep(for: .milliseconds(50))
                 }
             }

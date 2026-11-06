@@ -52,9 +52,39 @@ const dashAt = (px, f, z) => ['literal', px.map((d) => r2(d / Math.max(0.2, f(z)
 const dash = (px, f) => ['step', ['zoom'], dashAt(px, f, ZS[0]), ...ZS.slice(1).flatMap((z) => [z, dashAt(px, f, z)])];
 
 const F_REG = ['Atkinson Hyperlegible Regular'], F_BOLD = ['Atkinson Hyperlegible Bold'];
+
+// ---- multi-zoom (Filippo, 6 Nov: below z13 the map is Velix's own; P3 starts at z13) ----
+/** 0 → `max` over in0–in1, `max` → 0 over out0–out1 (either end may be null): features come and go over a zoom or so
+ * instead of popping. `max` may be a data expression. */
+function fade(in0, in1, out0 = null, out1 = null, max = 1) {
+  const st = [];
+  if (in0 != null) st.push([in0, 0], [in1, max]);
+  if (out0 != null) { if (!st.length || out0 > in1) st.push([out0, max]); st.push([out1, 0]); }
+  return st.length ? ['interpolate', ['linear'], ['zoom'], ...st.flat()] : max;
+}
+/** Piecewise-linear zoom function `f(z)` (a number or a data expression) sampled at the zooms where it bends. */
+function zfn(zs, f) {
+  const ks = [...new Set(zs.map(r2))].sort((a, b) => a - b);
+  return ['interpolate', ['linear'], ['zoom'], ...ks.flatMap((z) => [z, f(z)])];
+}
+const ramp01 = (a, b, z) => (z <= a ? 0 : z >= b ? 1 : (z - a) / (b - a));
+/** Linear text sizes by zoom (pt). */
+const zsize = (...stops) => ['interpolate', ['linear'], ['zoom'], ...stops];
+/** Place and water names: the phone's language at runtime (VelixMapStyle.localize), English in the file. */
+const PLACE_NAME = ['coalesce', ['get', 'name:en'], ['get', 'name:latin'], ['get', 'name']];
+/** Streets, suburbs, POIs, stations: the name as signed (Filippo, 6 Nov). */
+const LOCAL_NAME = ['get', 'name'];
+/** When each road class arrives in the tiles (OpenMapTiles): its chart line fades in over these zooms. */
+const ROAD_IN = { motorway: [3.5, 5], trunk: [5, 6.5], primary: [7, 8.5], secondary: [8.5, 10], tertiary: [10, 11.5],
+  minor: [11.5, 13], busway: [11.5, 13], service: [13, 14.5], raceway: [13, 14.5] };
+/** Zoomed out the chart hairlines calm down (45 % to z6, 60 % at z8, full from z9.5): the tangle of 6 Nov. */
+const calm = (z) => (z <= 8 ? 0.45 + 0.15 * ramp01(6, 8, z) : 0.6 + 0.4 * ramp01(8, 9.5, z));
+/** Chart hairlines never thinner than this (pt) below z11, so zoomed out a motorway still reads. */
+const CHART_FLOOR = { motor: 0.6, primary: 0.5, secondary: 0.4 };
 const ROAD = { motor: ['motorway', 'trunk'], primary: ['primary'], secondary: ['secondary'], tertiary: ['tertiary'],
   minor: ['minor', 'busway'], service: ['service', 'raceway'] };
 const ORDER = ['service', 'minor', 'tertiary', 'secondary', 'primary', 'motor'];
+const lineLayoutRound = () => ({ 'line-cap': 'round', 'line-join': 'round' });
 const CH_ALPHA = { motor: 1, primary: 1, secondary: 0.9, tertiary: 0.8, minor: 0.55, service: 0.4 };
 const POI_CAT = { cafe: 'food', restaurant: 'food', bar: 'food', ice_cream: 'food', bakery: 'food', fast_food: 'food', beer: 'food',
   shop: 'shop', grocery: 'shop', clothing_store: 'shop', pharmacy: 'health', hospital: 'health', school: 'edu', college: 'edu',
@@ -85,11 +115,13 @@ function style(name, mode) {
 
   // ---- landuse ----
   if (!sat) {
-    const LU = [['residential', ['residential', 'neighbourhood'], 10], ['commercial', ['commercial'], 12], ['retail', ['retail'], 12],
+    // Residential from z8, fading in: towns read as patches before their streets (6 Nov).
+    const LU = [['residential', ['residential', 'neighbourhood'], 8], ['commercial', ['commercial'], 12], ['retail', ['retail'], 12],
       ['industrial', ['industrial'], 11], ['railway', ['railway', 'bus_station'], 11], ['military', ['military'], 11],
       ['education', ['school', 'college', 'university', 'kindergarten', 'education', 'library'], 12], ['hospital', ['hospital'], 12],
       ['cemetery', ['cemetery'], 12], ['playground', ['playground'], 14], ['pitch', ['pitch', 'track'], 14]];
-    for (const [k, cls, minzoom] of LU) omt('landuse', `landuse-${k}`, 'fill', { minzoom, filter: inList('class', cls), paint: { 'fill-color': P[k] } });
+    for (const [k, cls, minzoom] of LU) omt('landuse', `landuse-${k}`, 'fill', { minzoom, filter: inList('class', cls),
+      paint: { 'fill-color': P[k], ...(k === 'residential' ? { 'fill-opacity': fade(8, 9.5) } : {}) } });
     omt('landuse', 'landuse-pitch-line', 'line', { minzoom: 15.5, filter: inList('class', ['pitch', 'track']), paint: { 'line-color': P.pitchLine, 'line-width': 1 } });
   }
 
@@ -103,9 +135,23 @@ function style(name, mode) {
     ['scrub', sub(['scrub', 'shrubbery', 'heath'])],
     ['sand', ['==', ['get', 'class'], 'sand']],
     ['wood', ['==', ['get', 'class'], 'wood']]];
-  for (const [k, filter] of LC) omt('landcover', `landcover-${k}`, 'fill', { filter, paint: { 'fill-color': P[k] || P.grass } });
+  // Zoomed out the woods and fields would blotch the whole Alps: softer until the city zooms (6 Nov).
+  const coverCalm = ['interpolate', ['linear'], ['zoom'], 7, 0.55, 10, 1];
+  for (const [k, filter] of LC) omt('landcover', `landcover-${k}`, 'fill', { filter, paint: { 'fill-color': P[k] || P.grass, 'fill-opacity': coverCalm } });
   // OpenMapTiles puts parks in landuse/park too; draw them like landcover parks.
   if (!sat) omt('park', 'park', 'fill', { filter: ['==', ['get', 'class'], 'park'], paint: { 'fill-color': P.park } });
+  // Zoomed out (6 Nov): glaciers and bare rock give the Alps their shape; national parks and reserves a light tint.
+  const ice = mode === 'day' || sat ? mixHex(P.land, '#FFFFFF', sat ? 0.45 : 0.6) : mixHex(P.land, P.waterInk, 0.2);
+  omt('landcover', 'landcover-ice', 'fill', { filter: ['in', ['get', 'class'], ['literal', ['ice', 'glacier']]], paint: { 'fill-color': ice } });
+  omt('landcover', 'landcover-rock', 'fill', { minzoom: 7, filter: ['==', ['get', 'class'], 'rock'],
+    paint: { 'fill-color': mixHex(P.land, P.rail, od ? 0.24 : 0.16), 'fill-opacity': fade(7, 8.5) } });
+  const protectedArea = inList('class', ['national_park', 'nature_reserve', 'protected_area']);
+  const protectedOut = od ? [13.5, 14.5] : [11, 13];
+  omt('park', 'park-protected', 'fill', { minzoom: 5.5, maxzoom: protectedOut[1], filter: protectedArea,
+    paint: { 'fill-color': P.park, 'fill-opacity': fade(5.5, 6.5, ...protectedOut, sat ? 0.25 : mode === 'day' ? 0.3 : 0.35) } });
+  if (od) omt('park', 'park-protected-edge', 'line', { minzoom: 7, maxzoom: 14.5, filter: protectedArea,
+    paint: { 'line-color': P.parkInk, 'line-opacity': fade(7, 8, 13.5, 14.5, 0.45), 'line-width': zsize(7, 0.5, 12, 1),
+      'line-dasharray': ['literal', [3, 2]] } });
   omt('landcover', 'landcover-trees', 'fill', { minzoom: 14, filter: ['==', ['get', 'class'], 'wood'],
     paint: { 'fill-pattern': `trees-${mode}`, 'fill-opacity': sat ? 0.9 : 0.55 } });
   if (!sat) omt('landcover', 'landcover-park-trees', 'fill', { minzoom: 15, filter: sub(['park', 'garden', 'recreation_ground', 'village_green']),
@@ -115,8 +161,33 @@ function style(name, mode) {
   omt('water', 'water', 'fill', { filter: not('brunnel', 'tunnel'), paint: { 'fill-color': P.water } });
   if (!sat) omt('water', 'water-shore', 'line', { filter: not('brunnel', 'tunnel'),
     paint: { 'line-color': P.waterLine, 'line-opacity': 0.7, 'line-width': ['step', ['zoom'], 0.6, 15, 1] } });
+  // Rivers from z6 (6 Nov), never thinner than 0.5 pt; the smaller waterways from z11, as before.
+  const river = ['==', ['get', 'class'], 'river'];
+  const riverW = ['interpolate', ['exponential', 1.5], ['zoom'], 6, 0.5, 9, 0.7, ...ZS.filter((z) => z >= 11).flatMap((z) => [z, r2(Math.max(0.7, interp(W.water, z)))])];
+  omt('waterway', 'waterway-river', 'line', { minzoom: 6, maxzoom: 11, filter: ['all', not('brunnel', 'tunnel'), river],
+    layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': P.water, 'line-opacity': fade(6, 7), 'line-width': riverW } });
   omt('waterway', 'waterway', 'line', { minzoom: 11, filter: not('brunnel', 'tunnel'), layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': P.water, 'line-width': w('water') } });
+    paint: { 'line-color': P.water, 'line-width': ['interpolate', ['exponential', 1.5], ['zoom'],
+      ...ZS.filter((z) => z >= 11).flatMap((z) => [z, ['case', river, r2(Math.max(0.7, interp(W.water, z))), r2(interp(W.water, z))]])] } });
+
+  // ---- borders (6 Nov): countries a soft band and a line, regions dashed, provinces dotted; not at sea ----
+  const land = ['!=', ['get', 'maritime'], 1];
+  const admin = (l) => ['==', ['get', 'admin_level'], l];
+  omt('boundary', 'boundary-country-band', 'line', { minzoom: 3.5, maxzoom: 12.5, filter: ['all', admin(2), land],
+    layout: lineLayoutRound(), paint: { 'line-color': P.place, 'line-blur': 1,
+      'line-opacity': fade(3.5, 4.5, 11, 12.5, sat ? 0.1 : mode === 'day' ? 0.14 : 0.11),
+      'line-width': ['interpolate', ['exponential', 1.5], ['zoom'], 3.5, 2, 6, 4, 10, 8, 12.5, 10] } });
+  omt('boundary', 'boundary-province', 'line', { minzoom: 8.5, maxzoom: 12.5, filter: ['all', admin(6), land],
+    layout: lineLayoutRound(), paint: { 'line-color': P.labelMinor, 'line-opacity': fade(8.5, 9.5, 11.5, 12.5, 0.4),
+      'line-width': 0.9, 'line-dasharray': ['literal', [0.1, 2.6]] } });
+  omt('boundary', 'boundary-region', 'line', { minzoom: 4.5, filter: ['all', admin(4), land],
+    paint: { 'line-color': P.labelMinor, 'line-opacity': fade(4.5, 5.5, 13, 15, 0.5),
+      'line-width': zsize(5, 0.5, 9, 0.9, 13, 1.2), 'line-dasharray': ['literal', [4, 2.5]] } });
+  for (const [id, disputed] of [['boundary-country', false], ['boundary-country-disputed', true]])
+    omt('boundary', id, 'line', { filter: ['all', admin(2), land, [disputed ? '==' : '!=', ['get', 'disputed'], 1]],
+      layout: lineLayoutRound(), paint: { 'line-color': P.placeMajor, 'line-opacity': fade(0.5, 1.5, null, null, mode === 'day' ? 0.5 : 0.6),
+        'line-width': ['interpolate', ['exponential', 1.5], ['zoom'], 3, 0.6, 6, 1, 10, 1.6, 14, 2.4],
+        ...(disputed ? { 'line-dasharray': ['literal', [3, 2]] } : {}) } });
 
   // ---- roads ----
   const roadCol = (k) => (sat ? P.road : k === 'tertiary' ? P.secondary : P[k]);
@@ -134,8 +205,17 @@ function style(name, mode) {
   }
   const chart = !!P.chartLine;
   const fillFrom = P.fillFrom;
+  // Each class fades in as the tiles bring it (ROAD_IN), calmer zoomed out; zoomed-out widths have a floor.
+  const roadIn = (k, alpha) => {
+    const classes = ROAD[k], zs = [0, 6, 8, 9.5, 15.2, ...classes.flatMap((c) => ROAD_IN[c])];
+    return zfn(zs, (z) => {
+      const v = classes.map((c) => r2(alpha * calm(z) * ramp01(...ROAD_IN[c], z)));
+      return v.every((x) => x === v[0]) ? v[0] : ['match', ['get', 'class'], ...classes.flatMap((c, i) => [c, v[i]]), v[0]];
+    });
+  };
+  const chartW = (k, caseMul = 1) => width((z) => Math.max(interp(W[k], z) * P.chartW + interp(W.caseAdd, z) * caseMul, z < 11 ? CHART_FLOOR[k] ?? 0 : 0));
   if (chart) for (const k of ORDER) omt('transportation', `road-chart-${k}`, 'line', { maxzoom: fillFrom, filter: ['all', cls(k), surface],
-    layout: lineLayout, paint: { 'line-color': P.chartLine, 'line-opacity': CH_ALPHA[k], 'line-width': width((z) => interp(W[k], z) * P.chartW + interp(W.caseAdd, z)) } });
+    layout: lineLayout, paint: { 'line-color': P.chartLine, 'line-opacity': roadIn(k, CH_ALPHA[k]), 'line-width': chartW(k) } });
   const casedFrom = chart ? fillFrom : 0;
   for (const k of ORDER) {
     const big = k === 'primary' || k === 'motor';
@@ -143,7 +223,7 @@ function style(name, mode) {
       layout: lineLayout, paint: { 'line-color': caseCol(k), 'line-width': width(caseW(k, big ? 1.3 : 1)) } });
   }
   for (const k of ORDER) omt('transportation', `road-${k}`, 'line', { minzoom: casedFrom, filter: ['all', cls(k), surface],
-    layout: lineLayout, paint: { 'line-color': roadCol(k), 'line-width': width(wr(k)) } });
+    layout: lineLayout, paint: { 'line-color': roadCol(k), 'line-width': width(wr(k)), ...(chart ? {} : { 'line-opacity': roadIn(k, 1) }) } });
   if (!sat) {
     const pathAlpha = chart ? 0.7 : 1;
     omt('transportation', 'path-footway', 'line', { minzoom: 15, filter: ['all', ['==', ['get', 'class'], 'path'], sub(['footway', 'path']), not('brunnel', 'tunnel')],
@@ -165,7 +245,10 @@ function style(name, mode) {
   }
   // ---- rail + tram ----
   const rail = ['all', ['==', ['get', 'class'], 'rail'], not('brunnel', 'tunnel')];
-  omt('transportation', 'rail', 'line', { minzoom: 11, filter: rail, paint: { 'line-color': P.rail, 'line-width': w('rail') } });
+  omt('transportation', 'rail', 'line', { minzoom: 9.5, filter: ['all', rail, ['!', ['has', 'service']]],
+    paint: { 'line-color': P.rail, 'line-opacity': fade(9.5, 11), 'line-width': width((z) => Math.max(0.4, interp(W.rail, z))) } });
+  omt('transportation', 'rail-service', 'line', { minzoom: 13, filter: ['all', rail, ['has', 'service']],
+    paint: { 'line-color': P.rail, 'line-opacity': fade(13, 14), 'line-width': w('rail') } });
   const tiesW = (z) => interp(W.rail, z) * 3;
   omt('transportation', 'rail-ties', 'line', { minzoom: 14, filter: rail, layout: { 'line-cap': 'butt' },
     paint: { 'line-color': P.rail, 'line-width': width(tiesW), 'line-dasharray': dash([1, 6], tiesW) } });
@@ -177,7 +260,7 @@ function style(name, mode) {
   for (const k of ORDER) {
     const f = ['all', cls(k), ['==', ['get', 'brunnel'], 'bridge']];
     if (chart) omt('transportation', `bridge-chart-${k}`, 'line', { maxzoom: fillFrom, filter: f, layout: lineLayout,
-      paint: { 'line-color': P.chartLine, 'line-opacity': CH_ALPHA[k], 'line-width': width((z) => interp(W[k], z) * P.chartW + interp(W.caseAdd, z) * 2) } });
+      paint: { 'line-color': P.chartLine, 'line-opacity': roadIn(k, CH_ALPHA[k]), 'line-width': chartW(k, 2) } });
     omt('transportation', `bridge-case-${k}`, 'line', { minzoom: casedFrom, filter: f, layout: lineLayout,
       paint: { 'line-color': caseCol(k) || P.secondaryCase, 'line-width': width(caseW(k, 2)) } });
     omt('transportation', `bridge-${k}`, 'line', { minzoom: casedFrom, filter: f, layout: lineLayout, paint: { 'line-color': roadCol(k), 'line-width': width(wr(k)) } });
@@ -251,7 +334,7 @@ function style(name, mode) {
 
   // ---- road labels (below the route: it covers its own street names) ----
   const roadLabel = (id, classes, minzoom, bold) => omt('transportation_name', id, 'symbol', { minzoom, filter: inList('class', classes),
-    layout: { 'symbol-placement': 'line', 'text-field': ['coalesce', ['get', 'name:it'], ['get', 'name']], 'text-font': bold ? F_BOLD : F_REG,
+    layout: { 'symbol-placement': 'line', 'text-field': LOCAL_NAME, 'text-font': bold ? F_BOLD : F_REG,
       'text-size': ['step', ['zoom'], 11, 16, 12, 17, 13], 'text-max-angle': 30, 'text-padding': 4, 'symbol-sort-key': 6 },
     paint: { 'text-color': classes.includes('minor') || classes.includes('path') ? P.labelMinor : P.label, 'text-halo-color': P.halo,
       'text-halo-width': sat ? 1.75 : 1.5 } });
@@ -340,11 +423,52 @@ function style(name, mode) {
       'text-anchor': 'left', 'text-offset': ['literal', [1.0, 0.05]], 'text-optional': true, 'symbol-sort-key': 4.2 },
     paint: { 'text-color': P.placeMajor, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
   omt('place', 'label-suburb', 'symbol', { minzoom: 11.5, maxzoom: 15.6, filter: inList('class', ['suburb', 'quarter']),
-    layout: { 'text-field': ['upcase', ['coalesce', ['get', 'name:it'], ['get', 'name']]], 'text-font': F_BOLD, 'text-size': 12, 'text-letter-spacing': 0.08, 'symbol-sort-key': 5 },
+    layout: { 'text-field': ['upcase', LOCAL_NAME], 'text-font': F_BOLD, 'text-size': 12, 'text-letter-spacing': 0.08, 'symbol-sort-key': 5 },
     paint: { 'text-color': P.place, 'text-halo-color': P.halo, 'text-halo-width': sat ? 1.75 : 1.5 } });
   omt('place', 'label-neighbourhood', 'symbol', { minzoom: 13.8, maxzoom: 16.4, filter: inList('class', ['neighbourhood']),
-    layout: { 'text-field': ['upcase', ['coalesce', ['get', 'name:it'], ['get', 'name']]], 'text-font': F_BOLD, 'text-size': 10.5, 'text-letter-spacing': 0.08, 'symbol-sort-key': 5 },
+    layout: { 'text-field': ['upcase', LOCAL_NAME], 'text-font': F_BOLD, 'text-size': 10.5, 'text-letter-spacing': 0.08, 'symbol-sort-key': 5 },
     paint: { 'text-color': P.labelMinor, 'text-halo-color': P.halo, 'text-halo-width': sat ? 1.75 : 1.5 } });
+  // ---- places zoomed out (6 Nov): seas, countries, regions, cities with a dot, towns, villages, lakes, peaks ----
+  const textHalo = { 'text-halo-color': P.halo, 'text-halo-width': sat ? 1.75 : 1.5 };
+  const placeCls = (c) => ['==', ['get', 'class'], c];
+  const rankAtMost = (n) => ['<=', ['coalesce', ['get', 'rank'], 99], n];
+  const label = (layer, id, { minzoom, maxzoom, filter, field = PLACE_NAME, font = F_REG, size, color, opacity, spacing, upper, sort, extra = {} }) =>
+    omt(layer, id, 'symbol', { minzoom, maxzoom, filter,
+      layout: { 'text-field': field, 'text-font': font, 'text-size': size, 'text-max-width': 8, 'text-padding': 3,
+        ...(spacing ? { 'text-letter-spacing': spacing } : {}), ...(upper ? { 'text-transform': 'uppercase' } : {}),
+        ...(sort ? { 'symbol-sort-key': sort } : {}), ...extra.layout },
+      paint: { 'text-color': color, 'text-opacity': opacity, ...textHalo, ...extra.paint } });
+  const rankKey = ['coalesce', ['get', 'rank'], 30];
+  label('water_name', 'label-water-lake', { minzoom: 8.5, filter: inList('class', ['lake', 'bay', 'lagoon']),
+    font: F_REG, size: zsize(9, 10.5, 14, 12.5), color: P.waterInk, opacity: fade(8.5, 9.5), spacing: 0.04 });
+  label('water_name', 'label-water-sea', { minzoom: 1.5, maxzoom: 9, filter: inList('class', ['ocean', 'sea', 'strait', 'gulf']),
+    font: F_REG, size: zsize(2, 10, 7, 13), color: P.waterInk, opacity: fade(1.5, 2.5, 8, 9, 0.85), spacing: 0.22, upper: true,
+    extra: { layout: { 'symbol-placement': 'point', 'text-max-width': 6 } } });
+  if (od) label('mountain_peak', 'label-peak', { minzoom: 11, filter: ['all', ['has', 'name'], ['has', 'ele']],
+    field: ['concat', LOCAL_NAME, '\n', ['to-string', ['get', 'ele']], ' m'], size: zsize(11, 10, 15, 11.5), color: P.labelMinor,
+    opacity: fade(11, 12), sort: ['coalesce', ['get', 'rank'], 30] });
+  label('place', 'label-village', { minzoom: 10.2, maxzoom: 15, filter: inList('class', ['village', 'hamlet']),
+    size: zsize(10.5, 10.5, 14, 12), color: P.labelMinor, opacity: fade(10.2, 10.8, 14.2, 15), sort: rankKey });
+  label('place', 'label-town', { minzoom: 7.2, maxzoom: 14, filter: placeCls('town'), font: F_BOLD,
+    size: zsize(7.5, 10.5, 11, 12.5, 13.5, 14), color: P.place, opacity: fade(7.2, 7.8, 13.2, 14), sort: rankKey });
+  label('place', 'label-region', { minzoom: 4.5, maxzoom: 8.6, filter: placeCls('state'), size: zsize(5, 10, 8, 11.5),
+    color: P.labelMinor, opacity: fade(4.5, 5.3, 7.8, 8.6, 0.9), spacing: 0.15, upper: true, sort: rankKey });
+  // Cities: a dot with the name beside it out to z9, then the name alone, centred, growing to z12 and giving way to
+  // the suburbs by 13.
+  const city = placeCls('city'), major = ['any', rankAtMost(3), ['in', ['get', 'capital'], ['literal', [2, 4]]]];
+  const cityFont = ['case', major, ['literal', F_BOLD], ['literal', F_REG]];
+  label('place', 'label-city', { minzoom: 9.35, maxzoom: 13, filter: city, font: cityFont, size: zsize(9.35, 12.5, 12, 16.5),
+    color: P.placeMajor, opacity: fade(9.35, 9.65, 12.2, 13), sort: rankKey });
+  for (const [id, filter, minzoom] of [['label-city-dot', major, 2.5], ['label-city-dot-minor', ['!', major], 5]])
+    label('place', id, { minzoom, maxzoom: 9.65, filter: ['all', city, filter],
+      font: cityFont, size: zsize(3, 11, 9.35, 12.5), color: P.placeMajor, opacity: fade(minzoom, minzoom + 0.8, 9.35, 9.65), sort: rankKey,
+      extra: { layout: { 'icon-image': `dot-${sat ? 'night' : mode}`, 'icon-size': zsize(3, 0.75, 8, 1), 'text-anchor': 'left',
+        'text-offset': ['literal', [0.55, 0]], 'text-justify': 'left' }, paint: { 'icon-opacity': fade(minzoom, minzoom + 0.8, 9.35, 9.65) } } });
+  for (const [id, filter, minzoom, size] of [['label-country-minor', ['!', rankAtMost(2)], 3.5, zsize(3.5, 9.5, 6, 12)],
+    ['label-country', rankAtMost(2), 1.5, zsize(2, 10.5, 4, 12.5, 6.5, 15)]])
+    label('place', id, { minzoom, maxzoom: 7.9, filter: ['all', placeCls('country'), filter], font: F_BOLD, size,
+      color: P.placeMajor, opacity: fade(minzoom, minzoom + 0.8, 7.3, 7.9, 0.8), spacing: 0.12, upper: true, sort: rankKey,
+      extra: { layout: { 'text-max-width': 6 } } });
   omt('poi', 'label-park', 'symbol', { minzoom: 14.5, filter: ['==', ['get', 'class'], 'park'],
     layout: { 'text-field': ['get', 'name'], 'text-font': F_REG, 'text-size': 11.5, 'symbol-sort-key': 7 },
     paint: { 'text-color': P.parkInk, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });

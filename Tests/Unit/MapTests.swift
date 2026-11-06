@@ -35,6 +35,24 @@ struct MapTests {
         #expect(on["station-metro"] == false)
     }
 
+    @Test func placeNamesFollowThePhonesLanguage() throws {
+        func fields(_ language: String?) -> [String] {
+            (VelixMapStyle.placeName(language: language).dropFirst()).compactMap { ($0 as? [Any])?.last as? String }
+        }
+        #expect(fields("it-IT") == ["name:it", "name:latin", "name"])
+        #expect(fields("en") == ["name:en", "name:latin", "name"])
+        #expect(fields("de-CH") == ["name:de", "name:latin", "name"])
+        #expect(fields("ja-JP") == ["name:latin", "name"])        // no Japanese glyphs: Latin letters
+        #expect(fields(nil) == ["name:latin", "name"])
+        // Every place label in the bundled styles is one the app renames, and none of the street labels.
+        let url = try #require(Bundle.main.url(forResource: "standard-day", withExtension: "json", subdirectory: "MapStyle"))
+        let style = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let ids = (style["layers"] as? [[String: Any]] ?? []).compactMap { $0["id"] as? String }
+        let renamed = ids.filter { id in VelixMapStyle.placeLabelPrefixes.contains(where: id.hasPrefix) }
+        #expect(Set(renamed) == ["label-country", "label-country-minor", "label-region", "label-city", "label-city-dot",
+                                 "label-city-dot-minor", "label-town", "label-village", "label-water-lake", "label-water-sea"])
+    }
+
     @Test func styleIsRememberedPerRideType() throws {
         let defaults = try #require(UserDefaults(suiteName: "velix-map-tests-\(UUID().uuidString)"))
         let pref = MapStylePreference(defaults: defaults)
