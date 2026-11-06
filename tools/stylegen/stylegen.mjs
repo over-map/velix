@@ -81,6 +81,9 @@ const ROAD_IN = { motorway: [3.5, 5], trunk: [5, 6.5], primary: [7, 8.5], second
 const calm = (z) => (z <= 8 ? 0.45 + 0.15 * ramp01(6, 8, z) : 0.6 + 0.4 * ramp01(8, 9.5, z));
 /** Chart hairlines never thinner than this (pt) below z11, so zoomed out a motorway still reads. */
 const CHART_FLOOR = { motor: 0.6, primary: 0.5, secondary: 0.4 };
+/** Chart hairlines → outlined streets (P3's switch at fillFrom 15.2): the streets fade in over the hairlines, then
+ * the hairlines go underneath them, so the roads never look washed out half-way. */
+const XFADE = [14.9, 15.3], XOUT = [15.3, 15.6];
 const ROAD = { motor: ['motorway', 'trunk'], primary: ['primary'], secondary: ['secondary'], tertiary: ['tertiary'],
   minor: ['minor', 'busway'], service: ['service', 'raceway'] };
 const ORDER = ['service', 'minor', 'tertiary', 'secondary', 'primary', 'motor'];
@@ -121,8 +124,9 @@ function style(name, mode) {
       ['education', ['school', 'college', 'university', 'kindergarten', 'education', 'library'], 12], ['hospital', ['hospital'], 12],
       ['cemetery', ['cemetery'], 12], ['playground', ['playground'], 14], ['pitch', ['pitch', 'track'], 14]];
     for (const [k, cls, minzoom] of LU) omt('landuse', `landuse-${k}`, 'fill', { minzoom, filter: inList('class', cls),
-      paint: { 'fill-color': P[k], ...(k === 'residential' ? { 'fill-opacity': fade(8, 9.5) } : {}) } });
-    omt('landuse', 'landuse-pitch-line', 'line', { minzoom: 15.5, filter: inList('class', ['pitch', 'track']), paint: { 'line-color': P.pitchLine, 'line-width': 1 } });
+      paint: { 'fill-color': P[k], 'fill-opacity': k === 'residential' ? fade(8, 9.5) : fade(minzoom, minzoom + 1) } });
+    omt('landuse', 'landuse-pitch-line', 'line', { minzoom: 15.5, filter: inList('class', ['pitch', 'track']),
+      paint: { 'line-color': P.pitchLine, 'line-opacity': fade(15.5, 16.1), 'line-width': 1 } });
   }
 
   // ---- landcover (farmland, grass, meadow, golf, park, scrub, sand, wood) ----
@@ -153,21 +157,22 @@ function style(name, mode) {
     paint: { 'line-color': P.parkInk, 'line-opacity': fade(7, 8, 13.5, 14.5, 0.45), 'line-width': zsize(7, 0.5, 12, 1),
       'line-dasharray': ['literal', [3, 2]] } });
   omt('landcover', 'landcover-trees', 'fill', { minzoom: 14, filter: ['==', ['get', 'class'], 'wood'],
-    paint: { 'fill-pattern': `trees-${mode}`, 'fill-opacity': sat ? 0.9 : 0.55 } });
+    paint: { 'fill-pattern': `trees-${mode}`, 'fill-opacity': fade(14, 14.8, null, null, sat ? 0.9 : 0.55) } });
   if (!sat) omt('landcover', 'landcover-park-trees', 'fill', { minzoom: 15, filter: sub(['park', 'garden', 'recreation_ground', 'village_green']),
-    paint: { 'fill-pattern': `trees-${mode}`, 'fill-opacity': 0.45 } });
+    paint: { 'fill-pattern': `trees-${mode}`, 'fill-opacity': fade(15, 15.8, null, null, 0.45) } });
 
   // ---- water ----
   omt('water', 'water', 'fill', { filter: not('brunnel', 'tunnel'), paint: { 'fill-color': P.water } });
   if (!sat) omt('water', 'water-shore', 'line', { filter: not('brunnel', 'tunnel'),
-    paint: { 'line-color': P.waterLine, 'line-opacity': 0.7, 'line-width': ['step', ['zoom'], 0.6, 15, 1] } });
+    paint: { 'line-color': P.waterLine, 'line-opacity': 0.7, 'line-width': zsize(14, 0.6, 15, 1) } });
   // Rivers from z6 (6 Nov), never thinner than 0.5 pt; the smaller waterways from z11, as before.
   const river = ['==', ['get', 'class'], 'river'];
   const riverW = ['interpolate', ['exponential', 1.5], ['zoom'], 6, 0.5, 9, 0.7, ...ZS.filter((z) => z >= 11).flatMap((z) => [z, r2(Math.max(0.7, interp(W.water, z)))])];
   omt('waterway', 'waterway-river', 'line', { minzoom: 6, maxzoom: 11, filter: ['all', not('brunnel', 'tunnel'), river],
     layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': P.water, 'line-opacity': fade(6, 7), 'line-width': riverW } });
   omt('waterway', 'waterway', 'line', { minzoom: 11, filter: not('brunnel', 'tunnel'), layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': P.water, 'line-width': ['interpolate', ['exponential', 1.5], ['zoom'],
+    paint: { 'line-color': P.water, 'line-opacity': zfn([11, 11.8], (z) => ['case', river, 1, r2(ramp01(11, 11.8, z))]),
+      'line-width': ['interpolate', ['exponential', 1.5], ['zoom'],
       ...ZS.filter((z) => z >= 11).flatMap((z) => [z, ['case', river, r2(Math.max(0.7, interp(W.water, z))), r2(interp(W.water, z))]])] } });
 
   // ---- borders (6 Nov): countries a soft band and a line, regions dashed, provinces dotted; not at sea ----
@@ -197,51 +202,54 @@ function style(name, mode) {
   const lineLayout = { 'line-cap': 'round', 'line-join': 'round' };
   const cls = (k) => inList('class', ROAD[k]);
   if (!sat) for (const k of ORDER) omt('transportation', `road-tunnel-${k}`, 'line', { minzoom: 14.5, filter: ['all', cls(k), ['==', ['get', 'brunnel'], 'tunnel']],
-    layout: lineLayout, paint: { 'line-color': P.tunnel, 'line-opacity': 0.8, 'line-width': width(wr(k)) } });
+    layout: lineLayout, paint: { 'line-color': P.tunnel, 'line-opacity': fade(14.5, 15.2, null, null, 0.8), 'line-width': width(wr(k)) } });
   const ped = ['all', ['==', ['get', 'class'], 'path'], ['==', ['get', 'subclass'], 'pedestrian'], not('brunnel', 'tunnel')];
   if (!sat) {
-    omt('transportation', 'road-pedestrian-case', 'line', { minzoom: 14, filter: ped, layout: lineLayout, paint: { 'line-color': P.pedCase, 'line-width': width(caseW('ped')) } });
-    omt('transportation', 'road-pedestrian', 'line', { minzoom: 14, filter: ped, layout: lineLayout, paint: { 'line-color': P.pedFill, 'line-width': w('ped') } });
+    omt('transportation', 'road-pedestrian-case', 'line', { minzoom: 14, filter: ped, layout: lineLayout, paint: { 'line-color': P.pedCase, 'line-opacity': fade(14, 14.6), 'line-width': width(caseW('ped')) } });
+    omt('transportation', 'road-pedestrian', 'line', { minzoom: 14, filter: ped, layout: lineLayout, paint: { 'line-color': P.pedFill, 'line-opacity': fade(14, 14.6), 'line-width': w('ped') } });
   }
   const chart = !!P.chartLine;
   const fillFrom = P.fillFrom;
   // Each class fades in as the tiles bring it (ROAD_IN), calmer zoomed out; zoomed-out widths have a floor.
-  const roadIn = (k, alpha) => {
-    const classes = ROAD[k], zs = [0, 6, 8, 9.5, 15.2, ...classes.flatMap((c) => ROAD_IN[c])];
+  // Chart hairlines hand over to the outlined streets by cross-fading over XFADE (was a switch at 15.2).
+  const roadIn = (k, alpha, out = false) => {
+    const classes = ROAD[k], zs = [0, 6, 8, 9.5, ...(out ? XOUT : [15.2]), ...classes.flatMap((c) => ROAD_IN[c])];
     return zfn(zs, (z) => {
-      const v = classes.map((c) => r2(alpha * calm(z) * ramp01(...ROAD_IN[c], z)));
+      const v = classes.map((c) => r2(alpha * calm(z) * ramp01(...ROAD_IN[c], z) * (out ? 1 - ramp01(...XOUT, z) : 1)));
       return v.every((x) => x === v[0]) ? v[0] : ['match', ['get', 'class'], ...classes.flatMap((c, i) => [c, v[i]]), v[0]];
     });
   };
   const chartW = (k, caseMul = 1) => width((z) => Math.max(interp(W[k], z) * P.chartW + interp(W.caseAdd, z) * caseMul, z < 11 ? CHART_FLOOR[k] ?? 0 : 0));
-  if (chart) for (const k of ORDER) omt('transportation', `road-chart-${k}`, 'line', { maxzoom: fillFrom, filter: ['all', cls(k), surface],
-    layout: lineLayout, paint: { 'line-color': P.chartLine, 'line-opacity': roadIn(k, CH_ALPHA[k]), 'line-width': chartW(k) } });
-  const casedFrom = chart ? fillFrom : 0;
+  if (chart) for (const k of ORDER) omt('transportation', `road-chart-${k}`, 'line', { maxzoom: XOUT[1], filter: ['all', cls(k), surface],
+    layout: lineLayout, paint: { 'line-color': P.chartLine, 'line-opacity': roadIn(k, CH_ALPHA[k], true), 'line-width': chartW(k) } });
+  const casedFrom = chart ? XFADE[0] : 0;
+  const casedIn = chart ? { 'line-opacity': fade(...XFADE) } : {};
   for (const k of ORDER) {
     const big = k === 'primary' || k === 'motor';
     omt('transportation', `road-case-${k}`, 'line', { minzoom: big ? casedFrom : Math.max(casedFrom, 13.5), filter: ['all', cls(k), surface],
-      layout: lineLayout, paint: { 'line-color': caseCol(k), 'line-width': width(caseW(k, big ? 1.3 : 1)) } });
+      layout: lineLayout, paint: { 'line-color': caseCol(k), 'line-width': width(caseW(k, big ? 1.3 : 1)),
+        'line-opacity': chart ? fade(...XFADE) : big ? roadIn(k, 1) : fade(13.5, 14.1) } });
   }
   for (const k of ORDER) omt('transportation', `road-${k}`, 'line', { minzoom: casedFrom, filter: ['all', cls(k), surface],
-    layout: lineLayout, paint: { 'line-color': roadCol(k), 'line-width': width(wr(k)), ...(chart ? {} : { 'line-opacity': roadIn(k, 1) }) } });
+    layout: lineLayout, paint: { 'line-color': roadCol(k), 'line-width': width(wr(k)), ...(chart ? casedIn : { 'line-opacity': roadIn(k, 1) }) } });
   if (!sat) {
     const pathAlpha = chart ? 0.7 : 1;
     omt('transportation', 'path-footway', 'line', { minzoom: 15, filter: ['all', ['==', ['get', 'class'], 'path'], sub(['footway', 'path']), not('brunnel', 'tunnel')],
-      layout: { 'line-cap': 'round' }, paint: { 'line-color': P.path, 'line-opacity': pathAlpha, 'line-width': w('path'), 'line-dasharray': dash([1, 2.4], wr('path')) } });
+      layout: { 'line-cap': 'round' }, paint: { 'line-color': P.path, 'line-opacity': fade(15, 15.6, null, null, pathAlpha), 'line-width': w('path'), 'line-dasharray': dash([1, 2.4], wr('path')) } });
     const stepsW = (z) => interp(W.steps, z) * 2.2;
     omt('transportation', 'path-steps', 'line', { minzoom: 15, filter: ['all', ['==', ['get', 'class'], 'path'], ['==', ['get', 'subclass'], 'steps'], not('brunnel', 'tunnel')],
-      layout: { 'line-cap': 'butt' }, paint: { 'line-color': P.steps, 'line-width': width(stepsW), 'line-dasharray': dash([1, 1.6], stepsW) } });
+      layout: { 'line-cap': 'butt' }, paint: { 'line-color': P.steps, 'line-opacity': fade(15, 15.6), 'line-width': width(stepsW), 'line-dasharray': dash([1, 1.6], stepsW) } });
     omt('transportation', 'road-construction', 'line', { minzoom: 15, filter: ['in', '_construction', ['get', 'class']],
-      paint: { 'line-color': P.construction, 'line-width': w('minor'), 'line-dasharray': dash([4, 3], wr('minor')) } });
+      paint: { 'line-color': P.construction, 'line-opacity': fade(15, 15.6), 'line-width': w('minor'), 'line-dasharray': dash([4, 3], wr('minor')) } });
   }
   if (od) {
     const track = ['==', ['get', 'class'], 'track'];
-    omt('transportation', 'track-case', 'line', { minzoom: 12, filter: track, layout: lineLayout, paint: { 'line-color': P.trackCase, 'line-opacity': 0.9, 'line-width': w('track', 1, 1.6) } });
-    omt('transportation', 'track-paved', 'line', { minzoom: 12, filter: ['all', track, ['==', ['get', 'surface'], 'paved']], layout: lineLayout, paint: { 'line-color': P.track, 'line-width': w('track') } });
+    omt('transportation', 'track-case', 'line', { minzoom: 12, filter: track, layout: lineLayout, paint: { 'line-color': P.trackCase, 'line-opacity': fade(12, 12.8, null, null, 0.9), 'line-width': w('track', 1, 1.6) } });
+    omt('transportation', 'track-paved', 'line', { minzoom: 12, filter: ['all', track, ['==', ['get', 'surface'], 'paved']], layout: lineLayout, paint: { 'line-color': P.track, 'line-opacity': fade(12, 12.8), 'line-width': w('track') } });
     omt('transportation', 'track-unpaved', 'line', { minzoom: 12, filter: ['all', track, ['!=', ['get', 'surface'], 'paved']], layout: { 'line-cap': 'butt' },
-      paint: { 'line-color': P.track, 'line-width': w('track'), 'line-dasharray': dash([5, 3], wr('track')) } });
+      paint: { 'line-color': P.track, 'line-opacity': fade(12, 12.8), 'line-width': w('track'), 'line-dasharray': dash([5, 3], wr('track')) } });
     omt('transportation', 'trail', 'line', { minzoom: 13, filter: ['all', ['==', ['get', 'class'], 'path'], sub(['path', 'footway', 'bridleway'])],
-      layout: { 'line-cap': 'round' }, paint: { 'line-color': P.track, 'line-width': w('mpath'), 'line-dasharray': dash([0.1, 3.6], wr('mpath')) } });
+      layout: { 'line-cap': 'round' }, paint: { 'line-color': P.track, 'line-opacity': fade(13, 13.8), 'line-width': w('mpath'), 'line-dasharray': dash([0.1, 3.6], wr('mpath')) } });
   }
   // ---- rail + tram ----
   const rail = ['all', ['==', ['get', 'class'], 'rail'], not('brunnel', 'tunnel')];
@@ -251,19 +259,20 @@ function style(name, mode) {
     paint: { 'line-color': P.rail, 'line-opacity': fade(13, 14), 'line-width': w('rail') } });
   const tiesW = (z) => interp(W.rail, z) * 3;
   omt('transportation', 'rail-ties', 'line', { minzoom: 14, filter: rail, layout: { 'line-cap': 'butt' },
-    paint: { 'line-color': P.rail, 'line-width': width(tiesW), 'line-dasharray': dash([1, 6], tiesW) } });
+    paint: { 'line-color': P.rail, 'line-opacity': fade(14, 14.6), 'line-width': width(tiesW), 'line-dasharray': dash([1, 6], tiesW) } });
   const tram = ['all', ['==', ['get', 'class'], 'transit'], ['==', ['get', 'subclass'], 'tram'], not('brunnel', 'tunnel')];
-  omt('transportation', 'tram', 'line', { minzoom: 14, filter: tram, layout: lineLayout, paint: { 'line-color': P.tram, 'line-width': w('tram') } });
+  omt('transportation', 'tram', 'line', { minzoom: 14, filter: tram, layout: lineLayout, paint: { 'line-color': P.tram, 'line-opacity': fade(14, 14.6), 'line-width': w('tram') } });
   omt('transportation', 'tram-groove', 'line', { minzoom: 16, filter: tram, layout: lineLayout,   // twin rails once the line is > 2.2 pt
     paint: { 'line-color': sat ? P.road : P.minor, 'line-width': width((z) => (interp(W.tram, z) > 2.2 ? interp(W.tram, z) - 1.6 : 0)) } });
   // ---- bridges ----
   for (const k of ORDER) {
     const f = ['all', cls(k), ['==', ['get', 'brunnel'], 'bridge']];
-    if (chart) omt('transportation', `bridge-chart-${k}`, 'line', { maxzoom: fillFrom, filter: f, layout: lineLayout,
-      paint: { 'line-color': P.chartLine, 'line-opacity': roadIn(k, CH_ALPHA[k]), 'line-width': chartW(k, 2) } });
+    if (chart) omt('transportation', `bridge-chart-${k}`, 'line', { maxzoom: XOUT[1], filter: f, layout: lineLayout,
+      paint: { 'line-color': P.chartLine, 'line-opacity': roadIn(k, CH_ALPHA[k], true), 'line-width': chartW(k, 2) } });
     omt('transportation', `bridge-case-${k}`, 'line', { minzoom: casedFrom, filter: f, layout: lineLayout,
-      paint: { 'line-color': caseCol(k) || P.secondaryCase, 'line-width': width(caseW(k, 2)) } });
-    omt('transportation', `bridge-${k}`, 'line', { minzoom: casedFrom, filter: f, layout: lineLayout, paint: { 'line-color': roadCol(k), 'line-width': width(wr(k)) } });
+      paint: { 'line-color': caseCol(k) || P.secondaryCase, 'line-width': width(caseW(k, 2)), ...casedIn } });
+    omt('transportation', `bridge-${k}`, 'line', { minzoom: casedFrom, filter: f, layout: lineLayout,
+      paint: { 'line-color': roadCol(k), 'line-width': width(wr(k)), ...casedIn } });
   }
 
   // ---- cycling infrastructure: only the Bike lanes overlay (z11+), switched in the Map sheet; the base map has none
@@ -308,8 +317,8 @@ function style(name, mode) {
   const roofIdx = ['%', ['to-number', ['id'], 0], P.roof.length];
   const roof = ['match', roofIdx, ...P.roof.flatMap((c, i) => [i, c]).slice(0, -2), P.roof[P.roof.length - 1]];
   const landmark = ['>=', ['coalesce', ['get', 'render_height'], 0], 85];
-  omt('building', 'building-flat', 'fill', { minzoom: 13.6, maxzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof] } });
-  omt('building', 'building-edge', 'line', { minzoom: 14.2, maxzoom: 15, paint: { 'line-color': P.wallD, 'line-width': 0.4, 'line-opacity': 0.5 } });
+  omt('building', 'building-flat', 'fill', { minzoom: 13.6, maxzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof], 'fill-opacity': fade(13.6, 14.2) } });
+  omt('building', 'building-edge', 'line', { minzoom: 14.2, maxzoom: 15, paint: { 'line-color': P.wallD, 'line-width': 0.4, 'line-opacity': fade(14.2, 14.6, null, null, 0.5) } });
   // Walls lighter at the bottom, darker at the top (Filippo, 30 Oct): MapLibre's own vertical gradient darkens the
   // bottom and can't be reversed, so each building is stacked slices of its height, lighter to darker, with the
   // built-in gradient off. `building-3d` is the bottom slice, `building-3d-1`… the ones above it. The top slice is the
@@ -335,8 +344,9 @@ function style(name, mode) {
   // ---- road labels (below the route: it covers its own street names) ----
   const roadLabel = (id, classes, minzoom, bold) => omt('transportation_name', id, 'symbol', { minzoom, filter: inList('class', classes),
     layout: { 'symbol-placement': 'line', 'text-field': LOCAL_NAME, 'text-font': bold ? F_BOLD : F_REG,
-      'text-size': ['step', ['zoom'], 11, 16, 12, 17, 13], 'text-max-angle': 30, 'text-padding': 4, 'symbol-sort-key': 6 },
+      'text-size': zsize(15, 11, 17, 13), 'text-max-angle': 30, 'text-padding': 4, 'symbol-sort-key': 6 },
     paint: { 'text-color': classes.includes('minor') || classes.includes('path') ? P.labelMinor : P.label, 'text-halo-color': P.halo,
+      'text-opacity': fade(minzoom, minzoom + 0.4),
       'text-halo-width': sat ? 1.75 : 1.5 } });
   roadLabel('label-road-primary', ['primary', 'trunk'], 14.6, true);
   roadLabel('label-road-secondary', ['secondary'], 14.6, false);
@@ -409,25 +419,26 @@ function style(name, mode) {
       'text-field': ['step', ['zoom'], '', minzoom === 12.5 ? 14 : 15.2, ['get', 'name']], 'text-font': F_BOLD,
       'text-size': ['step', ['zoom'], 11, 16, 12], 'text-anchor': 'left', 'text-justify': 'left', 'text-offset': stationOffset(1.4),
       'text-optional': true, 'symbol-sort-key': 4 },
-    paint: { 'text-color': P.placeMajor, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
+    paint: { 'text-color': P.placeMajor, 'text-halo-color': P.halo, 'text-halo-width': 1.5, 'icon-opacity': fade(minzoom, minzoom + 0.3),
+      'text-opacity': fade(minzoom === 12.5 ? 14 : 15.2, (minzoom === 12.5 ? 14 : 15.2) + 0.3) } });
   stationName(14.6, 'station-metro', 'visible');
   stationName(12.5, 'overlay-station-metro', 'none');
   vel('velix_stations', 'station-rail', 'symbol', { minzoom: 13.5, filter: ['==', ['get', 'mode'], 'train'],
     layout: { 'icon-image': `rail-${mode}`, 'icon-size': stationSize, 'text-field': ['get', 'name'], 'text-font': F_BOLD, 'text-size': 11,
       'text-anchor': 'left', 'text-offset': stationOffset(1.1), 'text-optional': true, 'symbol-sort-key': 4 },
-    paint: { 'text-color': P.placeMajor, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
+    paint: { 'text-color': P.placeMajor, 'text-halo-color': P.halo, 'text-halo-width': 1.5, 'icon-opacity': fade(13.5, 13.8), 'text-opacity': fade(13.5, 13.8) } });
   // Station entrances from z16 (where the stairs and lifts are: useful with a bike, 30 Oct); their name from z17.
   vel('velix_stations', 'station-entrance', 'symbol', { minzoom: 16, filter: ['==', ['get', 'mode'], 'entrance'],
     layout: { 'icon-image': ['concat', 'entrance-', ['get', 'kind'], `-${mode}`], 'icon-allow-overlap': false, 'icon-padding': 1,
       'text-field': ['step', ['zoom'], '', 17, ['coalesce', ['get', 'name'], '']], 'text-font': F_REG, 'text-size': 10.5,
       'text-anchor': 'left', 'text-offset': ['literal', [1.0, 0.05]], 'text-optional': true, 'symbol-sort-key': 4.2 },
-    paint: { 'text-color': P.placeMajor, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
+    paint: { 'text-color': P.placeMajor, 'text-halo-color': P.halo, 'text-halo-width': 1.5, 'icon-opacity': fade(16, 16.3), 'text-opacity': fade(17, 17.3) } });
   omt('place', 'label-suburb', 'symbol', { minzoom: 11.5, maxzoom: 15.6, filter: inList('class', ['suburb', 'quarter']),
     layout: { 'text-field': ['upcase', LOCAL_NAME], 'text-font': F_BOLD, 'text-size': 12, 'text-letter-spacing': 0.08, 'symbol-sort-key': 5 },
-    paint: { 'text-color': P.place, 'text-halo-color': P.halo, 'text-halo-width': sat ? 1.75 : 1.5 } });
+    paint: { 'text-color': P.place, 'text-opacity': fade(11.5, 12.1, 15, 15.6), 'text-halo-color': P.halo, 'text-halo-width': sat ? 1.75 : 1.5 } });
   omt('place', 'label-neighbourhood', 'symbol', { minzoom: 13.8, maxzoom: 16.4, filter: inList('class', ['neighbourhood']),
     layout: { 'text-field': ['upcase', LOCAL_NAME], 'text-font': F_BOLD, 'text-size': 10.5, 'text-letter-spacing': 0.08, 'symbol-sort-key': 5 },
-    paint: { 'text-color': P.labelMinor, 'text-halo-color': P.halo, 'text-halo-width': sat ? 1.75 : 1.5 } });
+    paint: { 'text-color': P.labelMinor, 'text-opacity': fade(13.8, 14.4, 15.8, 16.4), 'text-halo-color': P.halo, 'text-halo-width': sat ? 1.75 : 1.5 } });
   // ---- places zoomed out (6 Nov): seas, countries, regions, cities with a dot, towns, villages, lakes, peaks ----
   const textHalo = { 'text-halo-color': P.halo, 'text-halo-width': sat ? 1.75 : 1.5 };
   const placeCls = (c) => ['==', ['get', 'class'], c];
@@ -471,7 +482,7 @@ function style(name, mode) {
       extra: { layout: { 'text-max-width': 6 } } });
   omt('poi', 'label-park', 'symbol', { minzoom: 14.5, filter: ['==', ['get', 'class'], 'park'],
     layout: { 'text-field': ['get', 'name'], 'text-font': F_REG, 'text-size': 11.5, 'symbol-sort-key': 7 },
-    paint: { 'text-color': P.parkInk, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
+    paint: { 'text-color': P.parkInk, 'text-opacity': fade(14.5, 15), 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
   const poiCat = ['match', ['coalesce', ['get', 'subclass'], ''], ...Object.entries(POI_CAT).flatMap(([k, v]) => [k, v]),
     ['match', ['get', 'class'], ...Object.entries(POI_CAT).flatMap(([k, v]) => [k, v]), '']];
   // POIs come in tiers, a few categories at a time (Filippo, 2 Nov: every POI appearing at one zoom stalled the
@@ -488,11 +499,12 @@ function style(name, mode) {
   for (const [id, minzoom, names, cats, more] of POI_TIERS) omt('poi', id, 'symbol', { minzoom,
     filter: ['all', ['!=', ['get', 'class'], 'park'], ['in', poiCat, ['literal', cats]],
       ['any', ['has', 'name'], ['in', poiCat, ['literal', ['bike', 'water']]]], ...(more ? [more] : [])],
-    layout: { 'icon-image': ['concat', 'poi-', poiCat, `-${mode}`], 'icon-size': ['step', ['zoom'], 1, 17, 8 / 6.5],
+    layout: { 'icon-image': ['concat', 'poi-', poiCat, `-${mode}`], 'icon-size': zsize(16.8, 1, 17.2, r2(8 / 6.5)),
       'text-field': ['step', ['zoom'], '', names, ['coalesce', ['get', 'name'], '']], 'text-font': F_REG, 'text-size': 11,
       'text-anchor': 'left', 'text-offset': ['literal', [1.0, 0.05]], 'text-optional': true, 'symbol-sort-key': ['+', 7, ['/', rank, 100]] },
     // Names in their category's colour (overrides.json `poi`), so shops, food and the rest read apart.
-    paint: { 'text-color': ['match', poiCat, ...Object.keys(P.poi).filter((c) => overrides.poi?.[c]).flatMap((c) => [c, poiColor(c, mode, P)]), P.poiInk],
+    paint: { 'icon-opacity': fade(minzoom, minzoom + 0.3), 'text-opacity': fade(names, names + 0.3),
+      'text-color': ['match', poiCat, ...Object.keys(P.poi).filter((c) => overrides.poi?.[c]).flatMap((c) => [c, poiColor(c, mode, P)]), P.poiInk],
       'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
   // While riding (the app swaps it in for the tiers above): bike shops and drinking water only, icons
   // without names. Every shop and café of central Milan made the iPhone 11 re-place thousands of symbols each frame
@@ -502,10 +514,10 @@ function style(name, mode) {
   omt('poi', 'poi-riding', 'symbol', { minzoom: 15.6,
     filter: ['any', bikeShop, ['==', ['coalesce', ['get', 'subclass'], ''], 'bicycle'], ['==', poiCat, 'water']],
     layout: { visibility: 'none', 'icon-image': ['case', ['==', poiCat, 'water'], `poi-water-${mode}`, `poi-bikeshop-${mode}`],
-      'icon-size': ['step', ['zoom'], 1, 17, 8 / 6.5], 'symbol-sort-key': 7 } });
+      'icon-size': zsize(16.8, 1, 17.2, r2(8 / 6.5)), 'symbol-sort-key': 7 }, paint: { 'icon-opacity': fade(15.6, 15.9) } });
   omt('housenumber', 'housenumber', 'symbol', { minzoom: 17.6,
     layout: { 'text-field': ['get', 'housenumber'], 'text-font': F_REG, 'text-size': 9.5, 'symbol-sort-key': 8 },
-    paint: { 'text-color': P.hn, 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
+    paint: { 'text-color': P.hn, 'text-opacity': fade(17.6, 18), 'text-halo-color': P.halo, 'text-halo-width': 1.5 } });
   vel('velix_routes', 'eurovelo-badge', 'symbol', { minzoom: 9, layout: { visibility: 'none', 'symbol-placement': 'line', 'symbol-spacing': 280,
     'icon-image': ['concat', 'ev-', ['get', 'ref']], 'icon-size': ['interpolate', ['linear'], ['zoom'], 9, 20 / 24, 15, 1], 'symbol-sort-key': 4.5 } });
 
@@ -513,11 +525,11 @@ function style(name, mode) {
   add({ id: 'hazard-pip', type: 'circle', source: 'velix-hazards', minzoom: 15, filter: ['!', ['has', 'point_count']],
     paint: { 'circle-radius': 3, 'circle-color': T.hazard, 'circle-stroke-color': T.hazardRing, 'circle-stroke-width': 1.5 } });
   add({ id: 'hazard-cluster', type: 'symbol', source: 'velix-hazards', filter: ['has', 'point_count'],
-    layout: { 'icon-image': ['concat', 'cnt-', ['to-string', ['get', 'point_count']], `-${mode}`], 'icon-size': ['step', ['zoom'], 16 / 28, 14.5, 22 / 28],
+    layout: { 'icon-image': ['concat', 'cnt-', ['to-string', ['get', 'point_count']], `-${mode}`], 'icon-size': zsize(14.2, r2(16 / 28), 14.8, r2(22 / 28)),
       'icon-anchor': 'bottom', 'icon-allow-overlap': true,
       'symbol-sort-key': ['-', 0, ['get', 'point_count']] } });
   add({ id: 'hazard-marker', type: 'symbol', source: 'velix-hazards', minzoom: 15, filter: ['!', ['has', 'point_count']],
-    layout: { 'icon-image': ['concat', 'hz-', ['get', 'hazard'], `-${mode}`], 'icon-size': ['step', ['zoom'], 22 / 28, 16.5, 1],
+    layout: { 'icon-image': ['concat', 'hz-', ['get', 'hazard'], `-${mode}`], 'icon-size': zsize(16.2, r2(22 / 28), 16.8, 1),
       'icon-anchor': 'bottom', 'icon-allow-overlap': false,
       'icon-padding': 2, 'symbol-sort-key': ['get', 'rank'] } });
   add({ id: 'avoided-tag', type: 'symbol', source: 'velix-markers', minzoom: 14, filter: role('avoided-tag'),
