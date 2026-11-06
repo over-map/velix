@@ -184,7 +184,8 @@ final class AppModel {
 
     /// Every ride of 200 m or more goes into the history; S6 opens only when it ended at the door.
     private func ended(_ session: RideSession, transit: String?) {
-        let record = RideHistory.record(session, transit: transit)
+        // Simulated rides (debug) stay out of the history (M7: only real rides count).
+        let record = RideSession.isSimulated ? nil : RideHistory.record(session, transit: transit)
         if let record {
             history.add(record)
             if state.healthOn { Task { await HealthSync.save(record, to: health, history: history) } }

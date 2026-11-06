@@ -32,15 +32,25 @@ final class RideVoice {
     /// Handed to FerrostarCore; muted outside `VoiceMode.all`.
     @ObservationIgnored let turns: SpokenInstructionObserver
     private(set) var mode: VoiceMode = .all
+    /// Every utterance as it starts, finishes or is cancelled, and audio session errors (the ride log, M7 review).
+    @ObservationIgnored var onEvent: (_ phase: String, _ text: String) -> Void = { _, _ in } {
+        didSet { listener.onEvent = onEvent }
+    }
+    @ObservationIgnored private let listener = SpeechListener()
 
     init() {
         turns = SpokenInstructionObserver(synthesizer: synthesizer, isMuted: false, managesAudioSession: false)
+        synthesizer.delegate = listener      // Ferrostar's observer leaves the delegate free
     }
 
     func start() {
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .voicePrompt,
-                                                         options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
-        try? AVAudioSession.sharedInstance().setActive(true)
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .voicePrompt,
+                                                            options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            onEvent("error", "audio session: \(error.localizedDescription)")
+        }
     }
 
     func stop() {
@@ -50,6 +60,7 @@ final class RideVoice {
 
     func set(_ mode: VoiceMode) {
         self.mode = mode
+        onEvent("mode", mode.rawValue)
         if turns.isMuted == mode.speaksTurns { turns.toggleMute() }   // Ferrostar only offers a toggle
         if mode == .mute { synthesizer.stopSpeaking(at: .word) }
     }
@@ -65,6 +76,15 @@ final class RideVoice {
         u.prefersAssistiveTechnologySettings = true
         synthesizer.speak(u)
     }
+}
+
+/// Reports the synthesizer's utterances (its delegate calls come on the main thread).
+private final class SpeechListener: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
+    var onEvent: (String, String) -> Void = { _, _ in }
+
+    func speechSynthesizer(_ s: AVSpeechSynthesizer, didStart u: AVSpeechUtterance) { onEvent("started", u.speechString) }
+    func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) { onEvent("finished", u.speechString) }
+    func speechSynthesizer(_ s: AVSpeechSynthesizer, didCancel u: AVSpeechUtterance) { onEvent("cancelled", u.speechString) }
 }
 
 /// Two short taps when a hazard is close (P5 S4e; HANDOFF open question 5: tune on a handlebar mount).
