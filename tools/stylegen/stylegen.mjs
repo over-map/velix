@@ -352,7 +352,10 @@ function style(name, mode) {
   for (let i = 0; i < SLICES; i++) {
     const walls = DEEP ? SLICES - 1 : SLICES, cap = DEEP && i === SLICES - 1;
     const from = cap ? CAP : (i / walls) * (DEEP ? CAP : 1), to = cap ? 1 : ((i + 1) / walls) * (DEEP ? CAP : 1);
-    const t = cap ? 0 : LIGHT + (DARK - LIGHT) * (i / Math.max(1, walls - 1));
+    // Light walls run dark at the base to light under the roof cap (Filippo, 6 Nov: "from dark to light"); dark mode
+    // keeps light at the base to the roof colour at the top.
+    const k = i / Math.max(1, walls - 1);
+    const t = cap ? 0 : DEEP ? DARK + (LIGHT - DARK) * k : LIGHT + (DARK - LIGHT) * k;
     omt('building', i === 0 ? 'building-3d' : `building-3d-${i}`, 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
       paint: { 'fill-extrusion-color': shade(t),
         'fill-extrusion-base': ramp(i === 0 ? minH : at(from)), 'fill-extrusion-height': ramp(at(to)),
