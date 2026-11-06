@@ -109,6 +109,7 @@ struct VelixMap: UIViewRepresentable {
             guard let s = state else { return }
             loaded = false
             styleKey = nil
+            sliceOpacity = [:]
             shapes = [:]
             position = nil
             shown = nil
@@ -303,6 +304,8 @@ struct VelixMap: UIViewRepresentable {
         /// What was last handed to the style, so an update that changes nothing costs nothing: re-setting a source
         /// makes MapLibre re-place every symbol on it, which shows as dropped frames while riding (once a fix).
         private var styleKey: String?
+        /// Each wall slice's opacity as the style has it, read before the riding see-through first changes it.
+        private var sliceOpacity: [String: Double] = [:]
         private var shapes: [String: Data] = [:]
 
         func applyStyleState(on map: MLNMapView) {
@@ -325,10 +328,15 @@ struct VelixMap: UIViewRepresentable {
                 for (id, on) in VelixMapStyle.visibility(bikeLanes: s.bikeLanes, transitLines: s.transitLines, layerIDs: ids) {
                     style.layer(withIdentifier: id)?.isVisible = on
                 }
-                // Riding in 3D: buildings a little see-through, so the street and the route read through them (30 Oct).
+                // Riding in 3D: buildings a little see-through, so the street and the route read through them (30 Oct),
+                // times each wall slice's own opacity from the style (light walls fade toward the top, 6 Nov).
+                let see = s.riding && s.camera.pitch > 0 ? Self.ridingBuildingOpacity : 1
                 for layer in style.layers where layer.identifier.hasPrefix("building-3d") {
-                    (layer as? MLNFillExtrusionStyleLayer)?.fillExtrusionOpacity =
-                        NSExpression(forConstantValue: s.riding && s.camera.pitch > 0 ? Self.ridingBuildingOpacity : 1)
+                    guard let l = layer as? MLNFillExtrusionStyleLayer else { continue }
+                    let e = l.fillExtrusionOpacity
+                    let own = sliceOpacity[l.identifier] ?? (e?.expressionType == .constantValue ? (e?.constantValue as? NSNumber)?.doubleValue ?? 1 : 1)
+                    sliceOpacity[l.identifier] = own
+                    l.fillExtrusionOpacity = NSExpression(forConstantValue: own * see)
                 }
                 // Riding: only the bike POIs, without names (see tools/stylegen: the full POI layers cost 3 fps).
                 for l in style.layers where l.identifier.hasPrefix("poi-t") { l.isVisible = !s.riding }   // the POI tiers

@@ -337,7 +337,6 @@ function style(name, mode) {
   // built-in gradient off. `building-3d` is the bottom slice, `building-3d-1`… the ones above it. The top slice is the
   // roof colour itself, so roofs keep the flat z<15 colour (Filippo, 2 Nov).
   const hgt = ['coalesce', ['get', 'render_height'], 6], minH = ['coalesce', ['get', 'render_min_height'], 0];
-  const at = (f) => ['+', minH, ['*', ['-', hgt, minH], f]];
   const ramp = (v) => ['interpolate', ['linear'], ['zoom'], 14.6, 0, 15.8, v];
   // Darker: toward black, or (light, 6 Nov) toward the navy ink, so pale walls deepen without going grey.
   const lift = (c, t) => mixHex(c, t > 0 ? (DEEP ? P.placeMajor : '#000000') : '#FFFFFF', Math.abs(t));
@@ -345,21 +344,24 @@ function style(name, mode) {
   const shade = (t) => ['case', landmark, lift(P.lmRoof, t), ['match', roofIdx, ...P.roof.flatMap((c, i) => [i, lift(c, t)]).slice(0, -2),
     lift(P.roof[P.roof.length - 1], t)]];
   // Lighter than the roof colour at the bottom (`wallLift`: more on the pale light roofs), the roof colour at the top.
-  // Light (6 Nov: the gradient showed in dark, hardly in light, its roofs being pale): the walls also deepen toward
-  // the top, and the last slice is a thin cap in the roof colour, so roofs keep their colour and the layer count stays.
-  const DEEP = !sat && mode === 'day' ? 0.3 : 0, CAP = 0.94;
+  // Light (Filippo, 6 Nov: the gradient showed in dark, hardly in light, its roofs being pale): dark at the base (toward
+  // the navy ink) to the lightest at the top, each slice more see-through than the one below (opaque at the base,
+  // WALL_FADE at the top). The roof is the top face of the last slice, so the last slice is a 0.4 m roof edge in the
+  // roof colour, opaque: roofs keep their colour, and the layer count stays 8.
+  const DEEP = !sat && mode === 'day' ? 0.3 : 0, EDGE = 0.4, WALL_FADE = 0.45;
+  const wallTop = DEEP ? ['max', minH, ['-', hgt, EDGE]] : hgt;
+  const atWall = (f) => ['+', minH, ['*', ['-', wallTop, minH], f]];
   const SLICES = 8, LIGHT = -(P.wallLift ?? 0.3), DARK = DEEP;   // 2 Nov: a stronger gradient (was 14 %, light 35 %)
   for (let i = 0; i < SLICES; i++) {
-    const walls = DEEP ? SLICES - 1 : SLICES, cap = DEEP && i === SLICES - 1;
-    const from = cap ? CAP : (i / walls) * (DEEP ? CAP : 1), to = cap ? 1 : ((i + 1) / walls) * (DEEP ? CAP : 1);
-    // Light walls run dark at the base to light under the roof cap (Filippo, 6 Nov: "from dark to light"); dark mode
-    // keeps light at the base to the roof colour at the top.
+    const walls = DEEP ? SLICES - 1 : SLICES, edge = DEEP && i === SLICES - 1;
     const k = i / Math.max(1, walls - 1);
-    const t = cap ? 0 : DEEP ? DARK + (LIGHT - DARK) * k : LIGHT + (DARK - LIGHT) * k;
+    const t = edge ? 0 : DEEP ? DARK + (LIGHT - DARK) * k : LIGHT + (DARK - LIGHT) * k;
+    const base = edge ? wallTop : i === 0 ? minH : atWall(i / walls), top = edge ? hgt : atWall((i + 1) / walls);
     omt('building', i === 0 ? 'building-3d' : `building-3d-${i}`, 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
-      paint: { 'fill-extrusion-color': shade(t),
-        'fill-extrusion-base': ramp(i === 0 ? minH : at(from)), 'fill-extrusion-height': ramp(at(to)),
-        'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
+      paint: { 'fill-extrusion-color': shade(t), 'fill-extrusion-base': ramp(base), 'fill-extrusion-height': ramp(top),
+        'fill-extrusion-vertical-gradient': false,
+        // The app multiplies this by its riding see-through (VelixMap.ridingBuildingOpacity), keeping the ramp.
+        'fill-extrusion-opacity': DEEP && !edge ? r2(1 - (1 - WALL_FADE) * k) : 1 } });
   }
   if (sat && P.dim) add({ id: 'night-dim', type: 'background', paint: { 'background-color': `rgba(5,8,12,${P.dim})` } });
 

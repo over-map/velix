@@ -8812,12 +8812,27 @@
        [
         "-",
         [
-         "coalesce",
+         "max",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
          ],
-         6
+         [
+          "-",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_height"
+           ],
+           6
+          ],
+          0.4
+         ]
         ],
         [
          "coalesce",
@@ -8828,7 +8843,7 @@
          0
         ]
        ],
-       0.13428571428571426
+       0.14285714285714285
       ]
      ]
     ],
@@ -8914,12 +8929,27 @@
        [
         "-",
         [
-         "coalesce",
+         "max",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
          ],
-         6
+         [
+          "-",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_height"
+           ],
+           6
+          ],
+          0.4
+         ]
         ],
         [
          "coalesce",
@@ -8930,7 +8960,7 @@
          0
         ]
        ],
-       0.13428571428571426
+       0.14285714285714285
       ]
      ]
     ],
@@ -8960,12 +8990,27 @@
        [
         "-",
         [
-         "coalesce",
+         "max",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
          ],
-         6
+         [
+          "-",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_height"
+           ],
+           6
+          ],
+          0.4
+         ]
         ],
         [
          "coalesce",
@@ -8976,12 +9021,12 @@
          0
         ]
        ],
-       0.2685714285714285
+       0.2857142857142857
       ]
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 1
+    "fill-extrusion-opacity": 0.91
    }
   },
   {
@@ -9062,12 +9107,27 @@
        [
         "-",
         [
-         "coalesce",
+         "max",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
          ],
-         6
+         [
+          "-",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_height"
+           ],
+           6
+          ],
+          0.4
+         ]
         ],
         [
          "coalesce",
@@ -9078,7 +9138,7 @@
          0
         ]
        ],
-       0.2685714285714285
+       0.2857142857142857
       ]
      ]
     ],
@@ -9108,12 +9168,27 @@
        [
         "-",
         [
-         "coalesce",
+         "max",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
          ],
-         6
+         [
+          "-",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_height"
+           ],
+           6
+          ],
+          0.4
+         ]
         ],
         [
          "coalesce",
@@ -9124,12 +9199,12 @@
          0
         ]
        ],
-       0.4028571428571428
+       0.42857142857142855
       ]
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 1
+    "fill-extrusion-opacity": 0.82
    }
   },
   {
@@ -9210,12 +9285,27 @@
        [
         "-",
         [
-         "coalesce",
+         "max",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
          ],
-         6
+         [
+          "-",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_height"
+           ],
+           6
+          ],
+          0.4
+         ]
         ],
         [
          "coalesce",
@@ -9226,7 +9316,7 @@
          0
         ]
        ],
-       0.4028571428571428
+       0.42857142857142855
       ]
      ]
     ],
@@ -9256,12 +9346,27 @@
        [
         "-",
         [
-         "coalesce",
+         "max",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
          ],
-         6
+         [
+          "-",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_height"
+           ],
+           6
+          ],
+          0.4
+         ]
         ],
         [
          "coalesce",
@@ -9272,12 +9377,12 @@
          0
         ]
        ],
-       0.537142857142857
+       0.5714285714285714
       ]
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 1
+    "fill-extrusion-opacity": 0.73
    }
   },
   {
@@ -9358,12 +9463,27 @@
        [
         "-",
         [
-         "coalesce",
+         "max",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
          ],
-         6
+         [
+          "-",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_height"
+           ],
+           6
+          ],
+          0.4
+         ]
         ],
         [
          "coalesce",
@@ -9374,7 +9494,7 @@
          0
         ]
        ],
-       0.537142857142857
+       0.5714285714285714
       ]
      ]
     ],
@@ -9404,12 +9524,27 @@
        [
         "-",
         [
-         "coalesce",
+         "max",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
          ],
-         6
+         [
+          "-",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_height"
+           ],
+           6
+          ],
+          0.4
+         ]
         ],
         [
          "coalesce",
@@ -9420,12 +9555,12 @@
          0
         ]
        ],
-       0.6714285714285714
+       0.7142857142857143
       ]
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 1
+    "fill-extrusion-opacity": 0.63
    }
   },
   {
@@ -9506,12 +9641,27 @@
        [
         "-",
         [
-         "coalesce",
+         "max",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
          ],
-         6
+         [
+          "-",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_height"
+           ],
+           6
+          ],
+          0.4
+         ]
         ],
         [
          "coalesce",
@@ -9522,7 +9672,7 @@
          0
         ]
        ],
-       0.6714285714285714
+       0.7142857142857143
       ]
      ]
     ],
@@ -9552,12 +9702,27 @@
        [
         "-",
         [
-         "coalesce",
+         "max",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
          ],
-         6
+         [
+          "-",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_height"
+           ],
+           6
+          ],
+          0.4
+         ]
         ],
         [
          "coalesce",
@@ -9568,12 +9733,12 @@
          0
         ]
        ],
-       0.8057142857142856
+       0.8571428571428571
       ]
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 1
+    "fill-extrusion-opacity": 0.54
    }
   },
   {
@@ -9654,12 +9819,27 @@
        [
         "-",
         [
-         "coalesce",
+         "max",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
          ],
-         6
+         [
+          "-",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_height"
+           ],
+           6
+          ],
+          0.4
+         ]
         ],
         [
          "coalesce",
@@ -9670,7 +9850,7 @@
          0
         ]
        ],
-       0.8057142857142856
+       0.8571428571428571
       ]
      ]
     ],
@@ -9700,12 +9880,27 @@
        [
         "-",
         [
-         "coalesce",
+         "max",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
          ],
-         6
+         [
+          "-",
+          [
+           "coalesce",
+           [
+            "get",
+            "render_height"
+           ],
+           6
+          ],
+          0.4
+         ]
         ],
         [
          "coalesce",
@@ -9716,12 +9911,12 @@
          0
         ]
        ],
-       0.94
+       1
       ]
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 1
+    "fill-extrusion-opacity": 0.45
    }
   },
   {
@@ -9788,7 +9983,7 @@
      0,
      15.8,
      [
-      "+",
+      "max",
       [
        "coalesce",
        [
@@ -9798,27 +9993,16 @@
        0
       ],
       [
-       "*",
+       "-",
        [
-        "-",
+        "coalesce",
         [
-         "coalesce",
-         [
-          "get",
-          "render_height"
-         ],
-         6
+         "get",
+         "render_height"
         ],
-        [
-         "coalesce",
-         [
-          "get",
-          "render_min_height"
-         ],
-         0
-        ]
+        6
        ],
-       0.94
+       0.4
       ]
      ]
     ],
@@ -9834,38 +10018,12 @@
      0,
      15.8,
      [
-      "+",
+      "coalesce",
       [
-       "coalesce",
-       [
-        "get",
-        "render_min_height"
-       ],
-       0
+       "get",
+       "render_height"
       ],
-      [
-       "*",
-       [
-        "-",
-        [
-         "coalesce",
-         [
-          "get",
-          "render_height"
-         ],
-         6
-        ],
-        [
-         "coalesce",
-         [
-          "get",
-          "render_min_height"
-         ],
-         0
-        ]
-       ],
-       1
-      ]
+      6
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
