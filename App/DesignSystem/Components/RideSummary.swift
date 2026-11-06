@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// RideSummary (P7 S6a–S6c): the sheet after a ride that ended by itself. A flag, the numbers, Apple Health (saved,
-/// or Connect; Strava is deferred to phase 2), at most one data-issue question, Share GPX and Done.
+/// RideSummary (P7 S6a, S6c): the sheet after a ride that ended by itself. A flag, the numbers, at most one data-issue
+/// question, Share GPX and Done. No Apple Health or Strava (removed 6 Nov, DECISIONS).
 struct RideSummary: View {
-    enum Connections: Equatable { case synced, notConnected }
     struct Issue: Equatable { var title: String; var message: String }
 
     /// "08:42"
@@ -15,11 +14,9 @@ struct RideSummary: View {
     var km: String
     var minutes: String
     var climb: String
-    var connections: Connections = .notConnected
     var issue: Issue?
     /// The GPX to share; the button is hidden while it isn't written.
     var gpx: URL?
-    var onConnect: () -> Void = {}
     var onReport: () -> Void = {}
     var onDone: () -> Void = {}
 
@@ -34,20 +31,6 @@ struct RideSummary: View {
             .accessibilityElement(children: .ignore)
             // P8: "5.4 kilometres, 21 minutes moving, 8 metres climb", grouped as one element.
             .accessibilityLabel("\(km) kilometres, \(minutes) minutes moving, \(climb) metres climb")
-            switch connections {
-            case .synced:
-                HStack(spacing: 10) {
-                    VelixIconView(.circleCheck, size: 22).foregroundStyle(Color.velix.success)
-                    Text("Saved to Apple Health").velixType(VelixType.rowTitle.sized(16, lineHeight: 20))
-                    Spacer(minLength: 0)
-                }
-                .frame(minHeight: 48)
-                .overlay(alignment: .top) { divider }
-                .overlay(alignment: .bottom) { divider }
-                .accessibilityElement(children: .combine)
-            case .notConnected:
-                connectRow("Apple Health").overlay(alignment: .top) { divider }
-            }
             if let issue { issueCard(issue) }
             buttons
         }
@@ -80,17 +63,6 @@ struct RideSummary: View {
             Text(value).velixType(VelixType.numberL.sized(34, lineHeight: 34))
             Text(unit).velixType(VelixType.body.sized(14, lineHeight: 17)).foregroundStyle(Color.velix.ink3)
         }
-    }
-
-    /// "Save to Apple Health" with Connect (also in You).
-    private func connectRow(_ name: String) -> some View {
-        HStack(spacing: 10) {
-            Text("Save to \(name)").velixType(VelixType.rowTitle.sized(16, lineHeight: 20))
-            Spacer(minLength: 0)
-            outlined("Connect", label: "Connect \(name)", action: onConnect)
-        }
-        .frame(minHeight: 52)
-        .overlay(alignment: .bottom) { divider }
     }
 
     private func issueCard(_ issue: Issue) -> some View {

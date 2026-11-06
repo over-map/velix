@@ -45,23 +45,6 @@ struct RideRow: View {
     }
 }
 
-/// ConnectionRow (P2 §08, You): Strava / Apple Health, connected or not.
-struct ConnectionRow: View {
-    let icon: VelixIcon
-    let name: String
-    var detail: String?
-    var connected: Bool
-    var divider = true
-    var onConnect: () -> Void = {}
-
-    var body: some View {
-        ListRow(leading: .tile(icon), title: name, subtitle: detail, divider: divider) {
-            if connected { StatusCheck(text: "On") } else { RowButton(title: "Connect", outlined: true, action: onConnect) }
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
 /// OfflineRegionRow (P2 §08, You · offline maps): downloading, ready, update available, failed, on offer. A downloaded
 /// region shows Remove when it can go (Filippo, 5 Nov: the long-press wasn't found).
 struct OfflineRegionRow: View {

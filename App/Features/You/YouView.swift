@@ -1,17 +1,16 @@
 import SwiftUI
 
-/// S8 You (P7 §03): rules per ride type, tonight's lit streets, rides, connections, offline map, privacy, about.
+/// S8 You (P7 §03): rules per ride type, tonight's lit streets, rides, offline map, privacy, about.
 struct YouView: View {
     @Bindable var app: AppModel
     /// Today for "Today" / "Yesterday" (snapshots pin it).
     var now: Date?
     @State private var expanded: RideType?
     @State private var showAbout = false
-    @State private var notice: String?
     /// The downloaded region asked to be removed (confirmation).
     @State private var removing: String?
     @State private var showHistory = false
-    @State private var past: (model: RideSummaryModel, record: RideRecord)?
+    @State private var past: RideSummaryModel?
 
     var body: some View {
         ScrollView {
@@ -21,7 +20,6 @@ struct YouView: View {
                 tonight
                 routing
                 rides
-                connections
                 offlineMap
                 footer
             }
@@ -34,13 +32,8 @@ struct YouView: View {
         }
         .fullScreenCover(isPresented: Binding(get: { past != nil }, set: { if !$0 { past = nil } })) {
             if let past {
-                RideSummaryView(model: past.model, connections: past.record.healthSaved ? .synced : .notConnected,
-                                mapStyle: MapStyleKind(app.mapStyle),
-                                onConnect: { Task { await app.saveToHealth(past.record) } }, onDone: { self.past = nil })
+                RideSummaryView(model: past, mapStyle: MapStyleKind(app.mapStyle), onDone: { self.past = nil })
             }
-        }
-        .alert(notice ?? "", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) {
-            Button("OK", role: .cancel) {}
         }
     }
 
@@ -122,7 +115,7 @@ struct YouView: View {
         }
     }
 
-    // MARK: Rides (M9) and connections (M9)
+    // MARK: Rides (M9)
 
     /// The latest three (P7 S8), then See all rides.
     static let ridesShown = 3
@@ -143,26 +136,12 @@ struct YouView: View {
     }
 
     private func open(_ ride: RideRecord, afterSheet: Bool = false) {
-        let model = (RideSummaryModel(ride), ride)
+        let model = RideSummaryModel(ride)
         guard afterSheet else { past = model; return }
         // After the history sheet has gone (one presentation at a time).
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(400))
             past = model
-        }
-    }
-
-    private var connections: some View {
-        group("Connections") {
-            ConnectionRow(icon: .heart, name: "Apple Health", detail: "Save rides as workouts", connected: app.state.healthOn,
-                          divider: false) {
-                Task {
-                    if await !app.connectHealth() {
-                        notice = "Velix can't save workouts yet. Allow it in Settings → Health → Data Access & Devices → Velix."
-                    }
-                }
-            }
-            ListRow(leading: .tile(.activity), title: "Strava", subtitle: "In a later version. Share GPX from a ride meanwhile.")
         }
     }
 

@@ -200,18 +200,14 @@ enum ComponentCatalog {
                 LiveActivityExpanded(state: .sampleHazard)
             }
         },
-        // P7 S6a–S6c sheet content.
-        e("RideSummary", "S6a-synced") {
-            RideSummary(arrived: "08:42", place: "Politecnico", option: "Calmest for city", km: "5.4", minutes: "21", climb: "8",
-                        connections: .synced, gpx: URL(fileURLWithPath: "/tmp/ride.gpx"))
-        },
-        e("RideSummary", "S6b-notConnected") {
+        // P7 S6a and S6c sheet content.
+        e("RideSummary", "S6a") {
             RideSummary(arrived: "08:42", place: "Politecnico", option: "Calmest for city", km: "5.4", minutes: "21", climb: "8",
                         gpx: URL(fileURLWithPath: "/tmp/ride.gpx"))
         },
         e("RideSummary", "S6c-dataIssue") {
             RideSummary(arrived: "08:42", place: "Politecnico", option: "Calmest for city", km: "5.4", minutes: "21", climb: "8",
-                        connections: .synced, issue: RideSummary.sampleIssue, gpx: URL(fileURLWithPath: "/tmp/ride.gpx"))
+                        issue: RideSummary.sampleIssue, gpx: URL(fileURLWithPath: "/tmp/ride.gpx"))
         },
         e("RouteListCard", "focused") { RouteListCard(route: RouteSummary.samples[0], focused: true) },
         e("RouteListCard", "plain") { RouteListCard(route: RouteSummary.samples[1]) },
@@ -234,8 +230,6 @@ enum ComponentCatalog {
         },
         e("RideRow", "ownBike") { RideRow(destination: "Politecnico di Milano", detail: "Today 08:19 · 5.4 km · 23 min", divider: false) },
         e("RideRow", "bikeTransit") { RideRow(destination: "Villa Reale, Monza", detail: "Sat 10:02 · bike + train · 1 h 04", transit: true, divider: false) },
-        e("ConnectionRow", "connected") { ConnectionRow(icon: .activity, name: "Strava", detail: "Auto-sync after each ride", connected: true, divider: false) },
-        e("ConnectionRow", "connect") { ConnectionRow(icon: .heart, name: "Apple Health", connected: false, divider: false) },
         e("OfflineRegionRow", "downloading") {
             OfflineRegionRow(region: "Lombardy", state: .downloading(received: "141", total: "220 MB", fraction: 0.64), divider: false)
         },

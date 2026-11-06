@@ -69,9 +69,8 @@ Each milestone: plan mode → approval → implement on a branch → PR with scr
 ## M9 · Routes, history, sync
 - S7 Routes from the pack's OSM relations (filters Fits {type}/All/Paved/Gravel/MTB, search area, Ride this route = approach + route in one card).
 - Ride history (SwiftData), S6 Ride summary, GPX export via share sheet.
-- Apple Health workouts (if the Personal Team allows HealthKit; else defer).
-- Strava: auto-upload needs OAuth with a client secret, which can't ship in an open-source app. Propose an option (user-supplied API app, tiny token-exchange function, or defer to phase 2) and ask Filippo.
-- **Accept when:** P7 snapshots match; a ride appears in Health (or deferral logged).
+- ~~Apple Health workouts~~ and ~~Strava~~: dropped 6 Nov (see DECISIONS). Share GPX is the way out of Velix.
+- **Accept when:** P7 snapshots match.
 
 ## M10 · Polish and showcase
 - Accessibility pass against P8 (Dynamic Type, VoiceOver table, colour-blind check).

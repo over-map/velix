@@ -42,7 +42,6 @@ final class ComponentSnapshotTests: XCTestCase {
     func testFilterChips() { check("FilterChips") }
     func testRuleToggleRow() { check("RuleToggleRow") }
     func testRideRow() { check("RideRow") }
-    func testConnectionRow() { check("ConnectionRow") }
     func testOfflineRegionRow() { check("OfflineRegionRow") }
     func testOnboardingStep() { check("OnboardingStep") }
 

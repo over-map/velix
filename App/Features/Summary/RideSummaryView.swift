@@ -43,14 +43,12 @@ extension RideSummaryModel {
 }
 
 /// S6 Ride summary (P7): the ride on the map, the summary sheet over it. Shown once, after the ride ends by itself.
-/// S6a when Apple Health is on (the ride is saved there), S6b with Connect otherwise; S6c is built and snapshot-tested.
+/// S6a; S6c (a data-issue question) is built and snapshot-tested.
 /// Also opens for a past ride (You → Your rides).
 struct RideSummaryView: View {
     let model: RideSummaryModel
-    var connections: RideSummary.Connections = .notConnected
     var issue: RideSummary.Issue?
     var mapStyle: MapStyleKind = .standard
-    var onConnect: () -> Void = {}
     var onDone: () -> Void = {}
 
     @Environment(\.colorScheme) private var scheme
@@ -64,8 +62,8 @@ struct RideSummaryView: View {
             VStack(spacing: 16) {
                 Capsule().fill(Color.velix.line).frame(width: 36, height: 5).frame(maxWidth: .infinity)
                 RideSummary(arrived: model.arrivedText, place: model.place, rideType: model.rideType, option: model.option,
-                            km: model.km, minutes: model.minutes, climb: model.climbText, connections: connections,
-                            issue: issue, gpx: model.gpx, onConnect: onConnect, onDone: onDone)
+                            km: model.km, minutes: model.minutes, climb: model.climbText,
+                            issue: issue, gpx: model.gpx, onDone: onDone)
             }
             .padding(EdgeInsets(top: 8, leading: 16, bottom: 34, trailing: 16))
             .background(Color.velix.surface, in: UnevenRoundedRectangle(topLeadingRadius: CGFloat.velix.radius.sheet,

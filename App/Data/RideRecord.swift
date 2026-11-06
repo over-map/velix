@@ -26,11 +26,10 @@ final class RideRecord {
     /// File names in `Documents/rides`.
     var logFile: String
     var gpxFile: String?
-    var healthSaved: Bool
 
     init(id: UUID = UUID(), started: Date, ended: Date, destination: String, placeKind: Place.Kind = .poi,
          rideType: RideType, option: String? = nil, meters: Double, movingSeconds: Double, climb: Double, arrived: Bool, transit: String? = nil,
-         track: [LatLon], logFile: String, gpxFile: String?, healthSaved: Bool = false) {
+         track: [LatLon], logFile: String, gpxFile: String?) {
         self.id = id
         self.started = started
         self.ended = ended
@@ -46,7 +45,6 @@ final class RideRecord {
         self.trackData = (try? JSONEncoder().encode(track.map { [$0.lat, $0.lon] })) ?? Data()
         self.logFile = logFile
         self.gpxFile = gpxFile
-        self.healthSaved = healthSaved
     }
 
     var type: RideType { RideType(rawValue: rideType) ?? .city }
