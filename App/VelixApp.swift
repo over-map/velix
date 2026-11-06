@@ -12,6 +12,7 @@ struct VelixApp: App {
         // Every map reads its tiles through the packs (several regions as one source, PackTileProtocol).
         PackTileProtocol.install()
         PackTileProtocol.use(RegionPack.mapSources)
+        CrashReports.shared.start()   // crash and hang reports for the M7 review (Documents/diagnostics)
     }
 
     var body: some Scene {

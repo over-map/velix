@@ -362,6 +362,36 @@ struct RideRecordTests {
         #expect(gpx.contains("<name>Velix · Politecnico &amp; co</name>"))
     }
 
+    @Test func theLogKeepsWhatTheM7ReviewNeeds() throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "velix-log-\(UUID().uuidString)")
+        let log = RideLog(directory: dir)
+        let ctx = RideLog.Context(app: "1.0 (7)", simulated: true, voice: "all", view: "2D", battery: 0.873, charging: false, lowPower: false)
+        log.event(.start(destination: "Politecnico", meters: 4400, type: .city, context: ctx))
+        log.event(.route(meters: 4400, maneuvers: 9, hazards: [.init(type: "tram", along: 812.34, at: LatLon(lat: 45.47, lon: 9.2))]))
+        log.event(.hazard(type: "tram", distance: 48, at: LatLon(lat: 45.47, lon: 9.2), speed: 4.8, gps: "good", spoken: true))
+        log.event(.reroute("accepted", ms: 52.4, meters: 3900))
+        log.event(.reroute("failed", reason: "planner: no route"))
+        log.event(.voice("finished", text: "Turn left", locked: true, background: true))
+        log.event(.app("locked"))
+        log.event(.health(battery: 0.86, charging: false, thermal: "fair", memoryMB: 201.37, fixes: 60))
+        log.event(.activity("updates", count: 6))
+        log.close()
+        let lines = try String(contentsOf: log.url, encoding: .utf8).split(separator: "\n").map(String.init)
+        let o = lines.compactMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
+        #expect(o.count == 9)
+        #expect(o[0]["sim"] as? Bool == true && o[0]["app"] as? String == "1.0 (7)" && o[0]["battery"] as? Double == 0.87)
+        let hazards = try #require(o[1]["hazards"] as? [[String: Any]])
+        #expect(hazards.first?["along"] as? Double == 812.3 && o[1]["steps"] as? Int == 9)
+        #expect(o[2]["secs"] as? Double == 10 && o[2]["v"] as? Double == 4.8)
+        #expect(o[3]["ms"] as? Int == 52 && o[3]["m"] as? Double == 3900)
+        #expect(o[4]["kept"] as? Bool == true && o[4]["reason"] as? String == "planner: no route")
+        #expect(o[5]["locked"] as? Bool == true && o[6]["s"] as? String == "locked")
+        #expect(o[7]["mb"] as? Double == 201.4 && o[8]["n"] as? Int == 6)
+        // Simulated rides stay out of the history.
+        #expect(RideLog.isSimulated(lines: lines))
+        #expect(RideHistory.record(lines: lines, logFile: "x.jsonl") == nil)
+    }
+
     @Test func theRiddenTrackKeepsAPointEveryTenMetres() throws {
         let dir = FileManager.default.temporaryDirectory.appending(path: "velix-log-\(UUID().uuidString)")
         let log = RideLog(directory: dir)

@@ -157,6 +157,7 @@ final class RideHistory {
 
     /// A record from a ride log's lines (RideLog format); nil when it has no fixes.
     nonisolated static func record(lines: [String], logFile: String) -> RideRecord? {
+        guard !RideLog.isSimulated(lines: lines) else { return nil }
         var stats = RideStats()
         var ridden: [LatLon] = []
         var first: Double?, last: Double?

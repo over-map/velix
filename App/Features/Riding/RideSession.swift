@@ -66,6 +66,13 @@ final class RideSession {
     private var lastActivityKey = ""
     /// Wakes already sent (a hazard or a turn lights the screen once).
     private var alertedWakes = Set<String>()
+    // The M7 review in the log: reroute timing, the back-off, the minute's health and Live Activity updates.
+    private var rerouteAsked: Date?
+    private var lastHeldLogged = Date.distantPast
+    private var fixesThisMinute = 0
+    private var activityUpdates = 0
+    private var healthTimer: Timer?
+    private var observers: [NSObjectProtocol] = []
 
     /// Within this of the destination the screen shows "Arriving" (S4i).
     static let arrivingWithin = 150.0
@@ -121,9 +128,9 @@ final class RideSession {
         core.minimumMovementBeforeRecalculation = 0
         coordinator.session = self
         core.delegate = coordinator
-        provider.onFailure = { [weak self] in Task { @MainActor in self?.rerouteFailed() } }
+        provider.onFailure = { [weak self] in Task { @MainActor in self?.rerouteFailed("planner: no route") } }
         let log = RideLog(started: AppClock.now)
-        log.event(.start(destination: destination.name, meters: option.meters, type: rules.rideType))
+        log.event(.start(destination: destination.name, meters: option.meters, type: rules.rideType, context: Self.context(voice: voice.mode)))
         self.log = log
         location.onFix = { [weak self] fix, quality in
             MainActor.assumeIsolated { self?.fix(fix, quality: quality) }
@@ -131,7 +138,10 @@ final class RideSession {
         core.$state.receive(on: DispatchQueue.main).sink { [weak self] state in
             self?.stateChanged(state)
         }.store(in: &cancellables)
+        voice.onEvent = { [weak self] phase, text in self?.logVoice(phase, text) }
         voice.start()
+        logRoute(steps: route.steps.count)
+        startHealthLog()
         #if DEBUG
         if RideLocationProvider.simulates { location.simulate(track.shape) }
         #endif
@@ -148,6 +158,7 @@ final class RideSession {
         ended = true
         self.arrived = arrived
         log?.event(.end(arrived ? "arrived" : "ended"))
+        stopHealthLog()
         log?.close()
         gpx = try? log?.gpx(name: "Velix · \(destination.name)")
         core?.stopNavigation()
@@ -175,6 +186,7 @@ final class RideSession {
             log?.event(.gps(quality == .weak ? "weak" : "good"))
         }
         log?.fix(fix, ridden: !betweenLegs)
+        fixesThisMinute += 1
         let here = LatLon(lat: fix.coordinate.latitude, lon: fix.coordinate.longitude)
         self.here = here
         if betweenLegs {
@@ -189,7 +201,8 @@ final class RideSession {
         if let h = tracker.alert(at: track.position, gps: gps) {
             haptics.hazard()
             voice.speakHazard(HazardPrompt.voice(h))
-            log?.event(.hazard(type: h.type.rawValue, distance: max(0, h.distanceAlong - track.position), at: here))
+            log?.event(.hazard(type: h.type.rawValue, distance: max(0, h.distanceAlong - track.position), at: here, speed: fix.speed,
+                               gps: gps == .weak ? "weak" : "good", spoken: voice.mode.speaksHazards))
         }
         if Self.hasArrived(remaining: track.remaining, position: track.position, length: track.length,
                            toDestination: Geo.distance(here, destination.location)) {
@@ -221,13 +234,15 @@ final class RideSession {
         betweenLegs = false
         legStarted = AppClock.now
         log?.event(.start(destination: place.name, meters: next.meters, type: rules.rideType))
+        logRoute(steps: nil)
     }
 
     /// Swap the route of this leg (late: Fastest; time again: back to Best).
     func switchRoute(to next: RouteOption, choice: RideChoice) {
         guard let core, !betweenLegs else { return }
         try? startRoute(next, choice: choice, on: core)
-        log?.event(.reroute(choice == .fastest ? "fastest" : "best"))
+        log?.event(.reroute(choice == .fastest ? "fastest" : "best", meters: next.meters))
+        logRoute(steps: nil)
     }
 
     private func startRoute(_ next: RouteOption, choice: RideChoice, on core: FerrostarCore) throws {
@@ -293,16 +308,23 @@ final class RideSession {
     /// Ferrostar asks whether to reroute (on the main thread, every off-route fix).
     func rerouteRequested() -> Bool {
         let now = Date()
-        guard policy.shouldReroute(at: now) else { return false }
+        guard policy.shouldReroute(at: now) else {
+            if now.timeIntervalSince(lastHeldLogged) >= 60 {
+                lastHeldLogged = now
+                log?.event(.reroute("held", at: here))
+            }
+            return false
+        }
         policy.requested(at: now)
-        log?.event(.reroute("requested"))
+        log?.event(.reroute("requested", ms: rerouteAsked.map { now.timeIntervalSince($0) * 1000 }, at: here))
+        rerouteAsked = now
         return true
     }
 
     /// New routes from ``PlannedRouteProvider``: ride the first, with the option's analysis for hazards and the map.
     func rerouted(_ routes: [Route]) {
         guard let route = routes.first, let core, let planned = provider.lastOption else {
-            rerouteFailed()
+            rerouteFailed(routes.isEmpty ? "no route" : "no option")
             return
         }
         do {
@@ -313,25 +335,125 @@ final class RideSession {
             if let here { track.update(here) }
             tracker = HazardTracker(hazards: planned.analysis.hazards, alerted: tracker.alerted)
             policy.succeeded(at: Date())
-            log?.event(.reroute("accepted"))
+            log?.event(.reroute("accepted", ms: rerouteAsked.map { Date().timeIntervalSince($0) * 1000 }, meters: planned.meters))
+            logRoute(steps: route.steps.count)
             lastActivityKey = ""
             updateActivity()
         } catch {
-            rerouteFailed()
+            rerouteFailed("start failed: \(error)")
         }
     }
 
-    private func rerouteFailed() {
+    private func rerouteFailed(_ reason: String = "engine") {
         policy.failed(at: Date())
-        log?.event(.reroute("failed"))
+        log?.event(.reroute("failed", ms: rerouteAsked.map { Date().timeIntervalSince($0) * 1000 }, reason: reason, at: here))
+    }
+
+    // MARK: The ride log for the M7 review
+
+    /// The setting at the start: app build, simulated or not, voice, battery.
+    static func context(voice: VoiceMode) -> RideLog.Context {
+        let info = Bundle.main.infoDictionary
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        let state = UIDevice.current.batteryState
+        return RideLog.Context(app: "\(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))",
+                               simulated: isSimulated, voice: voice.rawValue, view: "2D",
+                               battery: Double(UIDevice.current.batteryLevel), charging: state == .charging || state == .full,
+                               lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled)
+    }
+
+    /// A simulated ride (debug: `-simulate-ride`, `-fake-location`): kept out of the history and the M7 review.
+    static var isSimulated: Bool {
+        #if DEBUG
+        RideLocationProvider.simulates || LocationService.fakeLocation != nil
+        #else
+        false
+        #endif
+    }
+
+    /// The route from here and the hazards on it that alert (`HazardType.onRoute`: none since 29 Oct).
+    private func logRoute(steps: Int?) {
+        let planned = tracker.hazards.filter { $0.distanceAlong >= track.position }
+            .map { RideLog.Planned(type: $0.type.rawValue, along: $0.distanceAlong, at: track.point(at: $0.distanceAlong)) }
+        log?.event(.route(meters: option.meters, maneuvers: steps ?? -1, hazards: planned))
+    }
+
+    /// The view changed (RidingView: 2D, 3D, north).
+    func noteView(_ name: String) { log?.event(.app("view \(name)")) }
+
+    private func logVoice(_ phase: String, _ text: String) {
+        let app = UIApplication.shared
+        log?.event(.voice(phase, text: text, locked: !app.isProtectedDataAvailable, background: app.applicationState != .active))
+    }
+
+    /// The app's lifecycle and, once a minute, battery, heat, memory, fixes and Live Activity updates.
+    private func startHealthLog() {
+        let nc = NotificationCenter.default
+        let events: [(Notification.Name, String)] = [
+            (UIApplication.didBecomeActiveNotification, "active"), (UIApplication.didEnterBackgroundNotification, "background"),
+            (UIApplication.protectedDataWillBecomeUnavailableNotification, "locked"),
+            (UIApplication.protectedDataDidBecomeAvailableNotification, "unlocked"),
+            (UIApplication.willTerminateNotification, "terminate"), (UIApplication.didReceiveMemoryWarningNotification, "memoryWarning"),
+        ]
+        observers = events.map { name, label in
+            nc.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.log?.event(.app(label))
+                    if label == "terminate" { self?.log?.close() }
+                }
+            }
+        }
+        let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.logHealth() } }
+        RunLoop.main.add(timer, forMode: .common)
+        healthTimer = timer
+        logHealth()
+    }
+
+    private func stopHealthLog() {
+        logHealth()
+        healthTimer?.invalidate()
+        healthTimer = nil
+        observers.forEach { NotificationCenter.default.removeObserver($0) }
+        observers = []
+    }
+
+    private func logHealth() {
+        let d = UIDevice.current, state = d.batteryState
+        let thermal = switch ProcessInfo.processInfo.thermalState {
+        case .nominal: "nominal"
+        case .fair: "fair"
+        case .serious: "serious"
+        case .critical: "critical"
+        @unknown default: "unknown"
+        }
+        log?.event(.health(battery: Double(d.batteryLevel), charging: state == .charging || state == .full, thermal: thermal,
+                           memoryMB: Self.memoryMB(), fixes: fixesThisMinute))
+        if activity != nil { log?.event(.activity("updates", count: activityUpdates)) }
+        fixesThisMinute = 0
+        activityUpdates = 0
+    }
+
+    /// The app's memory footprint (what iOS counts against it).
+    nonisolated static func memoryMB() -> Double {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+        let kr = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count) }
+        }
+        return kr == KERN_SUCCESS ? Double(info.phys_footprint) / 1_048_576 : -1
     }
 
     // MARK: Live Activity (P5 L1–L2, D1–D5; M7c redesigns it)
 
     private func startActivity() {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { log?.event(.activity("unavailable")); return }
         let state = Self.content(nil, destination: destination, fallbackMeters: option.meters)
-        activity = try? Activity.request(attributes: RideActivityAttributes(), content: .init(state: state, staleDate: nil))
+        do {
+            activity = try Activity.request(attributes: RideActivityAttributes(), content: .init(state: state, staleDate: nil))
+            log?.event(.activity("started"))
+        } catch {
+            log?.event(.activity("failed: \(error.localizedDescription)"))
+        }
     }
 
     /// Every `activityStep` metres, or at once when the maneuver, the street or the hazard changes.
@@ -343,6 +465,7 @@ final class RideSession {
             let key = "train|\(state.train?.minutes ?? "")|\(state.notice?.title ?? "")"
             guard key != lastActivityKey else { return }
             lastActivityKey = key
+            activityUpdates += 1
             Task { for a in Activity<RideActivityAttributes>.activities { await a.update(.init(state: state, staleDate: nil)) } }
             return
         }
@@ -366,6 +489,7 @@ final class RideSession {
             AlertConfiguration(title: LocalizedStringResource(stringLiteral: $0.title), body: LocalizedStringResource(stringLiteral: $0.body),
                                sound: .named(Self.silentSound))
         }
+        activityUpdates += 1
         Task {
             for a in Activity<RideActivityAttributes>.activities {
                 await a.update(.init(state: state, staleDate: nil), alertConfiguration: config)
