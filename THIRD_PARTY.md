@@ -63,7 +63,8 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 | OSM water polygons and lake centerlines (osmdata.openstreetmap.de, osm-lakelines) | ODbL 1.0 | "© OpenStreetMap contributors" |
 | Natural Earth vector | Public domain | "Made with Natural Earth" (You → About) |
 | Photon geocoder (komoot, photon.komoot.io; OpenStreetMap data) | Service: fair use; data ODbL 1.0 | "Search by Photon · © OpenStreetMap contributors" (You → About) |
-| OpenFreeMap tiles (debug spike screen only, until M7) | Free, attribution requested | Spike screen |
+| OpenFreeMap tiles (outside the downloaded regions, 100 MB cache) | Free, attribution requested | "OpenFreeMap · © OpenMapTiles · © OpenStreetMap contributors" (You → About) |
+| Mapterhorn terrain tiles (tiles.mapterhorn.com; hillshade, z0–12, 100 MB cache): Copernicus GLO-30 and national elevation data (e.g. swisstopo swissALTI3D, Regione Lombardia DTM 5×5) | Per source: COPERNICUS free and open licence, CC BY 4.0, Open Government Data, … (download.mapterhorn.com/attribution.json) | "Mapterhorn: Copernicus GLO-30 (© DLR e.V. 2010–2014 and © Airbus 2014–2018, provided under COPERNICUS by the EU and ESA), swisstopo, Regione Lombardia and other national elevation data" (You → About) |
 | GEDTM30 global 30 m terrain model, Ho et al. (2025), OpenGeoHub (doi:10.5281/zenodo.15689805) | CC BY 4.0 | "GEDTM30, OpenGeoHub, CC BY 4.0" (You → About, release notes). Grades in the routing tiles only; the DEM is not shipped |
 | Trenord GTFS "Orario Ferroviario Regionale" (Regione Lombardia open data, dataset 3z4k-mxz9) | CC BY 4.0 | "Trenord" (You → About) |
 | ATM GTFS (Comune di Milano open data, ds929) | CC BY 4.0 | "ATM, via Comune di Milano" (You → About) |

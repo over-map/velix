@@ -36,6 +36,17 @@
    "minzoom": 8,
    "maxzoom": 14
   },
+  "terrain": {
+   "type": "raster-dem",
+   "tiles": [
+    "https://tiles.velix.invalid/terrain/{z}/{x}/{y}"
+   ],
+   "tileSize": 512,
+   "encoding": "terrarium",
+   "minzoom": 0,
+   "maxzoom": 12,
+   "attribution": "© Mapterhorn (Copernicus GLO-30 and national elevation data)"
+  },
   "velix-route": {
    "type": "geojson",
    "data": {
@@ -1051,6 +1062,38 @@
      15.8,
      0.45
     ]
+   }
+  },
+  {
+   "id": "hillshade",
+   "type": "hillshade",
+   "source": "terrain",
+   "maxzoom": 14.5,
+   "paint": {
+    "hillshade-illumination-direction": 315,
+    "hillshade-illumination-anchor": "map",
+    "hillshade-exaggeration": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     3,
+     0.55,
+     8,
+     0.45,
+     11,
+     0.5,
+     13.5,
+     0.5,
+     14.5,
+     0
+    ],
+    "hillshade-shadow-color": "rgba(2,22,36,0.38)",
+    "hillshade-highlight-color": "rgba(255,255,240,0.35)",
+    "hillshade-accent-color": "rgba(2,22,36,0.12)"
    }
   },
   {
@@ -8700,7 +8743,7 @@
       ],
       85
      ],
-     "#DCE8EC",
+     "#8EABB7",
      [
       "match",
       [
@@ -8715,12 +8758,12 @@
        4
       ],
       0,
-      "#E3EDEF",
+      "#9AB3BC",
       1,
-      "#E2EBED",
+      "#99B1BA",
       2,
-      "#E4EDEF",
-      "#E1EBED"
+      "#9DB5BD",
+      "#97B0B9"
      ]
     ],
     "fill-extrusion-base": [
@@ -8822,7 +8865,7 @@
       ],
       85
      ],
-     "#D6E4E9",
+     "#93B0BB",
      [
       "match",
       [
@@ -8837,12 +8880,12 @@
        4
       ],
       0,
-      "#DEE9EC",
+      "#A0B8C0",
       1,
-      "#DDE8EA",
+      "#9EB6BE",
       2,
-      "#DFEAED",
-      "#DCE7EA"
+      "#A2BAC1",
+      "#9CB5BD"
      ]
     ],
     "fill-extrusion-base": [
@@ -8970,7 +9013,7 @@
       ],
       85
      ],
-     "#D0E0E6",
+     "#98B5C0",
      [
       "match",
       [
@@ -8985,12 +9028,12 @@
        4
       ],
       0,
-      "#D9E6E9",
+      "#A5BDC5",
       1,
-      "#D8E4E7",
+      "#A3BBC2",
       2,
-      "#DBE7EA",
-      "#D6E4E7"
+      "#A8BFC6",
+      "#A2BAC1"
      ]
     ],
     "fill-extrusion-base": [
@@ -9118,7 +9161,7 @@
       ],
       85
      ],
-     "#CADCE2",
+     "#9DB9C4",
      [
       "match",
       [
@@ -9133,12 +9176,12 @@
        4
       ],
       0,
-      "#D4E3E6",
+      "#ABC2C9",
       1,
-      "#D2E1E4",
+      "#A9C0C7",
       2,
-      "#D6E4E7",
-      "#D1E0E4"
+      "#ADC4CA",
+      "#A7BFC6"
      ]
     ],
     "fill-extrusion-base": [
@@ -9266,7 +9309,7 @@
       ],
       85
      ],
-     "#C3D8DF",
+     "#A2BEC8",
      [
       "match",
       [
@@ -9281,12 +9324,12 @@
        4
       ],
       0,
-      "#CFE0E3",
+      "#B0C7CE",
       1,
-      "#CDDDE1",
+      "#AEC4CB",
       2,
-      "#D1E1E4",
-      "#CCDDE0"
+      "#B3C9CF",
+      "#ACC4CA"
      ]
     ],
     "fill-extrusion-base": [
@@ -9414,7 +9457,7 @@
       ],
       85
      ],
-     "#BDD4DC",
+     "#A7C3CC",
      [
       "match",
       [
@@ -9429,12 +9472,12 @@
        4
       ],
       0,
-      "#CADCE1",
+      "#B5CCD2",
       1,
-      "#C8DADE",
+      "#B3C9CF",
       2,
-      "#CCDEE2",
-      "#C7D9DD"
+      "#B8CED3",
+      "#B1C8CE"
      ]
     ],
     "fill-extrusion-base": [
@@ -9562,7 +9605,7 @@
       ],
       85
      ],
-     "#B7D0D8",
+     "#ACC7D1",
      [
       "match",
       [
@@ -9577,12 +9620,12 @@
        4
       ],
       0,
-      "#C5D9DE",
+      "#BBD1D7",
       1,
-      "#C3D6DB",
+      "#B9CED4",
       2,
-      "#C8DBDF",
-      "#C1D6DA"
+      "#BED3D8",
+      "#B7CDD3"
      ]
     ],
     "fill-extrusion-base": [

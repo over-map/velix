@@ -36,6 +36,17 @@
    "minzoom": 8,
    "maxzoom": 14
   },
+  "terrain": {
+   "type": "raster-dem",
+   "tiles": [
+    "https://tiles.velix.invalid/terrain/{z}/{x}/{y}"
+   ],
+   "tileSize": 512,
+   "encoding": "terrarium",
+   "minzoom": 0,
+   "maxzoom": 12,
+   "attribution": "© Mapterhorn (Copernicus GLO-30 and national elevation data)"
+  },
   "velix-route": {
    "type": "geojson",
    "data": {
@@ -1051,6 +1062,38 @@
      15.8,
      0.45
     ]
+   }
+  },
+  {
+   "id": "hillshade",
+   "type": "hillshade",
+   "source": "terrain",
+   "maxzoom": 14.5,
+   "paint": {
+    "hillshade-illumination-direction": 315,
+    "hillshade-illumination-anchor": "map",
+    "hillshade-exaggeration": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     3,
+     0.55,
+     8,
+     0.45,
+     11,
+     0.5,
+     13.5,
+     0.5,
+     14.5,
+     0
+    ],
+    "hillshade-shadow-color": "rgba(1,10,18,0.55)",
+    "hillshade-highlight-color": "rgba(44,73,70,0.22)",
+    "hillshade-accent-color": "rgba(1,10,18,0.2)"
    }
   },
   {

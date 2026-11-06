@@ -161,6 +161,19 @@ function style(name, mode) {
   if (!sat) omt('landcover', 'landcover-park-trees', 'fill', { minzoom: 15, filter: sub(['park', 'garden', 'recreation_ground', 'village_green']),
     paint: { 'fill-pattern': `trees-${mode}`, 'fill-opacity': fade(15, 15.8, null, null, 0.45) } });
 
+  // ---- hillshade (6 Nov): Mapterhorn elevation, 30 m worldwide and finer where countries publish it, z0–12 tiles
+  // overzoomed. Strongest zoomed out where relief shapes the land, gone by z14.5 so riding zooms (15–17) never pay
+  // for it. Colours: P3's outdoor shade tokens (shadeDark / shadeLight), for every style. Below water: lakes stay flat.
+  const OD = VX.PAL.outdoor[mode];
+  const shadeA = od ? 1 : sat ? 0.8 : 0.7;
+  const rgba = (rgb, a) => `rgba(${rgb},${r2(a * shadeA)})`;
+  add({ id: 'hillshade', type: 'hillshade', source: 'terrain', maxzoom: 14.5,
+    paint: { 'hillshade-illumination-direction': 315, 'hillshade-illumination-anchor': 'map',
+      'hillshade-exaggeration': ['interpolate', ['linear'], ['zoom'], 3, 0.55, 8, 0.45, 11, 0.5, 13.5, 0.5, 14.5, 0],
+      'hillshade-shadow-color': rgba(OD.shadeDark, mode === 'day' ? 0.38 : 0.55),
+      'hillshade-highlight-color': rgba(OD.shadeLight, mode === 'day' ? 0.35 : 0.22),
+      'hillshade-accent-color': rgba(OD.shadeDark, mode === 'day' ? 0.12 : 0.2) } });
+
   // ---- water ----
   omt('water', 'water', 'fill', { filter: not('brunnel', 'tunnel'), paint: { 'fill-color': P.water } });
   if (!sat) omt('water', 'water-shore', 'line', { filter: not('brunnel', 'tunnel'),
@@ -324,19 +337,25 @@ function style(name, mode) {
   // built-in gradient off. `building-3d` is the bottom slice, `building-3d-1`… the ones above it. The top slice is the
   // roof colour itself, so roofs keep the flat z<15 colour (Filippo, 2 Nov).
   const hgt = ['coalesce', ['get', 'render_height'], 6], minH = ['coalesce', ['get', 'render_min_height'], 0];
-  const at = (f) => ['+', minH, ['*', ['-', hgt, minH], f]];
   const ramp = (v) => ['interpolate', ['linear'], ['zoom'], 14.6, 0, 15.8, v];
-  const lift = (c, t) => mixHex(c, t > 0 ? '#000000' : '#FFFFFF', Math.abs(t));
+  // Darker: toward black, or (light, 6 Nov) toward the navy ink, so pale walls deepen without going grey.
+  const lift = (c, t) => mixHex(c, t > 0 ? (DEEP ? P.placeMajor : '#000000') : '#FFFFFF', Math.abs(t));
   // Landmarks too (Filippo, 2 Nov): their walls shade like every building's.
   const shade = (t) => ['case', landmark, lift(P.lmRoof, t), ['match', roofIdx, ...P.roof.flatMap((c, i) => [i, lift(c, t)]).slice(0, -2),
     lift(P.roof[P.roof.length - 1], t)]];
-  // Lighter than the roof colour at the bottom (`wallLift`: more on the pale light roofs), the roof colour at the top.
+  // Dark: lighter than the roof colour at the bottom (`wallLift`), the roof colour at the top.
+  // Light (Filippo, 6 Nov): one ramp ending in the roof colour, so the roof is its lightest colour and the walls
+  // deepen toward the base (DEEP toward the navy ink: pale walls darken without going grey). All slices opaque.
+  // The roof is the top face of the last slice, which is the roof colour itself (2 Nov: roofs keep the z<15 colour).
+  const DEEP = !sat && mode === 'day' ? 0.2 : 0;
+  const at = (f) => ['+', minH, ['*', ['-', hgt, minH], f]];
   const SLICES = 8, LIGHT = -(P.wallLift ?? 0.3), DARK = 0;   // 2 Nov: a stronger gradient (was 14 %, light 35 %)
   for (let i = 0; i < SLICES; i++) {
-    const from = i / SLICES, to = (i + 1) / SLICES, t = LIGHT + (DARK - LIGHT) * (i / (SLICES - 1));
+    const k = i / (SLICES - 1);
+    const t = DEEP ? DEEP * (1 - k) : LIGHT + (DARK - LIGHT) * k;
     omt('building', i === 0 ? 'building-3d' : `building-3d-${i}`, 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
       paint: { 'fill-extrusion-color': shade(t),
-        'fill-extrusion-base': ramp(i === 0 ? minH : at(from)), 'fill-extrusion-height': ramp(at(to)),
+        'fill-extrusion-base': ramp(i === 0 ? minH : at(i / SLICES)), 'fill-extrusion-height': ramp(at((i + 1) / SLICES)),
         'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
   }
   if (sat && P.dim) add({ id: 'night-dim', type: 'background', paint: { 'background-color': `rgba(5,8,12,${P.dim})` } });
@@ -569,6 +588,9 @@ function style(name, mode) {
       omt: { type: 'vector', tiles: ['https://tiles.velix.invalid/basemap/{z}/{x}/{y}'], minzoom: 0, maxzoom: 14,
         attribution: '© OpenMapTiles © OpenStreetMap contributors' },
       velix: { type: 'vector', tiles: ['https://tiles.velix.invalid/overlays/{z}/{x}/{y}'], minzoom: 8, maxzoom: 14 },
+      // Elevation for the hillshade, online only (PackTileProtocol `terrain`: Mapterhorn, through the tile cache).
+      terrain: { type: 'raster-dem', tiles: ['https://tiles.velix.invalid/terrain/{z}/{x}/{y}'], tileSize: 512, encoding: 'terrarium',
+        minzoom: 0, maxzoom: 12, attribution: '© Mapterhorn (Copernicus GLO-30 and national elevation data)' },
       'velix-route': { ...empty, lineMetrics: true },
       'velix-hazards': { ...empty, cluster: true, clusterRadius: 44, clusterMaxZoom: 14 },
       'velix-markers': empty,

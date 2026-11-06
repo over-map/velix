@@ -3,7 +3,7 @@ import MapLibre
 
 /// Serves the map's vector tiles from every installed region pack as one source, so the map shows them side by side
 /// with one set of layers (Filippo, 2 Nov: several regions on the phone). The styles ask for
-/// `https://tiles.velix.invalid/{basemap|overlays}/{z}/{x}/{y}`; MapLibre's session (``install()``) routes those here.
+/// `https://tiles.velix.invalid/{basemap|overlays|terrain}/{z}/{x}/{y}`; MapLibre's session (``install()``) routes those here.
 ///
 /// A basemap tile wholly inside a pack's border comes from the pack (offline, as fast as ever while riding). Any other
 /// tile, at low zoom, across a border or outside every pack, comes from OpenFreeMap (the same OpenMapTiles schema),
@@ -74,6 +74,11 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
         let parts = url.path.split(separator: "/").map(String.init)
         guard parts.count == 4, let z = Int(parts[1]), let x = Int(parts[2]), let y = Int(parts[3].split(separator: ".")[0]) else {
             return fail()
+        }
+        if parts[0] == "terrain" {
+            // Hillshade (6 Nov): Mapterhorn's Terrarium elevation, online only, through the same 100 MB cache.
+            guard let url = Self.url(Self.terrainTemplate, z: z, x: x, y: y) else { return fail() }
+            return Self.fetch(url) { [self] data in respond(data ?? Data(), contentType: "image/webp") }
         }
         if parts[0] == "overlays" {
             let packs = Self.lock.withLock { Self.overlays }
@@ -147,9 +152,9 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
 
     // MARK: Responses
 
-    private func respond(_ data: Data, status: Int = 200) {
+    private func respond(_ data: Data, status: Int = 200, contentType: String = "application/x-protobuf") {
         guard let url = request.url, let r = HTTPURLResponse(url: url, statusCode: data.isEmpty ? 204 : status, httpVersion: "HTTP/1.1",
-                                                             headerFields: ["Content-Type": "application/x-protobuf", "Cache-Control": "no-store"]) else { return fail() }
+                                                             headerFields: ["Content-Type": contentType, "Cache-Control": "no-store"]) else { return fail() }
         client?.urlProtocol(self, didReceive: r, cacheStoragePolicy: .notAllowed)
         if !data.isEmpty { client?.urlProtocol(self, didLoad: data) }
         client?.urlProtocolDidFinishLoading(self)
@@ -166,6 +171,10 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
             Self.fetch(url) { [self] data in respond(data ?? fallback()) }
         }
     }
+
+    /// Mapterhorn (mapterhorn.com): open elevation data worldwide, Copernicus GLO-30 at 30 m, finer where countries
+    /// publish it (Lombardy 5 m, Switzerland 0.5–2 m); z0–12 everywhere.
+    static let terrainTemplate = "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp"
 
     static func url(_ template: String, z: Int, x: Int, y: Int) -> URL? {
         URL(string: template.replacingOccurrences(of: "{z}", with: "\(z)").replacingOccurrences(of: "{x}", with: "\(x)")
