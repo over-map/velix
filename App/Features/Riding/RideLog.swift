@@ -138,6 +138,20 @@ final class RideLog: @unchecked Sendable {
         return false
     }
 
+    /// Simulated by its flag, or (logs from before the flag, 6 Nov) by the simulator's constant 5.0 m accuracy.
+    nonisolated static func looksSimulated(lines: [String]) -> Bool {
+        if isSimulated(lines: lines) { return true }
+        var accuracies = Set<Double>(), fixes = 0
+        for line in lines {
+            guard let o = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any], o["e"] == nil,
+                  let acc = o["acc"] as? Double else { continue }
+            accuracies.insert(acc)
+            fixes += 1
+            if accuracies.count > 1 { return false }
+        }
+        return fixes >= 10 && accuracies == [5]
+    }
+
     func close() {
         lock.lock(); defer { lock.unlock() }
         try? handle?.close()

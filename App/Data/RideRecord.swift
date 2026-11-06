@@ -116,6 +116,34 @@ final class RideHistory {
         refresh()
     }
 
+    #if DEBUG
+    /// Debug `-purge-simulated-rides [dry]`: simulated rides (``RideLog/looksSimulated(lines:)``) leave the history,
+    /// and every simulated log and its GPX moves to `rides-simulated/` next to `rides/` (kept: undo by moving them
+    /// back and clearing ``importedKey``). Returns the records and files it removes (or would, with `dryRun`).
+    @discardableResult
+    func removeSimulated(dryRun: Bool, directory: URL = RideHistory.directory) -> (records: [String], files: [String]) {
+        let parked = directory.deletingLastPathComponent().appending(path: "rides-simulated")
+        let logs = ((try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [])
+            .filter { $0.pathExtension == "jsonl" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        var simulated = Set<String>(), files: [String] = []
+        for url in logs {
+            guard let lines = try? String(contentsOf: url, encoding: .utf8).split(separator: "\n").map(String.init),
+                  RideLog.looksSimulated(lines: lines) else { continue }
+            simulated.insert(url.lastPathComponent)
+            let gpx = url.deletingPathExtension().appendingPathExtension("gpx")
+            files += [url.lastPathComponent] + (FileManager.default.fileExists(atPath: gpx.path) ? [gpx.lastPathComponent] : [])
+        }
+        let records = rides.filter { simulated.contains($0.logFile) }
+        guard !dryRun else { return (records.map(\.logFile), files) }
+        try? FileManager.default.createDirectory(at: parked, withIntermediateDirectories: true)
+        for name in files { try? FileManager.default.moveItem(at: directory.appending(path: name), to: parked.appending(path: name)) }
+        for r in records { context?.delete(r) }
+        try? context?.save()
+        refresh()
+        return (records.map(\.logFile), files)
+    }
+    #endif
+
     private func refresh() {
         rides = (try? context?.fetch(FetchDescriptor<RideRecord>(sortBy: [SortDescriptor(\.started, order: .reverse)]))) ?? []
     }
