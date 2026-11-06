@@ -29,7 +29,9 @@ struct RootView: View {
             }
         }
         .environment(\.mapAppearance, app.state.mapAppearance)
+        .onChange(of: app.state.packAutoUpdate) { _, on in app.pack.autoUpdate = on }
         .task {
+            app.pack.autoUpdate = app.state.packAutoUpdate
             await app.pack.refreshCatalog()       // the regions on offer (browsing or searching outside offers them)
             // First pack: the rider's region when Velix offers it, else Lombardy.
             if !app.pack.isReady, let here = app.location.coordinate, let r = app.pack.catalog.region(containing: here) {

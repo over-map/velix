@@ -170,7 +170,8 @@ struct YouView: View {
 
     private var offlineMap: some View {
         group("Offline map", footnote: app.pack.installed.count == 1
-              ? "Keep one region on the phone to plan routes. Download another to remove this one." : nil) {
+              ? "Keep one region on the phone to plan routes. Browse or search a place elsewhere to add its region."
+              : "Browse or search a place elsewhere to add its region.") {
             let regions = offlineRegions
             ForEach(Array(regions.enumerated()), id: \.element) { i, id in
                 OfflineRegionRow(region: app.pack.name(of: id), state: packState(id), divider: i > 0,
@@ -202,10 +203,16 @@ struct YouView: View {
         return bytes > 0 ? "\(bytes / 1_000_000) MB" : "its space"
     }
 
-    /// Downloaded regions first, then the others on offer, each by name.
+    /// The regions on the phone, then one downloading or stopped (Filippo, 6 Nov: the others are offered where the rider
+    /// browses or searches, not listed here).
     private var offlineRegions: [String] {
         let installed = app.pack.installed.map(\.pack)
-        let others = app.pack.catalog.regions.map(\.id).filter { !installed.contains($0) }
+        let others = app.pack.states.compactMap { id, state -> String? in
+            switch state {
+            case .downloading, .failed, .checking: installed.contains(id) ? nil : id
+            default: nil
+            }
+        }
         let all = installed + others.sorted { app.pack.name(of: $0) < app.pack.name(of: $1) }
         return all.isEmpty ? [RegionPack.active] : all
     }
@@ -216,13 +223,11 @@ struct YouView: View {
         case let .downloading(r, t):
             return .downloading(received: "\(r / 1_000_000)", total: "\(t / 1_000_000) MB", fraction: t > 0 ? Double(r) / Double(t) : 0)
         case .failed: return .failed
-        case .ready where app.pack.hasUpdate(id):
-            return .update(size: app.pack.catalog.region(id).map { "\($0.downloadBytes / 1_000_000) MB" } ?? "")
         case let .ready(m):
             return .ready(size: m.downloadBytes > 0 ? "\(m.downloadBytes / 1_000_000) MB" : "Side-loaded", updated: Self.date(m.built))
         case .none, .checking:
             if let r = app.pack.catalog.region(id) { return .available(size: "\(r.downloadBytes / 1_000_000) MB") }
-            return .update(size: "")
+            return .available(size: "")
         }
     }
 
