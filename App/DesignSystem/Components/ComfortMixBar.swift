@@ -50,7 +50,31 @@ struct ComfortMixLegend: View {
     }
 }
 
+extension ComfortMixBar {
+    /// P8 route cards: the mix as its largest two segments, "Mostly protected lanes, then quiet streets."
+    static func spokenSummary(_ mix: [MixCategory: Double]) -> String? {
+        let total = mix.values.reduce(0, +)
+        let top = mix.filter { $0.value > 0 }.sorted { $0.value > $1.value }.prefix(2).map { ($0.key, $0.value / max(total, 1e-9)) }
+        guard let first = top.first else { return nil }
+        let lead = first.1 >= 0.5 ? "Mostly \(first.0.spoken)" : first.0.spoken.prefix(1).uppercased() + first.0.spoken.dropFirst()
+        guard top.count > 1 else { return lead + "." }
+        return lead + (first.1 >= 0.5 ? ", then " : " and ") + top[1].0.spoken + "."
+    }
+}
+
 extension MixCategory {
+    /// Read aloud in a sentence ("protected lanes", "quiet streets").
+    var spoken: String {
+        switch self {
+        case .protected: "protected lanes"
+        case .painted: "painted lanes"
+        case .quiet: "quiet streets"
+        case .mixed: "mixed traffic"
+        case .cobbles: "cobbles"
+        case .unpaved: "unpaved surfaces"
+        }
+    }
+
     /// Legend copy (P2 §08 ComfortMixBar).
     var label: String {
         switch self {

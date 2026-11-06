@@ -66,6 +66,8 @@ struct VelixMap: UIViewRepresentable {
 
     func makeUIView(context: Context) -> MLNMapView {
         let map = MLNMapView(frame: .zero)
+        // P8: map lines aren't focusable; route cards, hazard rows and route keys are their accessible twins.
+        map.accessibilityElementsHidden = true
         map.delegate = context.coordinator
         map.logoView.isHidden = true
         map.compassView.isHidden = true
@@ -148,7 +150,7 @@ struct VelixMap: UIViewRepresentable {
                 placeAttribution(on: map)
                 let cam = MLNMapCamera(lookingAtCenter: CLLocationCoordinate2D(latitude: fit.center.lat, longitude: fit.center.lon),
                                        altitude: Self.altitude(for: fit, from: map), pitch: 0, heading: 0)
-                map.setCamera(cam, withDuration: duration ?? (animated ? 0.35 : 0),
+                map.setCamera(cam, withDuration: duration ?? (animated && !Self.reduceMotion ? 0.35 : 0),
                               animationTimingFunction: CAMediaTimingFunction(name: .easeInEaseOut))
                 return
             }
@@ -160,7 +162,7 @@ struct VelixMap: UIViewRepresentable {
             guard let duration else {
                 // One flight to centre, zoom, tilt and heading together. (A centre animation followed by a camera built
                 // from `map.camera`, the current camera, cancelled the move: Recenter only flattened the tilt, Filippo 2 Nov.)
-                map.setCamera(cam, withDuration: animated ? 0.45 : 0, animationTimingFunction: CAMediaTimingFunction(name: .easeInEaseOut))
+                map.setCamera(cam, withDuration: animated && !Self.reduceMotion ? 0.45 : 0, animationTimingFunction: CAMediaTimingFunction(name: .easeInEaseOut))
                 return
             }
             let timing = state?.motion == .track ? CAMediaTimingFunction(name: .linear) : CAMediaTimingFunction(name: .easeInEaseOut)
@@ -169,6 +171,8 @@ struct VelixMap: UIViewRepresentable {
 
         /// Free space kept around a fitted route.
         static let fitMargin: CGFloat = 40
+        /// P8 Reduce Motion: Recenter and route fits jump instead of flying (riding's tracking moves stay).
+        @MainActor static var reduceMotion: Bool { UIAccessibility.isReduceMotionEnabled }
 
         /// Timed motions; nil for MapLibre's default flight.
         /// The ⓘ in the bottom-right corner of the map left free (above the sheet), whatever extra inset the fit or the

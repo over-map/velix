@@ -83,13 +83,13 @@ struct RouteListCard: View {
                 RouteKeyTile(number: route.key, focused: focused)
                 VStack(alignment: .leading, spacing: 7) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(route.name).velixType(VelixType.cardTitle.sized(17, lineHeight: 20)).lineLimit(1)
+                        Text(route.name).velixType(VelixType.cardTitle.sized(17, lineHeight: 20)).lineLimit(2)
                         Spacer(minLength: 0)
                         Text(route.km).velixType(VelixType.cardTitle.sized(17, lineHeight: 20)).monospacedDigit().fixedSize()
                     }
                     HStack(spacing: 8) {
                         badge
-                        Text(route.note).velixType(VelixType.body.sized(14, lineHeight: 18)).foregroundStyle(Color.velix.ink2).lineLimit(1)
+                        Text(route.note).velixType(VelixType.body.sized(14, lineHeight: 18)).foregroundStyle(Color.velix.ink2).lineLimit(2)
                     }
                     ComfortMixBar(mix: route.mix, size: .compact)
                 }
@@ -104,7 +104,17 @@ struct RouteListCard: View {
         }
         .buttonStyle(VelixPressStyle())
         .accessibilityElement(children: .combine)
+        // P8 S7: "Route 1, Alzaia Naviglio Pavese, EuroVelo 5, 33 kilometres. Flat towpath along the canal to Pavia. …"
+        .accessibilityLabel(spoken)
         .accessibilityAddTraits(focused ? .isSelected : [])
+    }
+
+    private var spoken: String {
+        let network = route.eurovelo.map { "EuroVelo \($0)" } ?? route.network
+        var t = "Route \(route.key), \(route.name), \(network), \(Format.spoken(route.km))."
+        if !route.note.isEmpty { t += " \(route.note)\(route.note.hasSuffix(".") ? "" : ".")" }
+        if let mix = ComfortMixBar.spokenSummary(route.mix) { t += " \(mix)" }
+        return t
     }
 
     @ViewBuilder private var badge: some View {

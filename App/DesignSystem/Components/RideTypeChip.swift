@@ -13,14 +13,14 @@ struct RideTypeChip: View {
                 VelixIconView(.chevronDown, size: 16)
             }
             .padding(.leading, 10).padding(.trailing, CGFloat.velix.s)
-            .frame(height: CGFloat.velix.touch.min)
+            .frame(minHeight: CGFloat.velix.touch.min)
             .foregroundStyle(Color.velix.ink)
             .background(Color.velix.surface, in: Capsule())
             .velixElevation(VelixElevations.e1, in: Capsule())
         }
         .buttonStyle(VelixPressStyle())
         .accessibilityLabel("Ride type: \(rideType.name)")
-        .accessibilityHint("Changes the ride type")
+        .accessibilityHint("Double-tap to change.")
     }
 }
 

@@ -32,3 +32,15 @@ struct VelixPressStyle: ButtonStyle {
             .animation(VelixMotions.press.animation(reduceMotion: reduceMotion), value: configuration.isPressed)
     }
 }
+
+extension Animation {
+    /// `animation`, or the Reduce Motion crossfade (0.15 s) when Reduce Motion is on.
+    static func velix(_ animation: Animation, reduceMotion: Bool) -> Animation {
+        reduceMotion ? .easeInOut(duration: 0.15) : animation
+    }
+}
+
+extension AnyTransition {
+    /// Sheets and cards slide up from the bottom; with Reduce Motion they fade (P8, motion tokens).
+    static func velixRise(reduceMotion: Bool) -> AnyTransition { reduceMotion ? .opacity : .move(edge: .bottom) }
+}

@@ -132,7 +132,7 @@ struct FilterChips: View {
                             Text(option).velixType(.label)
                         }
                         .foregroundStyle(on ? Color.velix.surface : Color.velix.ink)
-                        .padding(.horizontal, 14).frame(height: 36)
+                        .padding(.horizontal, 14).frame(minHeight: 36)
                         .background(on ? Color.velix.ink : Color.velix.surface, in: Capsule())
                         .overlay { if !on { Capsule().strokeBorder(Color.velix.line, lineWidth: 1) } }
                         .frame(minHeight: CGFloat.velix.touch.min)

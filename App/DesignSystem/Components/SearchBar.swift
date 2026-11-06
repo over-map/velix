@@ -4,6 +4,9 @@ import SwiftUI
 struct SearchBar: View {
     var homeSet = true
     var workSet = true
+    /// Read aloud for the set shortcuts (P8: "Home, 0.3 kilometres", "Work, Politecnico, 5.4 kilometres").
+    var homeLabel: String?
+    var workLabel: String?
     var onHome: () -> Void = {}
     var onWork: () -> Void = {}
     var onTap: () -> Void = {}
@@ -20,24 +23,30 @@ struct SearchBar: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Search a place")
-            shortcut(set: homeSet, title: "Home", setTitle: "Set Home", icon: .house, action: onHome)
-            shortcut(set: workSet, title: "Work", setTitle: "Set Work", icon: .briefcase, action: onWork)
+            .accessibilityLabel("Where to?")
+            .accessibilityAddTraits(.isSearchField)
+            .accessibilityHint("Double-tap to search for a place.")
+            shortcut(set: homeSet, title: "Home", setTitle: "Set Home", icon: .house, label: homeLabel,
+                     hint: homeSet ? "Double-tap for route options." : "Double-tap to pick your home address.", action: onHome)
+            shortcut(set: workSet, title: "Work", setTitle: "Set Work", icon: .briefcase, label: workLabel,
+                     hint: workSet ? "Double-tap for route options." : "Double-tap to pick your work address.", action: onWork)
         }
         .padding(EdgeInsets(top: 6, leading: 14, bottom: 6, trailing: 6))
-        .frame(height: 56)
+        .frame(minHeight: 56)
+        .fixedSize(horizontal: false, vertical: true)   // grows with large text, never taller than its content
         .background(Color.velix.surface, in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.card))
         .velixElevation(VelixElevations.e1)
     }
 
-    private func shortcut(set: Bool, title: String, setTitle: String, icon: VelixIcon, action: @escaping () -> Void) -> some View {
+    private func shortcut(set: Bool, title: String, setTitle: String, icon: VelixIcon, label: String?, hint: String,
+                          action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 VelixIconView(set ? icon : .plus, size: 18)
                 Text(set ? title : setTitle).velixType(.label).lineLimit(1).fixedSize()
             }
             .padding(.horizontal, set ? CGFloat.velix.s : 9)
-            .frame(height: CGFloat.velix.touch.min)
+            .frame(minHeight: CGFloat.velix.touch.min)
             .foregroundStyle(Color.velix.ink)
             .background(set ? Color.velix.surface2 : .clear, in: RoundedRectangle(cornerRadius: 12))
             .overlay {
@@ -45,7 +54,8 @@ struct SearchBar: View {
             }
         }
         .buttonStyle(VelixPressStyle())
-        .accessibilityLabel(set ? "Go \(title.lowercased())" : setTitle)
+        .accessibilityLabel(set ? (label ?? title) : setTitle)
+        .accessibilityHint(hint)
     }
 }
 
@@ -72,7 +82,7 @@ struct SearchField: View {
                 }
             }
             .padding(.horizontal, CGFloat.velix.s)
-            .frame(height: 52)
+            .frame(minHeight: 52)
             .background(Color.velix.surface, in: RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.velix.ink, lineWidth: 2))
             Button("Cancel", action: onCancel)

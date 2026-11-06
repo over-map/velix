@@ -88,6 +88,7 @@ struct RidingScreen: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.mapAppearance) private var mapAppearance
     @Environment(\.liveMap) private var liveMap
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var confirmEnd = false
     /// Measured: how much the on-train sheet and the ETA bar cover (the fit and the map's ⓘ follow them).
     @State private var trainCard: CGFloat?
@@ -239,7 +240,7 @@ struct RidingScreen: View {
         case let .turn(turn, pill, pillDistance):
             ManeuverBanner(maneuver: turn.maneuver, distance: RideSession.distance(turn.meters), street: turn.street,
                            then: turn.then.map { ($0.maneuver, $0.street) }, roadType: pill, roadTypeDistance: pillDistance,
-                           stage: state.stage)
+                           stage: state.stage, meters: turn.meters)
         }
     }
 
@@ -254,7 +255,7 @@ struct RidingScreen: View {
             NoticeBanner.weakGPS()
         } else if let h = state.hazard {
             NextHazardCard(type: h.type, advice: h.advice, distance: h.distance, approaching: h.approaching)
-                .animation(VelixMotions.hazardApproach.animation, value: h.approaching)
+                .animation(VelixMotions.hazardApproach.animation(reduceMotion: reduceMotion), value: h.approaching)
         }
     }
 }

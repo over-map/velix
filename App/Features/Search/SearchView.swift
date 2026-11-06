@@ -135,8 +135,8 @@ struct SearchView: View {
             HStack(spacing: CGFloat.velix.s) {
                 leading(place, icon)
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(title ?? place.name).velixType(.rowTitle).foregroundStyle(Color.velix.ink).lineLimit(1)
-                    Text(subtitle ?? place.subtitle).velixType(.rowSubtitle).foregroundStyle(Color.velix.ink2).lineLimit(1)
+                    Text(title ?? place.name).velixType(.rowTitle).foregroundStyle(Color.velix.ink).lineLimit(2)
+                    Text(subtitle ?? place.subtitle).velixType(.rowSubtitle).foregroundStyle(Color.velix.ink2).lineLimit(2)
                 }
                 Spacer(minLength: CGFloat.velix.xs)
                 if let d = distance(to: place) {
