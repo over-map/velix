@@ -333,5 +333,12 @@ final class ScreenSnapshotTests: XCTestCase {
         let two = app()
         two.pack.setForTesting(.downloading(received: 84_000_000, total: 222_000_000), region: "piemonte")
         check(YouView(app: two).defaultScrollAnchor(.bottom), named: "S8c-offlineRegions")
+        // Filippo, 5 Nov: with two regions on the phone, each shows Remove.
+        let both = app()
+        both.pack.setForTesting(.ready(RegionPackManifest(schema: 1, pack: "piemonte", name: "Piedmont", version: "2026.11",
+                                                          built: "2026-11-01", valhalla: "", bbox: [6.63, 44.06, 8.49, 46.46],
+                                                          files: [], downloadBytes: 222_000_000, unpackedBytes: 0, budgetBytes: 0,
+                                                          sources: [])), region: "piemonte")
+        check(YouView(app: both).defaultScrollAnchor(.bottom), named: "S8d-removeRegion")
     }
 }

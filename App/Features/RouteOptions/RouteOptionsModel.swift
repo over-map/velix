@@ -56,6 +56,10 @@ final class RouteOptionsModel {
             let planner = try await app.engine.planner(covering: [origin, destination.location])
             switch try await planner.plan(from: origin, to: destination.location, heading: app.location.travelHeading, rules: app.rules) {
             case let .options(o):
+                #if DEBUG
+                NSLog("[plan] %@: Best %@ %d min, Fastest %d min, %d ms (%@)", destination.name, Format.km(o.best.meters),
+                      Int(o.best.seconds / 60), Int(o.fastestSeconds / 60), Int(o.milliseconds), RegionPack.active)
+                #endif
                 state = .options(o)
                 await planTransit(app: app, from: origin, bike: o)
             case let .noRouteMeetsRules(rule, type, closest, _): state = .blocked(rule: rule, rideType: type, closest: closest)
@@ -68,6 +72,9 @@ final class RouteOptionsModel {
         } catch {
             state = .failed("Velix couldn’t plan this route.")
         }
+        #if DEBUG
+        if case .options = state {} else { NSLog("[plan] %@: %@", destination.name, String(describing: state)) }
+        #endif
     }
 
     /// To the nearer end of the route, then along all of it, as one route through vias (``RouteRide``).
@@ -114,6 +121,10 @@ final class RouteOptionsModel {
         departureIndex = 0
         guard let planner = try? await app.engine.transitPlanner() else { return }
         let plans = await planner.plans(from: origin, to: destination.location, rules: app.rules, at: AppClock.now)
+        #if DEBUG
+        NSLog("[plan] transit: %@", plans.first.map { "\($0.departure.name) \($0.departure.board.name) → \($0.departure.alight.name), " +
+              "\(Int($0.seconds / 60)) min" } ?? "no direct connection")
+        #endif
         guard let first = plans.first else { return }
         let outside = app.engine.cityArea.map { !$0.contains(destination.location) } ?? false
         let b = bike.best

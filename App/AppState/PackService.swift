@@ -28,6 +28,14 @@ final class PackService {
     private(set) var isOnline = true
     /// Tests set the connection; the monitor leaves it.
     private var connectionPinned = false
+    /// You → Offline map: Update automatically. Newer packs of the downloaded regions install on Wi-Fi, one at a time.
+    var autoUpdate = false { didSet { installUpdates() } }
+    /// The running download updates a region that stays usable (its old pack serves until the new one is in).
+    private var updating = false
+    /// Updates that failed this launch (not retried until the next one).
+    private var failedUpdates: Set<String> = []
+    /// A download asked for while an update ran: it goes first, the update resumes after it.
+    private var queued: String?
 
     /// Called with the region after a pack installs or is removed.
     var onInstalled: (String) -> Void = { _ in }
@@ -58,6 +66,7 @@ final class PackService {
                 guard let self, !self.connectionPinned else { return }
                 self.isExpensive = expensive
                 self.isOnline = online
+                self.installUpdates()
             }
         }
         monitor.start(queue: .global(qos: .utility))
@@ -70,7 +79,8 @@ final class PackService {
     var regionName: String { name(of: focus) }
 
     var isReady: Bool { !installed.isEmpty }
-    var isDownloading: Bool { downloading != nil }
+    /// A region is downloading (a background update doesn't count: the screens show nothing for it).
+    var isDownloading: Bool { downloading != nil && !updating }
 
     /// Fraction for progress bars.
     var fraction: Double {
@@ -122,24 +132,41 @@ final class PackService {
 
     func refreshCatalog() async {
         if let c = try? await fetchCatalog(), !c.regions.isEmpty { catalog = c }
+        installUpdates()
+    }
+
+    /// With Update automatically on and Wi-Fi, install the next newer pack of a downloaded region.
+    func installUpdates() {
+        guard autoUpdate, isOnline, !isExpensive, task == nil,
+              let next = installed.first(where: { hasUpdate($0.pack) && !failedUpdates.contains($0.pack) }) else { return }
+        install(next.pack)
     }
 
     /// Install a region's newest pack (the active region by default: first launch); resumes an interrupted download.
     /// One download at a time.
     func install(_ region: String? = nil) {
-        guard task == nil else { return }
         let region = region ?? RegionPack.active
+        guard task == nil else {
+            // The rider's download goes before a background update (which resumes later from its staged files).
+            if updating, downloading != region { queued = region; task?.cancel() }
+            return
+        }
         let previous = state(of: region)
+        let update: Bool = if case .ready = previous { true } else { false }
         downloading = region
+        updating = update
         task = Task { [weak self] in
             guard let self else { return }
-            defer { self.task = nil; self.downloading = nil }
-            self.states[region] = .checking
+            defer {
+                self.task = nil; self.downloading = nil; self.updating = false
+                if let next = self.queued { self.queued = nil; self.install(next) } else { self.installUpdates() }
+            }
+            if !update { self.states[region] = .checking }
             do {
                 if self.catalog.regions.isEmpty { await self.refreshCatalog() }
                 guard let entry = self.catalog.region(region) else { self.states[region] = previous; return }
                 let total = entry.downloadBytes
-                self.states[region] = .downloading(received: 0, total: total)
+                if !update { self.states[region] = .downloading(received: 0, total: total) }
                 let installed = try await self.installerFor(region).install(manifest: entry.manifest) { fraction in
                     Task { @MainActor in self.progress(region, fraction, total: total) }
                 }
@@ -147,18 +174,39 @@ final class PackService {
                 PackTileProtocol.use(RegionPack.mapSources)
                 self.onInstalled(region)
             } catch {
-                if case let .downloading(r, t) = self.states[region] { self.states[region] = .failed(received: r, total: t) }
+                if update {
+                    // The installed pack is untouched; a cancelled update (the rider's download first) comes back.
+                    self.states[region] = previous
+                    if self.queued == nil { self.failedUpdates.insert(region) }
+                } else if case let .downloading(r, t) = self.states[region] { self.states[region] = .failed(received: r, total: t) }
                 else { self.states[region] = previous == .checking ? .none : previous }
             }
         }
     }
 
-    /// Remove a downloaded region (You → Offline map).
+    /// Stop the running download (You → Offline map: Cancel). Its files so far stay, so Retry resumes.
+    func cancel(_ region: String) {
+        guard downloading == region else { return }
+        task?.cancel()
+    }
+
+    /// A downloaded region can be removed while another one stays: routes need one (and launch re-downloads it).
+    func canRemove(_ region: String) -> Bool {
+        isInstalled(region) && downloading != region && installed.count > 1
+    }
+
+    /// A newer pack of an installed region is on offer.
+    func hasUpdate(_ region: String) -> Bool {
+        guard case let .ready(m) = states[region], let r = catalog.region(region) else { return false }
+        return r.version > m.version
+    }
+
+    /// Remove a downloaded region (You → Offline map), unless it's the last one.
     func delete(_ region: String) {
-        guard downloading != region else { return }
+        guard canRemove(region) else { return }
         try? FileManager.default.removeItem(at: RegionPack.root(region, base: base))
         states[region] = nil
-        if RegionPack.active == region { RegionPack.active = installed.first?.pack ?? "lombardy" }
+        if RegionPack.active == region, let other = installed.first?.pack { RegionPack.active = other }
         PackTileProtocol.use(RegionPack.mapSources)
         onInstalled(region)
     }

@@ -71,7 +71,7 @@ struct RoutesView: View {
                      insets: UIEdgeInsets(top: 120, left: 0, bottom: sheetHeight, right: 0),
                      fit: model.moved == nil ? model.fitPoints : nil,
                      onTapRoute: { id in withAnimation(.easeOut(duration: 0.2)) { model.tapped(id); top = id } },
-                     onRegionChange: { model.mapMoved(to: $0) })
+                     onRegionChange: { center, _ in model.mapMoved(to: center) })
         } else {
             Color.velix.surface2
         }

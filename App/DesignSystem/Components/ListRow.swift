@@ -64,10 +64,12 @@ struct StatusCheck: View {
 struct RowButton: View {
     let title: String
     var outlined = false
+    /// Destructive ("Remove"): danger text.
+    var danger = false
     var action: () -> Void = {}
     var body: some View {
         Button(action: action) {
-            Text(title).velixType(.label).foregroundStyle(Color.velix.ink)
+            Text(title).velixType(.label).foregroundStyle(danger ? Color.velix.danger : Color.velix.ink)
                 .padding(.horizontal, 14).frame(height: 36)
                 .background(outlined ? Color.clear : Color.velix.surface2, in: RoundedRectangle(cornerRadius: 10))
                 .overlay { if outlined { RoundedRectangle(cornerRadius: 10).strokeBorder(Color.velix.ink, lineWidth: 1.5) } }

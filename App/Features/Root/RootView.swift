@@ -29,7 +29,9 @@ struct RootView: View {
             }
         }
         .environment(\.mapAppearance, app.state.mapAppearance)
+        .onChange(of: app.state.packAutoUpdate) { _, on in app.pack.autoUpdate = on }
         .task {
+            app.pack.autoUpdate = app.state.packAutoUpdate
             await app.pack.refreshCatalog()       // the regions on offer (browsing or searching outside offers them)
             // First pack: the rider's region when Velix offers it, else Lombardy.
             if !app.pack.isReady, let here = app.location.coordinate, let r = app.pack.catalog.region(containing: here) {
@@ -38,6 +40,7 @@ struct RootView: View {
             if app.state.onboarded, !app.pack.isReady { app.pack.install() }
             app.history.importLogs()
             #if DEBUG
+            if let region = Self.launchRegion { await Self.install(region, pack: app.pack) }
             if let place = Self.launchDestination { app.choose(place) }
             #endif
             await app.refreshWarning()
@@ -154,6 +157,36 @@ extension RootView {
         guard parts.count >= 2, let lat = Double(parts[0]), let lon = Double(parts[1]) else { return nil }
         return Place(id: "launch-\(parts[0]),\(parts[1])", name: parts.count > 2 ? parts[2] : "Destination",
                      subtitle: "", kind: .address, lat: lat, lon: lon)
+    }
+
+    /// `-install-region piemonte`: download a region at launch, as its Download button does, logging progress to the
+    /// console (phone tests from the Mac: `devicectl … launch --console`). `-ride-to` waits for it.
+    static var launchRegion: String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-install-region"), i + 1 < args.count else { return nil }
+        return args[i + 1]
+    }
+
+    static func install(_ region: String, pack: PackService) async {
+        if case .ready = pack.state(of: region) { NSLog("[pack] %@ already installed", region); return }
+        if pack.catalog.region(region) == nil { NSLog("[pack] %@ not in the catalog", region); return }
+        pack.install(region)
+        var logged = -1, started = false
+        while true {
+            switch pack.state(of: region) {
+            case let .ready(m): NSLog("[pack] %@ %@ installed", region, m.version); return
+            case let .failed(r, t): NSLog("[pack] %@ failed at %@", region, Format.megabytes(r, of: t)); return
+            case .none where started: NSLog("[pack] %@ download stopped", region); return
+            case .none: break       // install() starts in a task
+            case .checking: started = true
+            case let .downloading(r, t) where t > 0 && Int(r * 10 / t) != logged:
+                started = true
+                logged = Int(r * 10 / t)
+                NSLog("[pack] %@ downloading %@", region, Format.megabytes(r, of: t))
+            default: break
+            }
+            try? await Task.sleep(for: .seconds(1))
+        }
     }
 }
 #endif
