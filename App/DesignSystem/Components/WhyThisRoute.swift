@@ -24,10 +24,11 @@ struct WhyThisRoute: View {
                     VelixIconView(expanded ? .chevronDown : .chevronRight, size: 18)
                 }
                 .foregroundStyle(Color.velix.ink)
-                .frame(height: CGFloat.velix.touch.min)
+                .frame(minHeight: CGFloat.velix.touch.min)
             }
             .buttonStyle(.plain)
             .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+            .onChange(of: expanded) { _, open in AccessibilityNotification.Announcement(open ? "Expanded" : "Collapsed").post() }
             if expanded {
                 SectionLabel("On your route")
                 ForEach(hazards, id: \.self) { HazardRow(hazard: $0) }
@@ -56,7 +57,17 @@ struct HazardRow: View {
         .padding(.vertical, CGFloat.velix.s)
         .frame(minHeight: 64)
         .overlay(alignment: .top) { Rectangle().fill(Color.velix.line).frame(height: 1) }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(hazard.spoken)
+        .accessibilityAddTraits(.isStaticText)
+    }
+}
+
+extension WhyThisRoute.Hazard {
+    /// P8: "Tram rails crossing, 4 on your route: Piazza Oberdan, Via Melzo, …".
+    var spoken: String {
+        let how = count.map { "\($0) on your route" } ?? amount.map(Format.spoken)
+        return [type.title, how].compactMap { $0 }.joined(separator: ", ") + (subtitle.isEmpty ? "" : ": \(subtitle)")
     }
 }
 
@@ -76,7 +87,8 @@ struct AvoidedRow: View {
         .frame(minHeight: 64)
         .overlay(alignment: .top) { Rectangle().fill(Color.velix.line).frame(height: 1) }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Avoided \(avoided.name): \(avoided.reason)")
+        .accessibilityLabel("Avoided: \(avoided.name), \(avoided.reason)")
+        .accessibilityAddTraits(.isStaticText)
     }
 }
 

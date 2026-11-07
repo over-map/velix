@@ -42,8 +42,22 @@ struct RouteCard: View {
         }
         .buttonStyle(VelixPressStyle())
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(model.name), \(model.minutes) minutes, \(model.distance)")
+        .accessibilityLabel(model.spoken)
         .accessibilityAddTraits(model.selected ? [.isSelected, .isButton] : .isButton)
+    }
+}
+
+extension RouteCard.Model {
+    /// P8: "Calmest for city. 23 minutes, 5.4 kilometres. 5 minutes slower than fastest: avoids … Mostly protected lanes."
+    var spoken: String {
+        let time = time.map(Format.spoken) ?? "\(minutes) minutes"
+        var parts = ["\(name).", "\(time), \(Format.spoken(distance))."]
+        if let line {
+            let plain = Format.spoken(line.replacingOccurrences(of: "**", with: ""))
+            parts.append(plain.hasSuffix(".") ? plain : plain + ".")
+        }
+        if let mix = ComfortMixBar.spokenSummary(mix) { parts.append(mix) }
+        return parts.joined(separator: " ")
     }
 }
 

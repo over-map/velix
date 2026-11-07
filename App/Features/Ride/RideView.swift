@@ -42,6 +42,8 @@ struct RideView: View {
             map.ignoresSafeArea()
             VStack(spacing: CGFloat.velix.s) {
                 if !bottomCovered { SearchBar(homeSet: app.state.home != nil, workSet: app.state.work != nil,
+                          homeLabel: shortcutLabel("Home", app.state.home, named: false),
+                          workLabel: shortcutLabel("Work", app.state.work, named: true),
                           onHome: { home() }, onWork: { work() }, onTap: { search = .destination })
                 notices }
                 Spacer()
@@ -184,6 +186,15 @@ struct RideView: View {
                 MapButton(active: sheet == .mapStyle) { sheet = .mapStyle }
             }
         }
+    }
+
+    /// P8: "Home, 0.3 kilometres", "Work, Politecnico, 5.4 kilometres" (the distance from here, when known).
+    private func shortcutLabel(_ title: String, _ place: Place?, named: Bool) -> String? {
+        guard let place else { return nil }
+        var parts = [title]
+        if named { parts.append(place.name) }
+        if let here = app.location.coordinate { parts.append(Format.spoken(Format.km(Geo.distance(here, place.location)))) }
+        return parts.joined(separator: ", ")
     }
 
     private func home() {

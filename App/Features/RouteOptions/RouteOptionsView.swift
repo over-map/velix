@@ -96,7 +96,8 @@ struct RouteOptionsView: View {
     private var grabber: some View {
         Capsule().fill(Color.velix.line).frame(width: 36, height: 5)
             .frame(maxWidth: .infinity, minHeight: 24)
-            .contentShape(Rectangle())
+            // 44 pt to touch (P8), drawn in its 24 pt row: the hit area reaches 10 pt above and below.
+            .contentShape(Rectangle().inset(by: -10))
             .onTapGesture { fold(!collapsed) }
             .gesture(DragGesture(minimumDistance: 12).onEnded { g in
                 if g.translation.height > 30 { fold(true) } else if g.translation.height < -30 { fold(false) }
@@ -115,7 +116,7 @@ struct RouteOptionsView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(model.destination.name).velixType(VelixType.title2.sized(24, lineHeight: 28)).foregroundStyle(Color.velix.ink)
-                    .lineLimit(1).accessibilityAddTraits(.isHeader)
+                    .lineLimit(2).accessibilityAddTraits(.isHeader)
                 HStack(spacing: 6) {
                     VelixIconView(app.state.rideType.glyph, size: 18)
                     Text(app.state.rideType.name + (app.litStreetsOnly ? " · lit streets only" : "")).velixType(.label)

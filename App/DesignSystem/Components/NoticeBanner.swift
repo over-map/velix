@@ -13,6 +13,23 @@ struct NoticeBanner: View {
     var link: (title: String, action: () -> Void)?
 
     var body: some View {
+        Group {
+            if link == nil {
+                // P8: one element read as static text, "title. message"; Close is an action, not a separate stop.
+                banner
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(title). \(message)")
+                    .accessibilityAddTraits(.isStaticText)
+                    .accessibilityActions { if let onDismiss { Button("Close", action: onDismiss) } }
+            } else {
+                banner.accessibilityElement(children: .contain)
+            }
+        }
+        // Warnings (severe weather, late, missed, weak GPS) are alerts: announced when they appear.
+        .onAppear { if tone == .warning { AccessibilityNotification.Announcement("\(title). \(message)").post() } }
+    }
+
+    private var banner: some View {
         HStack(alignment: .top, spacing: CGFloat.velix.s) {
             icon.frame(width: 22, height: 22)
             VStack(alignment: .leading, spacing: 2) {
@@ -21,7 +38,7 @@ struct NoticeBanner: View {
                 if let link {
                     Button(action: link.action) { Text(link.title).underline().velixType(.label) }
                         .buttonStyle(.plain)
-                        .frame(minHeight: 32)
+                        .frame(minHeight: CGFloat.velix.touch.min)
                         .accessibilityAddTraits(.isLink)
                 }
             }
@@ -30,7 +47,7 @@ struct NoticeBanner: View {
                 Button(action: onDismiss) { VelixIconView(.x, size: 20).frame(width: 44, height: 44) }
                     .buttonStyle(.plain)
                     .padding(-12)
-                    .accessibilityLabel("Dismiss")
+                    .accessibilityLabel("Close")
             }
         }
         .padding(EdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 12))
@@ -38,7 +55,6 @@ struct NoticeBanner: View {
         .background(tone == .warning ? Color.velix.warningSurface : Color.velix.surface,
                     in: RoundedRectangle(cornerRadius: CGFloat.velix.radius.card))
         .velixElevation(tone == .info ? VelixElevations.e1 : VelixElevations.e0)
-        .accessibilityElement(children: link == nil ? .combine : .contain)
     }
 }
 

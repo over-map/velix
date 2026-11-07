@@ -11,6 +11,9 @@ struct ManeuverBanner: View {
     var roadTypeDistance: String?
     /// Bike + transit (P6): the stage strip on top of the banner.
     var stage: StageStrip?
+    /// Metres to the maneuver, for the VoiceOver announcements at 100 m and 30 m (P8); nil in snapshots.
+    var meters: Double?
+    @State private var announced: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -42,7 +45,18 @@ struct ManeuverBanner: View {
         .velixElevation(VelixElevations.e1, in: RoundedRectangle(cornerRadius: 24))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
+        .accessibilityAddTraits(.updatesFrequently)
+        // P8: re-announced at 100 m and at 30 m only (a new maneuver starts over).
+        .onChange(of: street + "\(maneuver)") { announced = nil }
+        .onChange(of: meters) { _, m in
+            guard let m, let band = Self.band(m), band != announced else { return }
+            announced = band
+            AccessibilityNotification.Announcement(accessibilityText).post()
+        }
     }
+
+    /// The announcement band a distance falls in: 100 (30–100 m), 30 (under 30 m), or none further out.
+    nonisolated static func band(_ meters: Double) -> Int? { meters <= 30 ? 30 : meters <= 100 ? 100 : nil }
 
     @ViewBuilder private var thenRow: some View {
         if let then {

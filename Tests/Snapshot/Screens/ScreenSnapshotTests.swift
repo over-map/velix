@@ -73,10 +73,10 @@ final class ScreenSnapshotTests: XCTestCase {
         ]
     }
 
-    private func check(_ view: some View, named name: String, file: StaticString = #filePath, testName: String = #function,
-                       line: UInt = #line) {
+    private func check(_ view: some View, named name: String, type: DynamicTypeSize = .large, file: StaticString = #filePath,
+                       testName: String = #function, line: UInt = #line) {
         for style in [UIUserInterfaceStyle.light, .dark] {
-            let vc = UIHostingController(rootView: view.environment(\.liveMap, false))
+            let vc = UIHostingController(rootView: view.environment(\.liveMap, false).dynamicTypeSize(type))
             vc.overrideUserInterfaceStyle = style
             assertSnapshot(of: vc, as: .image(on: .init(safeArea: UIEdgeInsets(top: 59, left: 0, bottom: 34, right: 0), size: size,
                                                        traits: .init(userInterfaceStyle: style)),
@@ -324,6 +324,28 @@ final class ScreenSnapshotTests: XCTestCase {
     }
 
     // MARK: S8 You
+
+    // MARK: P8 Dynamic Type XL (S3 and S8 at 135 %, riding capped)
+
+    func testDynamicTypeXL() {
+        let xl = DynamicTypeSize.velixScreenCap
+        func s3(_ place: Place, _ options: RouteOptions, transit: [TransitPlan] = []) -> some View {
+            RouteOptionsView(app: app(), model: RouteOptionsModel(destination: place, state: .options(options), transit: transit),
+                             onClose: {}, onStart: { _, _, _ in }, onEditRules: {}, plansOnAppear: false)
+        }
+        check(s3(AppSamples.politecnico, AppSamples.options()), named: "S3a-XL", type: xl)
+        check(s3(AppSamples.villaReale, AppSamples.monzaOptions(), transit: AppSamples.monzaTransit()), named: "S3d-XL", type: xl)
+        check(YouView(app: app()), named: "S8a-XL", type: xl)
+        for (name, position, near) in [("S4a-XL", 420.0, false), ("S4e-XL", 545.0, true)] {
+            var r = AppSamples.ride(at: position)
+            if near { r.turn?.meters = 40 }
+            let camera = RideCamera()
+            r.chevron = camera.drawsRider
+            let state = RideScreenState(r)
+            check(RidingScreen(state: state, camera: camera, voice: .all, target: state.rider.map { camera.follow(at: $0, course: state.course) }),
+                  named: name, type: .accessibility3)   // asked far past the cap: riding still stops at 115 %
+        }
+    }
 
     func testS8You() {
         check(YouView(app: app()), named: "S8a-you")

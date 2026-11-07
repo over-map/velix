@@ -237,7 +237,7 @@ struct TransitCard: View {
                     Button { selectedDeparture = i } label: {
                         Text(time).velixType(.label).monospacedDigit()
                             .foregroundStyle(i == selectedDeparture ? Color.velix.surface : Color.velix.ink)
-                            .padding(.horizontal, CGFloat.velix.s).frame(height: 36)
+                            .padding(.horizontal, CGFloat.velix.s).frame(minHeight: 36)
                             .background(i == selectedDeparture ? Color.velix.ink : Color.velix.surface2,
                                         in: RoundedRectangle(cornerRadius: 8))
                             .frame(minHeight: CGFloat.velix.touch.min)

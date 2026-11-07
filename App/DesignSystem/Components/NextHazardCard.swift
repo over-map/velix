@@ -39,9 +39,13 @@ struct NextHazardCard: View {
         .velixElevation(approaching ? VelixElevations.e2 : VelixElevations.e1, in: RoundedRectangle(cornerRadius: compact ? 14 : 20))
         .accessibilityElement(children: .combine)
         // P8 S4: "Tram rails in 160 metres. Cross straight, at a right angle." Approaching is an alert.
-        .accessibilityLabel("\(type.shortTitle)\(distance.map { " in \($0.replacingOccurrences(of: " m", with: " metres"))" } ?? ""). \(advice ?? type.advice)")
-        .accessibilityAddTraits(approaching ? .updatesFrequently : [])
+        .accessibilityLabel(spoken)
+        .accessibilityAddTraits(.updatesFrequently)
+        // P8: approaching is an alert, announced once (with the haptic).
+        .onChange(of: approaching) { _, now in if now { AccessibilityNotification.Announcement(spoken).post() } }
     }
+
+    private var spoken: String { "\(type.shortTitle)\(distance.map { " in \(Format.spoken($0))" } ?? ""). \(advice ?? type.advice)" }
 }
 
 extension HazardType {

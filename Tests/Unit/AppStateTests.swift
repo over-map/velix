@@ -139,3 +139,39 @@ struct AppStateTests {
         #expect(Format.megabytes(132_000_000, of: 220_000_000) == "132 of 220 MB")
     }
 }
+
+/// P8: VoiceOver labels are written to be heard (units spelled out, the decision first).
+@MainActor
+struct SpokenLabelTests {
+    @Test func unitsAreSpelledOut() {
+        #expect(Format.spoken("0.3 km") == "0.3 kilometres")
+        #expect(Format.spoken("Tram rails in 160 m") == "Tram rails in 160 metres")
+        #expect(Format.spoken("5 min slower: 300 m of cobbles") == "5 minutes slower: 300 metres of cobbles")
+        #expect(Format.spoken("132 of 220 MB") == "132 of 220 megabytes")
+        #expect(Format.spoken("Via Morgagni") == "Via Morgagni")   // no unit, no change
+    }
+
+    @Test func maneuversAreAnnouncedAt100And30Metres() {
+        #expect(ManeuverBanner.band(450) == nil)
+        #expect(ManeuverBanner.band(100) == 100)
+        #expect(ManeuverBanner.band(64) == 100)
+        #expect(ManeuverBanner.band(30) == 30)
+        #expect(ManeuverBanner.band(4) == 30)
+    }
+
+    @Test func aRouteCardReadsAsOneSentence() {
+        let card = RouteCard.Model(name: "Calmest for city", distance: "5.4 km", minutes: 23,
+                                   mix: [.protected: 0.6, .quiet: 0.3, .mixed: 0.1],
+                                   line: "**5 min slower** than fastest: avoids 300 m of cobbles", selected: true)
+        #expect(card.spoken == "Calmest for city. 23 minutes, 5.4 kilometres. 5 minutes slower than fastest: avoids 300 metres of cobbles. "
+                + "Mostly protected lanes, then quiet streets.")
+        #expect(ComfortMixBar.spokenSummary([.quiet: 0.4, .painted: 0.35, .cobbles: 0.25]) == "Quiet streets and painted lanes.")
+        #expect(ComfortMixBar.spokenSummary([:]) == nil)
+    }
+
+    @Test func aHazardRowCountsAndNamesThePlaces() {
+        let h = WhyThisRoute.Hazard(type: .tram, subtitle: "Piazza Oberdan, Via Melzo", count: 4)
+        #expect(h.spoken == "Tram rails crossing, 4 on your route: Piazza Oberdan, Via Melzo")
+        #expect(WhyThisRoute.Hazard(type: .cobbles, subtitle: "Via Pascoli", amount: "70 m").spoken == "Cobbles, 70 metres: Via Pascoli")
+    }
+}
