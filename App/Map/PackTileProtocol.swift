@@ -80,6 +80,15 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
             guard let url = Self.url(Self.terrainTemplate, z: z, x: x, y: y) else { return fail() }
             return Self.fetch(url) { [self] data in respond(data ?? Data(), contentType: "image/webp") }
         }
+        if parts[0] == "imagery" {
+            // Satellite (7 Nov): Esri World Imagery, keyless; EOX Sentinel-2 cloudless where Esri fails. Online, cached.
+            guard let esri = Self.url(Self.imageryTemplate, z: z, x: x, y: y),
+                  let eox = Self.url(Self.imageryFallbackTemplate, z: z, x: x, y: y) else { return fail() }
+            return Self.fetch(esri) { [self] data in
+                if let data { return respond(data, contentType: "image/jpeg") }
+                Self.fetch(eox) { [self] data in respond(data ?? Data(), contentType: "image/jpeg") }
+            }
+        }
         if parts[0] == "overlays" {
             let packs = Self.lock.withLock { Self.overlays }
             return respond(Self.tile(from: packs.filter { Self.covers($0.header.bounds, z: z, x: x, y: y) }, z: z, x: x, y: y))
@@ -175,6 +184,11 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
     /// Mapterhorn (mapterhorn.com): open elevation data worldwide, Copernicus GLO-30 at 30 m, finer where countries
     /// publish it (Lombardy 5 m, Switzerland 0.5–2 m); z0–12 everywhere.
     static let terrainTemplate = "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp"
+
+    /// Esri World Imagery (Filippo, 7 Nov: no API key): sub-metre in European cities. Its tile path is z/y/x.
+    static let imageryTemplate = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+    /// EOX Sentinel-2 cloudless 2024 (s2maps.eu, CC BY-NC-SA 4.0), 10 m: where Esri doesn't answer.
+    static let imageryFallbackTemplate = "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg"
 
     static func url(_ template: String, z: Int, x: Int, y: Int) -> URL? {
         URL(string: template.replacingOccurrences(of: "{z}", with: "\(z)").replacingOccurrences(of: "{x}", with: "\(x)")

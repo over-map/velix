@@ -115,14 +115,18 @@ private struct StylePreview: View {
                 ctx.fill(Path(roundedRect: CGRect(x: size.width * 0.44, y: size.height * 0.4, width: size.width * 0.18, height: size.height * 0.22), cornerRadius: 3),
                          with: .color(Color.velix.mixQuiet))
             case .satellite:
-                ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color.velix.surface2))
-                var stripes = Path()
-                stride(from: -size.height, to: size.width, by: 9).forEach { x in
-                    stripes.move(to: CGPoint(x: x, y: size.height)); stripes.addLine(to: CGPoint(x: x + size.height, y: 0))
-                }
-                ctx.stroke(stripes, with: .color(Color.velix.line), lineWidth: 1)
-                ctx.draw(Text("Imagery TBD").font(Font.velix.caption).foregroundColor(Color.velix.ink2),
-                         at: CGPoint(x: size.width / 2, y: size.height / 2))
+                // A photo-like tile (7 Nov: imagery from Esri / EOX): fields and woods in patches, a pale road on top.
+                let w = size.width, h = size.height
+                ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color.velix.mixQuiet.opacity(0.85)))
+                let patches: [(CGRect, Color)] = [
+                    (CGRect(x: 0, y: 0, width: w * 0.45, height: h * 0.5), Color.velix.mixUnpaved.opacity(0.7)),
+                    (CGRect(x: w * 0.55, y: h * 0.1, width: w * 0.45, height: h * 0.35), Color.velix.mixProtected.opacity(0.55)),
+                    (CGRect(x: w * 0.1, y: h * 0.6, width: w * 0.35, height: h * 0.4), Color.velix.ink3.opacity(0.45)),
+                    (CGRect(x: w * 0.6, y: h * 0.62, width: w * 0.4, height: h * 0.38), Color.velix.mixUnpaved.opacity(0.45)),
+                ]
+                for (r, c) in patches { ctx.fill(Path(r), with: .color(c)) }
+                ctx.fill(Path(CGRect(x: 0, y: h * 0.52, width: w, height: 5)), with: .color(Color.velix.surface))
+                ctx.fill(Path(CGRect(x: w * 0.5, y: 0, width: 4, height: h)), with: .color(Color.velix.surface.opacity(0.85)))
             }
         }
         .accessibilityHidden(true)
