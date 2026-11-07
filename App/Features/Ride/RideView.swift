@@ -225,8 +225,7 @@ struct RideSheetHost: View {
                     RideTypePicker(selected: $app.state.rideType, onClose: { sheet = nil }, onEditRules: openYou)
                 case .mapStyle:
                     MapStyleSheet(rideType: app.state.rideType, style: $app.mapStyle, bikeLanes: $app.bikeLanes,
-                                  transitLines: $app.transitLines, appearance: $app.state.mapAppearance, onClose: { sheet = nil },
-                                  thumbnailAt: app.location.coordinate)
+                                  transitLines: $app.transitLines, appearance: $app.state.mapAppearance, onClose: { sheet = nil })
                 }
             }
             // The sheet's surface continues under the home indicator.

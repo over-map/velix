@@ -185,7 +185,7 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
     /// EOX Sentinel-2 cloudless 2024 (s2maps.eu, CC BY-NC-SA 4.0), 10 m: where Esri doesn't answer.
     static let imageryFallbackTemplate = "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg"
 
-    /// One satellite tile: Esri, else EOX, else the cache (the map's `imagery` source and the Map sheet thumbnail).
+    /// One satellite tile: Esri, else EOX, else the cache (the map's `imagery` source).
     static func imagery(z: Int, x: Int, y: Int, done: @escaping @Sendable (Data?) -> Void) {
         guard let esri = url(imageryTemplate, z: z, x: x, y: y), let eox = url(imageryFallbackTemplate, z: z, x: x, y: y) else {
             return done(nil)
@@ -194,13 +194,6 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
             if let data { return done(data) }
             fetch(eox, done: done)
         }
-    }
-
-    /// The satellite tile holding a point at zoom `z` (Map sheet thumbnail).
-    static func imagery(at p: LatLon, z: Int) async -> Data? {
-        let n = Double(1 << z), lat = p.lat * .pi / 180
-        let x = Int((p.lon + 180) / 360 * n), y = Int((1 - log(tan(lat) + 1 / cos(lat)) / .pi) / 2 * n)
-        return await withCheckedContinuation { c in imagery(z: z, x: x, y: y) { c.resume(returning: $0) } }
     }
 
     static func url(_ template: String, z: Int, x: Int, y: Int) -> URL? {

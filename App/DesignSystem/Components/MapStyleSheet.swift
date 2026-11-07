@@ -11,8 +11,6 @@ struct MapStyleSheet: View {
     var appearance: Binding<MapAppearance>?
     /// S1h/i: close button and "Until you close Velix." (nil hides them).
     var onClose: (() -> Void)?
-    /// Where the satellite thumbnail looks (the rider, else Milan).
-    var thumbnailAt: LatLon?
 
     /// City / Road / Cargo → Standard | Satellite; Gravel / MTB / E-bike → Outdoor | Satellite (BRIEF §8).
     var styles: [Style] { Self.styles(for: rideType) }
@@ -36,8 +34,8 @@ struct MapStyleSheet: View {
                 if let onClose { SheetCloseButton(action: onClose) }
             }
             HStack(spacing: CGFloat.velix.s) { ForEach(styles, id: \.self) { styleTile($0) } }
-            // Satellite has one look (Filippo, 7 Nov): Light or dark applies to the vector styles only.
-            if let appearance, style != .satellite {
+            // Satellite keeps its one (light) look whatever is picked here (Filippo, 7 Nov).
+            if let appearance {
                 SectionLabel("Light or dark")
                 HStack(spacing: CGFloat.velix.xs) {
                     ForEach(MapAppearance.allCases, id: \.self) { a in
@@ -71,7 +69,7 @@ struct MapStyleSheet: View {
         let isSelected = s == style
         return Button { style = s } label: {
             VStack(alignment: .leading, spacing: 6) {
-                StylePreview(style: s, at: thumbnailAt)
+                StylePreview(style: s)
                     .frame(height: 96)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(isSelected ? Color.velix.ink : Color.velix.line, lineWidth: isSelected ? 3 : 1))
@@ -102,28 +100,10 @@ struct MapStyleSheet: View {
     }
 }
 
-/// Small map thumbnails for the style tiles: schematic, as in P2; Satellite shows a real imagery tile once it loads
-/// (Filippo, 7 Nov), the drawn one meanwhile and offline.
+/// Small map thumbnails for the style tiles (schematic, as in P2).
 private struct StylePreview: View {
     let style: MapStyleSheet.Style
-    var at: LatLon?
-    @Environment(\.liveMap) private var liveMap
-    @State private var photo: UIImage?
-
     var body: some View {
-        drawn
-            .overlay { if let photo { Image(uiImage: photo).resizable().scaledToFill() } }
-            .clipped()
-            .task(id: at) {
-                guard liveMap, style == .satellite else { return }
-                let data = await PackTileProtocol.imagery(at: at ?? Self.milan, z: 15)
-                if let data, let image = UIImage(data: data) { photo = image }
-            }
-    }
-
-    static let milan = LatLon(lat: 45.4642, lon: 9.1900)
-
-    private var drawn: some View {
         Canvas { ctx, size in
             switch style {
             case .standard, .outdoor:
