@@ -113,8 +113,6 @@ function style(name, mode) {
 
   // ---- background ----
   add({ id: 'background', type: 'background', paint: { 'background-color': P.land } });
-  if (sat) add({ id: 'imagery', type: 'background', paint: { 'background-color': P.land, 'background-opacity': 0 },
-    metadata: { 'velix:note': 'velix_imagery raster goes here (imagery milestone); until then land colour + landcover' } });
 
   // ---- landuse ----
   if (!sat) {
@@ -167,7 +165,8 @@ function style(name, mode) {
   const OD = VX.PAL.outdoor[mode];
   const shadeA = od ? 1 : sat ? 0.8 : 0.7;
   const rgba = (rgb, a) => `rgba(${rgb},${r2(a * shadeA)})`;
-  add({ id: 'hillshade', type: 'hillshade', source: 'terrain', maxzoom: 14.5,
+  // Satellite: the imagery has its own relief (7 Nov), so no hillshade.
+  if (!sat) add({ id: 'hillshade', type: 'hillshade', source: 'terrain', maxzoom: 14.5,
     paint: { 'hillshade-illumination-direction': 315, 'hillshade-illumination-anchor': 'map',
       'hillshade-exaggeration': ['interpolate', ['linear'], ['zoom'], 3, 0.55, 8, 0.45, 11, 0.5, 13.5, 0.5, 14.5, 0],
       'hillshade-shadow-color': rgba(OD.shadeDark, mode === 'day' ? 0.38 : 0.55),
@@ -206,6 +205,11 @@ function style(name, mode) {
       layout: lineLayoutRound(), paint: { 'line-color': P.placeMajor, 'line-opacity': fade(0.5, 1.5, null, null, mode === 'day' ? 0.5 : 0.6),
         'line-width': ['interpolate', ['exponential', 1.5], ['zoom'], 3, 0.6, 6, 1, 10, 1.6, 14, 2.4],
         ...(disputed ? { 'line-dasharray': ['literal', [3, 2]] } : {}) } });
+
+  // ---- satellite imagery (7 Nov): over the area fills (land cover and water stay below as the offline fallback
+  // where no tile is cached), under boundaries, roads and labels; no buildings over photos. Served by the app
+  // (PackTileProtocol `imagery`: Esri World Imagery, EOX Sentinel-2 cloudless when Esri fails), online and cached.
+  if (sat) add({ id: 'imagery', type: 'raster', source: 'imagery', paint: { 'raster-fade-duration': 150 } });
 
   // ---- roads ----
   const roadCol = (k) => (sat ? P.road : k === 'tertiary' ? P.secondary : P[k]);
@@ -330,8 +334,8 @@ function style(name, mode) {
   const roofIdx = ['%', ['to-number', ['id'], 0], P.roof.length];
   const roof = ['match', roofIdx, ...P.roof.flatMap((c, i) => [i, c]).slice(0, -2), P.roof[P.roof.length - 1]];
   const landmark = ['>=', ['coalesce', ['get', 'render_height'], 0], 85];
-  omt('building', 'building-flat', 'fill', { minzoom: 13.6, maxzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof], 'fill-opacity': fade(13.6, 14.2) } });
-  omt('building', 'building-edge', 'line', { minzoom: 14.2, maxzoom: 15, paint: { 'line-color': P.wallD, 'line-width': 0.4, 'line-opacity': fade(14.2, 14.6, null, null, 0.5) } });
+  if (!sat) omt('building', 'building-flat', 'fill', { minzoom: 13.6, maxzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof], 'fill-opacity': fade(13.6, 14.2) } });
+  if (!sat) omt('building', 'building-edge', 'line', { minzoom: 14.2, maxzoom: 15, paint: { 'line-color': P.wallD, 'line-width': 0.4, 'line-opacity': fade(14.2, 14.6, null, null, 0.5) } });
   // Walls lighter at the bottom, darker at the top (Filippo, 30 Oct): MapLibre's own vertical gradient darkens the
   // bottom and can't be reversed, so each building is stacked slices of its height, lighter to darker, with the
   // built-in gradient off. `building-3d` is the bottom slice, `building-3d-1`… the ones above it. The top slice is the
@@ -350,7 +354,7 @@ function style(name, mode) {
   const DEEP = !sat && mode === 'day' ? 0.2 : 0;
   const at = (f) => ['+', minH, ['*', ['-', hgt, minH], f]];
   const SLICES = 8, LIGHT = -(P.wallLift ?? 0.3), DARK = 0;   // 2 Nov: a stronger gradient (was 14 %, light 35 %)
-  for (let i = 0; i < SLICES; i++) {
+  for (let i = 0; sat ? false : i < SLICES; i++) {
     const k = i / (SLICES - 1);
     const t = DEEP ? DEEP * (1 - k) : LIGHT + (DARK - LIGHT) * k;
     omt('building', i === 0 ? 'building-3d' : `building-3d-${i}`, 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
@@ -593,8 +597,10 @@ function style(name, mode) {
         attribution: '© OpenMapTiles © OpenStreetMap contributors' },
       velix: { type: 'vector', tiles: ['https://tiles.velix.invalid/overlays/{z}/{x}/{y}'], minzoom: 8, maxzoom: 14 },
       // Elevation for the hillshade, online only (PackTileProtocol `terrain`: Mapterhorn, through the tile cache).
-      terrain: { type: 'raster-dem', tiles: ['https://tiles.velix.invalid/terrain/{z}/{x}/{y}'], tileSize: 512, encoding: 'terrarium',
-        minzoom: 0, maxzoom: 12, attribution: '© Mapterhorn (Copernicus GLO-30 and national elevation data)' },
+      ...(sat ? {} : { terrain: { type: 'raster-dem', tiles: ['https://tiles.velix.invalid/terrain/{z}/{x}/{y}'], tileSize: 512, encoding: 'terrarium',
+        minzoom: 0, maxzoom: 12, attribution: '© Mapterhorn (Copernicus GLO-30 and national elevation data)' } }),
+      ...(sat ? { imagery: { type: 'raster', tiles: ['https://tiles.velix.invalid/imagery/{z}/{x}/{y}'], tileSize: 256, minzoom: 0, maxzoom: 19,
+        attribution: 'Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community · Sentinel-2 cloudless by EOX (Copernicus Sentinel data)' } } : {}),
       'velix-route': { ...empty, lineMetrics: true },
       'velix-hazards': { ...empty, cluster: true, clusterRadius: 44, clusterMaxZoom: 14 },
       'velix-markers': empty,
