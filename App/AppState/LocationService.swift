@@ -22,6 +22,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.distanceFilter = 5
+        manager.headingFilter = 5      // the puck's cone needn't follow every degree (M10)
         update(manager.authorizationStatus)
         #if DEBUG
         if let fake = Self.fakeLocation { pin(fake) }
@@ -55,6 +56,34 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         return l.course
     }
 
+    /// During a ride (M10): no updates of its own, the ride's fixes come in through ``feed(_:)``.
+    var paused = false {
+        didSet {
+            guard paused != oldValue, access == .allowed, !pinned else { return }
+            if paused {
+                manager.stopUpdatingLocation()
+                manager.stopUpdatingHeading()
+                fixTimer?.cancel()
+            } else {
+                start()
+            }
+        }
+    }
+
+    func feed(_ fix: CLLocation) {
+        guard paused, !pinned else { return }
+        location = fix
+        cannotFind = false
+    }
+
+    private var pinned: Bool {
+        #if DEBUG
+        Self.fakeLocation != nil
+        #else
+        false
+        #endif
+    }
+
     var coordinate: LatLon? { location.map { LatLon(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) } }
 
     func requestAccess() { manager.requestWhenInUseAuthorization() }
@@ -73,7 +102,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     private func update(_ status: CLAuthorizationStatus) {
         switch status {
         case .notDetermined: access = .notAsked
-        case .authorizedAlways, .authorizedWhenInUse: access = .allowed; start()
+        case .authorizedAlways, .authorizedWhenInUse: access = .allowed; if !paused { start() }
         default: access = .denied; manager.stopUpdatingLocation()
         }
     }

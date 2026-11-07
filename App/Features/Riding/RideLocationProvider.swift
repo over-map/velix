@@ -31,6 +31,7 @@ final class RideLocationProvider: NSObject, LocationProviding, CLLocationManager
         manager.pausesLocationUpdatesAutomatically = false
         manager.allowsBackgroundLocationUpdates = true
         manager.showsBackgroundLocationIndicator = true
+        manager.headingFilter = 5      // M10: the riding puck needn't follow every degree
     }
 
     func startUpdating() {

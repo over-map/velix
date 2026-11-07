@@ -408,6 +408,21 @@ struct RideRecordTests {
         #expect(RideHistory.record(lines: lines, logFile: "x.jsonl") == nil)
     }
 
+    @Test func theLogWritesOffMainInOrderAndFlushesOnClose() throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "velix-log-\(UUID().uuidString)")
+        let log = RideLog(directory: dir)
+        for i in 0 ..< 300 {
+            log.fix(CLLocation(coordinate: .init(latitude: 45.47 + Double(i) * 1e-5, longitude: 9.2), altitude: 120,
+                               horizontalAccuracy: 5, verticalAccuracy: 5, course: 0, speed: 5,
+                               timestamp: Date(timeIntervalSince1970: 1_793_000_000 + Double(i))))
+        }
+        log.close()
+        let lines = try String(contentsOf: log.url, encoding: .utf8).split(separator: "\n")
+        let times = lines.compactMap { (try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any])?["t"] as? Double }
+        #expect(times.count == 300)
+        #expect(times == times.sorted())
+    }
+
     @Test func theRiddenTrackKeepsAPointEveryTenMetres() throws {
         let dir = FileManager.default.temporaryDirectory.appending(path: "velix-log-\(UUID().uuidString)")
         let log = RideLog(directory: dir)

@@ -45,6 +45,8 @@ final class RideSession {
     private(set) var betweenLegs = false
     /// Every accepted fix, after the session has taken it (the transit coordinator's late check, the train stage).
     var onFixed: (CLLocation) -> Void = { _ in }
+    /// Every accepted fix, for the app's own location, which pauses its GPS during a ride (M10: one GPS at a time).
+    var onLocation: (CLLocation) -> Void = { _ in }
     /// Adds the transit stage to the Live Activity (P6 L3, D6, D7).
     var decorateActivity: ((inout RideActivityAttributes.ContentState) -> Void)?
     /// When the current leg started, on the app clock (the late check measures the rider's pace).
@@ -187,6 +189,7 @@ final class RideSession {
         }
         log?.fix(fix, ridden: !betweenLegs)
         fixesThisMinute += 1
+        onLocation(fix)
         let here = LatLon(lat: fix.coordinate.latitude, lon: fix.coordinate.longitude)
         self.here = here
         if betweenLegs {

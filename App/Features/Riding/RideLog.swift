@@ -50,7 +50,9 @@ final class RideLog: @unchecked Sendable {
     let url: URL
     let started: Date
     private let lock = NSLock()
-    private var handle: FileHandle?
+    /// The file is written here, in order, off the main thread (M10: a write a second on main while riding).
+    private let queue = DispatchQueue(label: "app.velix.ridelog", qos: .utility)
+    private var handle: FileHandle?   // used on `queue` only after init
     private(set) var stats = RideStats()
     /// The ride as ridden, a point every 10 m (the S6 map).
     private(set) var ridden: [LatLon] = []
@@ -154,14 +156,21 @@ final class RideLog: @unchecked Sendable {
         return fixes >= 10 && accuracies == [5]
     }
 
+    /// Writes what's queued and closes the file (before it's read: the history, the GPX, app termination).
     func close() {
         lock.lock(); defer { lock.unlock() }
-        try? handle?.close()
-        handle = nil
+        queue.sync {
+            try? handle?.close()
+            handle = nil
+        }
     }
+
+    /// Waits for the queued lines (tests, readers of a log still open).
+    func flush() { queue.sync {} }
 
     /// The ride as GPX 1.1 (S6 Share GPX: the fixes only, no events), written next to the log.
     func gpx(name: String) throws -> URL {
+        flush()
         let lines = try String(contentsOf: url, encoding: .utf8).split(separator: "\n").map(String.init)
         let out = url.deletingPathExtension().appendingPathExtension("gpx")
         try Self.gpx(lines: lines, name: name).write(to: out, atomically: true, encoding: .utf8)
@@ -190,8 +199,8 @@ final class RideLog: @unchecked Sendable {
     }
 
     private func write(_ object: [String: Any]) {
-        guard let handle, let data = try? JSONSerialization.data(withJSONObject: object) else { return }
-        handle.write(data + Data("\n".utf8))
+        guard let data = try? JSONSerialization.data(withJSONObject: object) else { return }
+        queue.async { [self] in handle?.write(data + Data("\n".utf8)) }
     }
 }
 

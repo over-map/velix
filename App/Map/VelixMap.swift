@@ -405,7 +405,8 @@ struct VelixMap: UIViewRepresentable {
             }
             if link == nil, glide != nil || !clearUntil.isEmpty {
                 let l = CADisplayLink(target: self, selector: #selector(stepGlide))
-                l.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30)
+                // 20 steps a second (M10, was up to 30): at 5 m/s a step moves the cut 0.25 m, under a pixel at riding zooms.
+                l.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 20, preferred: 20)
                 l.add(to: .main, forMode: .common)
                 link = l
             }
