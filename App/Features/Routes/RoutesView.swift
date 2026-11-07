@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// S7 Routes (P7 §01): the routes on the map in the ride type's style, a search bar, Map, and the sheet above the
-/// tab bar: the list (S7a/b), the selected route (S7c), the map moved (S7e), nothing for this filter (S7f), outside
+/// tab bar: the list (S7a/b; after a pan it stays, with the S7e pill), the selected route (S7c), nothing for this filter (S7f), outside
 /// the region (S7g). Ride this route opens S7d (one card) through ``AppModel/follow``.
 struct RoutesView: View {
     @Bindable var app: AppModel
@@ -33,7 +33,8 @@ struct RoutesView: View {
                 searchBar
                 HStack(alignment: .top) {
                     Spacer()
-                    if model.moved != nil { areaPill }
+                    // Not while a route is open: searching would close its card.
+                    if model.moved != nil, model.selected == nil { areaPill }
                     Spacer()
                 }
                 .overlay(alignment: .topTrailing) { MapButton(active: sheet == .mapStyle) { sheet = .mapStyle } }
@@ -140,11 +141,9 @@ struct RoutesView: View {
         } else if let route = model.selectedRoute {
             RouteDetail(route: model.summary(model.key(of: route.id), route), onClose: { model.deselect() },
                         onRide: { app.follow = route })
-        } else if model.moved != nil {
-            sheetTitle
-            Text("The map moved. Tap “Search routes in this area” to see routes here.").velixType(VelixType.body.sized(15, lineHeight: 21))
-                .foregroundStyle(Color.velix.ink2).fixedSize(horizontal: false, vertical: true)
         } else {
+            // A pan or zoom keeps the list (Filippo, 7 Nov: zooming in on a small route took its card away); the pill
+            // above offers the new area.
             sheetTitle
             FilterChips(options: model.chips, leadingGlyph: model.rideType.glyph, selected: $model.filterIndex)
             if let empty = model.emptyText {

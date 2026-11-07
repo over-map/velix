@@ -53,16 +53,22 @@ struct MapTests {
                                  "label-city-dot-minor", "label-town", "label-village", "label-water-lake", "label-water-sea"])
     }
 
-    @Test func styleIsRememberedPerRideType() throws {
-        let defaults = try #require(UserDefaults(suiteName: "velix-map-tests-\(UUID().uuidString)"))
-        let pref = MapStylePreference(defaults: defaults)
-        #expect(pref.style(for: .city) == .standard)
-        #expect(pref.style(for: .gravel) == .outdoor)
-        pref.set(.satellite, for: .city)
-        #expect(pref.style(for: .city) == .satellite)
-        #expect(pref.style(for: .road) == .standard)
-        pref.set(.outdoor, for: .cargo)            // not offered for Cargo: falls back
-        #expect(pref.style(for: .cargo) == .standard)
+    /// Filippo, 7 Nov: one style for the session, kept across ride types; a new launch starts on the type's own.
+    @MainActor @Test func satelliteStaysAcrossRideTypesForTheSession() throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "velix-style-\(UUID().uuidString)")
+        let store = AppStore(url: dir.appending(path: "state.json"))
+        let app = AppModel(store: store, history: RideHistory(inMemory: true))
+        #expect(app.mapStyle == .standard)
+        app.mapStyle = .satellite
+        app.state.rideType = .gravel
+        #expect(app.mapStyle == .satellite)
+        app.mapStyle = .outdoor
+        #expect(app.mapStyle == .outdoor)
+        app.state.rideType = .city
+        #expect(app.mapStyle == .standard)
+        app.mapStyle = .satellite
+        let next = AppModel(store: store, history: RideHistory(inMemory: true))
+        #expect(next.mapStyle == .standard)
     }
 
     @Test func bundledStylesReadTheirTilesFromThePacks() throws {

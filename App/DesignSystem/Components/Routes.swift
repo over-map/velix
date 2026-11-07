@@ -160,7 +160,7 @@ struct RouteDetail: View {
             }
             VStack(alignment: .leading, spacing: 8) {
                 ComfortMixBar(mix: route.mix, size: .large)
-                RouteMixLegend()
+                RouteMixLegend(mix: route.mix)
             }
             PrimaryButton(title: "Ride this route", icon: .navigation, action: onRide)
         }
@@ -176,15 +176,27 @@ struct RouteDetail: View {
     }
 }
 
-/// The S7 legend: car-free paved, quiet road, gravel.
+/// The S7 legend: car-free paved, quiet road, gravel, busier road (the blue, Filippo 7 Nov: roads above residential,
+/// painted lanes included); only what the route has.
 struct RouteMixLegend: View {
+    var mix: [MixCategory: Double] = [.protected: 1, .quiet: 1, .unpaved: 1, .mixed: 1]
+
+    static let items: [(MixCategory, String)] = [(.protected, "Car-free paved"), (.quiet, "Quiet road"), (.unpaved, "Gravel"),
+                                                (.mixed, "Busier road")]
+
     var body: some View {
-        HStack(spacing: 14) {
-            item(.protected, "Car-free paved")
-            item(.quiet, "Quiet road")
-            item(.unpaved, "Gravel")
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 14) { entries }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 14) { ForEach(shown.prefix(2), id: \.0) { item($0.0, $0.1) } }
+                HStack(spacing: 14) { ForEach(shown.dropFirst(2), id: \.0) { item($0.0, $0.1) } }
+            }
         }
     }
+
+    private var shown: [(MixCategory, String)] { Self.items.filter { (mix[$0.0] ?? 0) > 0.005 } }
+
+    @ViewBuilder private var entries: some View { ForEach(shown, id: \.0) { item($0.0, $0.1) } }
 
     private func item(_ c: MixCategory, _ label: String) -> some View {
         HStack(spacing: 6) {

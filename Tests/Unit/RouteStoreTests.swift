@@ -175,6 +175,17 @@ struct RoutesModelTests {
         #expect(m.results.count == 2)   // unchanged until Search routes in this area
     }
 
+    /// Filippo, 7 Nov: zooming in on a small route kept its card in focus; the list stays, and so can the ride.
+    @Test func zoomingInKeepsTheListAndItsFocus() {
+        let m = Self.model()
+        m.focus = 3
+        let cards = m.cards.map(\.route.id)
+        m.mapMoved(to: LatLon(lat: 45.98, lon: 9.26))
+        #expect(m.moved != nil && m.cards.map(\.route.id) == cards && m.focus == 3 && m.fitPoints == nil)
+        m.select(3)
+        #expect(m.selectedRoute?.id == 3)
+    }
+
     @Test func emptyFilterSaysWhatIsMissing() {
         let m = Self.model()
         m.show([Self.route(2, unpaved: 0)], area: .init(center: RouteStoreTests.milan, name: "Lake Como"))

@@ -33,11 +33,10 @@ final class ScreenSnapshotTests: XCTestCase {
         let packService = PackService(base: dir.appending(path: "RegionPack"), catalog: { RegionCatalog(schema: 1, regions: []) })
         packService.setForTesting(pack, expensive: expensive, online: online)
         packService.setCatalogForTesting(Self.catalog)
-        let prefs = MapStylePreference(defaults: UserDefaults(suiteName: "velix-snap-\(UUID().uuidString)")!)
         let history = RideHistory(inMemory: true)
         if rides { Self.sampleRides.forEach(history.add) }
         return AppModel(store: store, location: location, pack: packService, search: NoSearch(), weather: weather,
-                        mapPreference: prefs, history: history)
+                        history: history)
     }
 
     /// Lombardy and two neighbours, as boxes (the index ships simplified borders).

@@ -35,6 +35,8 @@ struct RideView: View {
         _sheet = sheet
         self.bottomCovered = bottomCovered
         _following = State(initialValue: following)
+        // The tab is rebuilt on every switch: start on the rider, not Porta Venezia (Filippo, 7 Nov).
+        _camera = State(initialValue: MapCamera(center: app.location.coordinate ?? RideView.milan, zoom: 15))
     }
 
     var body: some View {
@@ -66,7 +68,7 @@ struct RideView: View {
                 }
             }
         }
-        .onChange(of: app.location.coordinate) { _, here in
+        .onChange(of: app.location.coordinate, initial: true) { _, here in
             if following, let here { camera = MapCamera(center: here, zoom: camera.zoom, revision: camera.revision) }
         }
     }
@@ -223,7 +225,8 @@ struct RideSheetHost: View {
                     RideTypePicker(selected: $app.state.rideType, onClose: { sheet = nil }, onEditRules: openYou)
                 case .mapStyle:
                     MapStyleSheet(rideType: app.state.rideType, style: $app.mapStyle, bikeLanes: $app.bikeLanes,
-                                  transitLines: $app.transitLines, appearance: $app.state.mapAppearance, onClose: { sheet = nil })
+                                  transitLines: $app.transitLines, appearance: $app.state.mapAppearance, onClose: { sheet = nil },
+                                  thumbnailAt: app.location.coordinate)
                 }
             }
             // The sheet's surface continues under the home indicator.
