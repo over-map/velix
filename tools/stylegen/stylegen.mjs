@@ -1,5 +1,5 @@
 // StyleGen: the P3 cartography (design/p3v3/palettes.js + render.js) as MapLibre style JSON.
-// Writes App/Resources/MapStyle/{standard,outdoor,satellite}-{day,night}.json. `--check` fails if they are stale.
+// Writes App/Resources/MapStyle/{standard,outdoor}-{day,night}.json and satellite-day.json (one look, Filippo 7 Nov). `--check` fails if they are stale.
 //
 // Sources served by the app from every installed pack (PackTileProtocol.swift):
 //   https://tiles.velix.invalid/basemap/{z}/{x}/{y}   OpenMapTiles schema (pack role basemap; OpenFreeMap outside the packs)
@@ -649,7 +649,7 @@ ${fam}
 }
 
 const files = {};
-for (const name of ['standard', 'outdoor', 'satellite']) for (const mode of ['day', 'night'])
+for (const name of ['standard', 'outdoor', 'satellite']) for (const mode of name === 'satellite' ? ['day'] : ['day', 'night'])
   files[`${name}-${mode}.json`] = JSON.stringify(style(name, mode), null, 1) + '\n';
 const check = process.argv.includes('--check');
 let stale = 0;

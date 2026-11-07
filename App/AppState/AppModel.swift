@@ -27,7 +27,6 @@ final class AppModel {
     let engine = EngineHost()
     let search: PlaceSearch
     let weather: WeatherWarnings
-    let mapPreference: MapStylePreference
     /// Past rides (M9).
     let history: RideHistory
 
@@ -38,21 +37,21 @@ final class AppModel {
     /// MapStyleSheet overlays (session).
     var bikeLanes = false
     var transitLines = false
-    /// Mirrors ``MapStylePreference`` so views redraw when it changes.
-    private var styleTick = 0
+    /// Map sheet → Satellite (session): kept across ride types, back to the type's own style on the next launch
+    /// (Filippo, 7 Nov).
+    var satellite = false
 
     private let store: AppStore
 
     init(store: AppStore = .live, location: LocationService = LocationService(), pack: PackService = PackService(),
          search: PlaceSearch = PhotonSearch(), weather: WeatherWarnings = NoWeatherWarnings(),
-         mapPreference: MapStylePreference = MapStylePreference(), history: RideHistory? = nil) {
+         history: RideHistory? = nil) {
         self.store = store
         self.state = store.load()
         self.location = location
         self.pack = pack
         self.search = search
         self.weather = weather
-        self.mapPreference = mapPreference
         self.history = history ?? RideHistory()
         pack.onInstalled = { [weak self] _ in self?.engine.reset() }
     }
@@ -191,9 +190,9 @@ final class AppModel {
         if session.arrived { summary = RideSummaryModel(session) }
     }
 
-    /// The map style for the current ride type (remembered per type).
+    /// The map style: Satellite if picked this session, else the ride type's own (Standard or Outdoor).
     var mapStyle: MapStyleSheet.Style {
-        get { _ = styleTick; return mapPreference.style(for: state.rideType) }
-        set { mapPreference.set(newValue, for: state.rideType); styleTick += 1 }
+        get { satellite ? .satellite : MapStyleSheet.styles(for: state.rideType)[0] }
+        set { satellite = newValue == .satellite }
     }
 }

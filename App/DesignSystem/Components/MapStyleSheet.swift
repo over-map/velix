@@ -9,7 +9,7 @@ struct MapStyleSheet: View {
     @Binding var transitLines: Bool
     /// Light / Dark / Auto for the map (nil hides the row: gallery samples).
     var appearance: Binding<MapAppearance>?
-    /// S1h/i: close button and "Your choice is remembered for City." (nil hides them).
+    /// S1h/i: close button and "Until you close Velix." (nil hides them).
     var onClose: (() -> Void)?
 
     /// City / Road / Cargo → Standard | Satellite; Gravel / MTB / E-bike → Outdoor | Satellite (BRIEF §8).
@@ -34,6 +34,7 @@ struct MapStyleSheet: View {
                 if let onClose { SheetCloseButton(action: onClose) }
             }
             HStack(spacing: CGFloat.velix.s) { ForEach(styles, id: \.self) { styleTile($0) } }
+            // Satellite keeps its one (light) look whatever is picked here (Filippo, 7 Nov).
             if let appearance {
                 SectionLabel("Light or dark")
                 HStack(spacing: CGFloat.velix.xs) {
@@ -59,7 +60,7 @@ struct MapStyleSheet: View {
                 overlayRow(icon: VelixIconView(.train, size: 22), title: "Train & metro lines", isOn: $transitLines, first: false)
             }
             if onClose != nil {
-                Text("Your choice is remembered for \(rideType.name).").velixType(.footnote).foregroundStyle(Color.velix.ink3)
+                Text("Until you close Velix.").velixType(.footnote).foregroundStyle(Color.velix.ink3)
             }
         }
     }
@@ -99,7 +100,7 @@ struct MapStyleSheet: View {
     }
 }
 
-/// Small map thumbnails for the style tiles (schematic, as in P2; real map previews come with M5).
+/// Small map thumbnails for the style tiles (schematic, as in P2).
 private struct StylePreview: View {
     let style: MapStyleSheet.Style
     var body: some View {

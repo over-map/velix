@@ -82,12 +82,7 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
         }
         if parts[0] == "imagery" {
             // Satellite (7 Nov): Esri World Imagery, keyless; EOX Sentinel-2 cloudless where Esri fails. Online, cached.
-            guard let esri = Self.url(Self.imageryTemplate, z: z, x: x, y: y),
-                  let eox = Self.url(Self.imageryFallbackTemplate, z: z, x: x, y: y) else { return fail() }
-            return Self.fetch(esri) { [self] data in
-                if let data { return respond(data, contentType: "image/jpeg") }
-                Self.fetch(eox) { [self] data in respond(data ?? Data(), contentType: "image/jpeg") }
-            }
+            return Self.imagery(z: z, x: x, y: y) { [self] data in respond(data ?? Data(), contentType: "image/jpeg") }
         }
         if parts[0] == "overlays" {
             let packs = Self.lock.withLock { Self.overlays }
@@ -189,6 +184,17 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
     static let imageryTemplate = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
     /// EOX Sentinel-2 cloudless 2024 (s2maps.eu, CC BY-NC-SA 4.0), 10 m: where Esri doesn't answer.
     static let imageryFallbackTemplate = "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg"
+
+    /// One satellite tile: Esri, else EOX, else the cache (the map's `imagery` source).
+    static func imagery(z: Int, x: Int, y: Int, done: @escaping @Sendable (Data?) -> Void) {
+        guard let esri = url(imageryTemplate, z: z, x: x, y: y), let eox = url(imageryFallbackTemplate, z: z, x: x, y: y) else {
+            return done(nil)
+        }
+        fetch(esri) { data in
+            if let data { return done(data) }
+            fetch(eox, done: done)
+        }
+    }
 
     static func url(_ template: String, z: Int, x: Int, y: Int) -> URL? {
         URL(string: template.replacingOccurrences(of: "{z}", with: "\(z)").replacingOccurrences(of: "{x}", with: "\(x)")

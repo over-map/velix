@@ -35,6 +35,8 @@ struct RideView: View {
         _sheet = sheet
         self.bottomCovered = bottomCovered
         _following = State(initialValue: following)
+        // The tab is rebuilt on every switch: start on the rider, not Porta Venezia (Filippo, 7 Nov).
+        _camera = State(initialValue: MapCamera(center: app.location.coordinate ?? RideView.milan, zoom: 15))
     }
 
     var body: some View {
@@ -66,7 +68,7 @@ struct RideView: View {
                 }
             }
         }
-        .onChange(of: app.location.coordinate) { _, here in
+        .onChange(of: app.location.coordinate, initial: true) { _, here in
             if following, let here { camera = MapCamera(center: here, zoom: camera.zoom, revision: camera.revision) }
         }
     }
