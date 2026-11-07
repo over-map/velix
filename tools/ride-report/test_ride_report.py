@@ -60,7 +60,7 @@ def ride(seconds: int = 300, speed: float = 5.0, gaps: tuple[int, ...] = (), sto
                     {"t": t + 2, "e": "voice", "s": "finished", "text": "Turn left onto Via Pacini", "locked": True, "background": True}]
         if i and i % 60 == 0:
             out += [{"t": t, "e": "health", "battery": 0.9 - i / 36000, "charging": False, "thermal": "nominal", "mb": 180 + i / 10,
-                     "fixes": 60}, {"t": t, "e": "activity", "s": "updates", "n": 6}]
+                     "fixes": 60, "fps": 40.0 if i == 120 else 58.0, "slow": 1}, {"t": t, "e": "activity", "s": "updates", "n": 6}]
         for r in reroutes:
             if i == int(r):
                 out += [{"t": t, "e": "reroute", "s": "requested"}, {"t": t + 0.05, "e": "reroute", "s": "accepted", "ms": 50, "m": 1500}]
@@ -123,6 +123,22 @@ class RideReportTests(unittest.TestCase):
         self.assertIn("## Summary", text)
         self.assertNotIn("45.47", text)
         self.assertNotIn("9.2", text.replace("9.2 km", ""))
+
+    def test_map_fps_leaves_out_the_start_and_locked_minutes(self):
+        # Health at 60 (the start), 120 (40 fps, on screen), 180 and 240 (58); locked from 200 drops 240.
+        r = rr.Ride.load(write(ride(seconds=300, locked_from=200)))
+        self.assertEqual(rr.map_fps(r), "map 49 fps median, worst minute 40 fps, 2 slow frame(s) over 2 min on screen")
+        self.assertIsNone(rr.map_fps(rr.Ride.load(write(ride(seconds=100)))))
+
+    def test_launch_summary(self):
+        lines = [{"t": T0, "app": "1.0 (9)", "prewarmed": False, "rootMs": 900, "mapMs": 1400, "phases": {"history": 120.5}},
+                 {"t": T0 + 60, "app": "1.0 (9)", "prewarmed": False, "rootMs": 700, "phases": {"history": 80}},
+                 {"t": T0 + 120, "app": "1.0 (9)", "prewarmed": True, "rootMs": 9000, "phases": {"history": 1}}]
+        text = rr.launches(write(lines))
+        self.assertIn("2 launch(es), 1 prewarmed left out", text)
+        self.assertIn("| First screen (from process start) | 800 | 900 | 2 |", text)
+        self.assertIn("| First full map frame | 1400 | 1400 | 1 |", text)
+        self.assertIn("|   history | 100 | 120 | 2 |", text)
 
 
 if __name__ == "__main__":

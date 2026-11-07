@@ -33,6 +33,7 @@ struct RootView: View {
         // P8: non-riding screens grow to XL (135 %) and reflow; riding screens cap lower (VelixType).
         .dynamicTypeSize(...DynamicTypeSize.velixScreenCap)
         .onChange(of: app.state.packAutoUpdate) { _, on in app.pack.autoUpdate = on }
+        .onAppear { PerfLog.rootAppeared() }
         .task {
             app.pack.autoUpdate = app.state.packAutoUpdate
             await app.pack.refreshCatalog()       // the regions on offer (browsing or searching outside offers them)

@@ -34,11 +34,12 @@ final class RideLocationProvider: NSObject, LocationProviding, CLLocationManager
     }
 
     func startUpdating() {
-        #if DEBUG
-        if simulated != nil { return startSimulation() }
-        #endif
+        // A simulated ride keeps the GPS and compass on too (their fixes ignored), so its battery cost is a ride's (M10).
         manager.startUpdatingLocation()
         manager.startUpdatingHeading()
+        #if DEBUG
+        if simulated != nil { startSimulation() }
+        #endif
     }
 
     func stopUpdating() {
@@ -139,6 +140,9 @@ final class RideLocationProvider: NSObject, LocationProviding, CLLocationManager
     // MARK: CLLocationManagerDelegate
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        #if DEBUG
+        if simulated != nil { return }
+        #endif
         var accepted: [CLLocation] = []
         for fix in locations where Self.accepts(fix, after: lastAccepted, now: Date()) {
             accepted.append(fix)
@@ -151,6 +155,9 @@ final class RideLocationProvider: NSObject, LocationProviding, CLLocationManager
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        #if DEBUG
+        if simulated != nil { return }
+        #endif
         guard let heading = Heading(clHeading: newHeading) else { return }
         lastHeading = heading
         delegate?.locationManager(self, didUpdateHeading: heading)

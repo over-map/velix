@@ -297,15 +297,14 @@ struct VelixMap: UIViewRepresentable {
             if let nearest = places.min(by: { $0.1 < $1.1 }) { onTapFeature(nearest.0) }
         }
 
-        #if DEBUG
+        // Every build: the ride log's fps and the launch's first map frame (PerfLog); `-map-perf` in DEBUG.
         nonisolated func mapViewWillStartRenderingFrame(_ mapView: MLNMapView) {
-            MainActor.assumeIsolated { Perf.frameStart = CACurrentMediaTime() }
+            MainActor.assumeIsolated { MapFrames.willRender() }
         }
 
         nonisolated func mapViewDidFinishRenderingFrame(_ mapView: MLNMapView, fullyRendered: Bool) {
-            MainActor.assumeIsolated { Perf.add("frame", CACurrentMediaTime() - Perf.frameStart) }
+            MainActor.assumeIsolated { MapFrames.didRender(fullyRendered: fullyRendered) }
         }
-        #endif
 
         nonisolated func mapView(_ mapView: MLNMapView, didFailToLoadImage imageName: String) -> UIImage? {
             MainActor.assumeIsolated {
@@ -481,7 +480,6 @@ enum Perf {
     static let on = ProcessInfo.processInfo.arguments.contains("-map-perf")
     private static var counts: [String: (n: Int, t: Double)] = [:]
     private static var since = CACurrentMediaTime()
-    static var frameStart = CACurrentMediaTime()
     /// A 60 Hz heartbeat: fewer ticks than 60 a second means the main thread was busy.
     private static var beat: CADisplayLink?
     private final class Beat: NSObject { @objc func tick() { MainActor.assumeIsolated { Perf.add("main", 0) } } }

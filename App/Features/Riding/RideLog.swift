@@ -23,7 +23,8 @@ final class RideLog: @unchecked Sendable {
         /// "active", "background", "locked", "unlocked", "terminate", "memoryWarning".
         case app(String)
         /// Once a minute: battery (0–1, -1 unknown), plugged in, thermal state, memory footprint, fixes that minute.
-        case health(battery: Double, charging: Bool, thermal: String, memoryMB: Double, fixes: Int)
+        /// `fps`: frames the map drew a second over the minute (MapLibre draws only when something changes); `slowFrames`: frames over 33 ms.
+        case health(battery: Double, charging: Bool, thermal: String, memoryMB: Double, fixes: Int, fps: Double = 0, slowFrames: Int = 0)
         /// The Live Activity: "started", "unavailable", "failed" (once), "updates" (count in the last minute).
         case activity(String, count: Int = 0)
     }
@@ -116,8 +117,9 @@ final class RideLog: @unchecked Sendable {
         case let .voice(s, text, locked, background):
             write(["t": t, "e": "voice", "s": s, "text": text, "locked": locked, "background": background])
         case let .app(s): write(["t": t, "e": "app", "s": s])
-        case let .health(b, charging, thermal, mb, fixes):
-            write(["t": t, "e": "health", "battery": Self.r2(b), "charging": charging, "thermal": thermal, "mb": Self.r1(mb), "fixes": fixes])
+        case let .health(b, charging, thermal, mb, fixes, fps, slow):
+            write(["t": t, "e": "health", "battery": Self.r2(b), "charging": charging, "thermal": thermal, "mb": Self.r1(mb), "fixes": fixes,
+                   "fps": Self.r1(fps), "slow": slow])
         case let .activity(s, count):
             var o: [String: Any] = ["t": t, "e": "activity", "s": s]
             if s == "updates" { o["n"] = count }

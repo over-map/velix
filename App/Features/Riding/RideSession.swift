@@ -426,8 +426,9 @@ final class RideSession {
         case .critical: "critical"
         @unknown default: "unknown"
         }
+        let frames = MapFrames.take()
         log?.event(.health(battery: Double(d.batteryLevel), charging: state == .charging || state == .full, thermal: thermal,
-                           memoryMB: Self.memoryMB(), fixes: fixesThisMinute))
+                           memoryMB: Self.memoryMB(), fixes: fixesThisMinute, fps: frames.fps, slowFrames: frames.slow))
         if activity != nil { log?.event(.activity("updates", count: activityUpdates)) }
         fixesThisMinute = 0
         activityUpdates = 0
