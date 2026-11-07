@@ -70,9 +70,13 @@ struct RoutesView: View {
                      bikeLanes: app.bikeLanes, transitLines: app.transitLines, route: model.mapRoute, camera: camera,
                      userLocation: app.location.coordinate, userHeading: app.location.heading,
                      insets: UIEdgeInsets(top: 120, left: 0, bottom: sheetHeight, right: 0),
-                     fit: model.moved == nil ? model.fitPoints : nil,
+                     fit: model.fitPoints,
                      onTapRoute: { id in withAnimation(.velix(.easeOut(duration: 0.2), reduceMotion: reduceMotion)) { model.tapped(id); top = id } },
-                     onRegionChange: { center, _ in model.mapMoved(to: center) })
+                     onRegionChange: { center, zoom in
+                         model.mapMoved(to: center)
+                         // Once the fit lets go (the map moved), the camera is where the rider left it: no jump back.
+                         if model.fitPoints == nil { camera = MapCamera(center: center, zoom: zoom) }
+                     })
         } else {
             Color.velix.surface2
         }

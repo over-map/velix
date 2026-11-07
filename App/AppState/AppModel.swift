@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 /// Severe-weather warnings for the S1 notice. The source (MeteoAM / ARPA CAP) is decided in M10; until then none.
 protocol WeatherWarnings: Sendable {
@@ -151,8 +152,8 @@ final class AppModel {
         }
         do {
             try session.start()
-            ride = session
-            destination = nil; preview = nil
+            // The ride covers route options at once: a sliding cover showed the Ride map under it (Filippo, 7 Nov).
+            Self.withoutAnimation { ride = session; destination = nil; preview = nil }
         } catch {
             print("Start failed: \(error)")
         }
@@ -170,12 +171,16 @@ final class AppModel {
         }
         do {
             try trip.start()
-            transit = trip
-            ride = trip.session
-            destination = nil; preview = nil
+            Self.withoutAnimation { transit = trip; ride = trip.session; destination = nil; preview = nil }
         } catch {
             print("Start failed: \(error)")
         }
+    }
+
+    private static func withoutAnimation(_ change: () -> Void) {
+        var t = Transaction()
+        t.disablesAnimations = true
+        withTransaction(t, change)
     }
 
     /// Every ride of 200 m or more goes into the history; S6 opens only when it ended at the door.

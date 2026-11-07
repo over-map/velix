@@ -570,6 +570,10 @@ function style(name, mode) {
       'symbol-sort-key': ['get', 'key'] } });
   add({ id: 'route-key-focus', type: 'symbol', source: 'velix-markers', filter: ['all', role('key'), ['get', 'focus']],
     layout: { 'icon-image': ['concat', 'key-', ['to-string', ['get', 'key']], '-sel', `-${mode}`], 'icon-allow-overlap': true } });
+  // Riding: the next turn's street, on the route just past the turn (app-drawn StreetTag, Filippo 7 Nov). Always shown.
+  add({ id: 'route-street', type: 'symbol', source: 'velix-markers', filter: role('street'),
+    layout: { 'icon-image': ['concat', 'street-', ['get', 'id'], `-${mode}`], 'icon-anchor': 'bottom',
+      'icon-allow-overlap': true, 'icon-ignore-placement': true, 'symbol-sort-key': 0 } });
   add({ id: 'puck', type: 'symbol', source: 'velix-markers', filter: role('puck'),
     layout: { 'icon-image': ['step', ['zoom'], 'puck-22', 14, 'puck-34', 16, 'puck-46'], 'icon-rotate': ['coalesce', ['get', 'heading'], 0],
       'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true } });

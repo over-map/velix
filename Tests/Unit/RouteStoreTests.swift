@@ -144,6 +144,28 @@ struct RoutesModelTests {
         #expect(m.selectedRoute == nil)
     }
 
+    @Test func scrollingTheListLeavesTheCameraAlone() {
+        let m = Self.model()
+        let list = m.fitPoints
+        #expect(list?.count == 2)                        // every listed route's box
+        m.focus = 3
+        m.tapped(1)
+        #expect(m.fitPoints == list)
+        m.select(3)
+        #expect(m.fitPoints == m.selectedRoute?.line)
+        m.deselect()
+        #expect(m.fitPoints == list)
+    }
+
+    @Test func closingARouteGivesBackTheList() {
+        let m = Self.model()
+        m.select(1)
+        m.mapMoved(to: LatLon(lat: 45.98, lon: 9.26))    // a pan inside the detail
+        #expect(m.moved != nil && m.fitPoints == m.selectedRoute?.line)
+        m.deselect()
+        #expect(m.moved == nil && m.results.count == 2 && m.fitPoints?.count == 2)
+    }
+
     @Test func theListWaitsForSearchHere() {
         let m = Self.model()
         m.mapMoved(to: LatLon(lat: 45.4650, lon: 9.19))   // 100 m: not a move

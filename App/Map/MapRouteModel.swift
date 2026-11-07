@@ -52,6 +52,18 @@ struct MapRouteModel: Equatable, Sendable {
     /// already ridden, faded out on the map (a line-gradient).
     /// Riding: the stretches around the rider whose ridden part fades (``RideScreenState``), and where the rider is,
     /// in metres along the route.
+    /// Riding: the street of the next turn, on the route just past it (``StreetTag``).
+    var street: Street?
+    struct Street: Equatable, Sendable {
+        var at: LatLon
+        var name: String
+        /// Stable per name (the map keeps an image per id): FNV-1a of the name, in hex.
+        var id: String {
+            var h: UInt64 = 0xcbf2_9ce4_8422_2325
+            for b in name.utf8 { h = (h ^ UInt64(b)) &* 0x100_0000_01b3 }
+            return String(h, radix: 16)
+        }
+    }
     var nearWindows: [NearWindow] = []
     var position: Double?
 
@@ -172,6 +184,7 @@ struct MapRouteModel: Equatable, Sendable {
             let on = l.pieces.max { Geo.length($0) < Geo.length($1) } ?? l.line
             f.append(point(Self.keyPoint(on.count > 1 ? on : l.line), ["role": "key", "key": l.key, "focus": l.state == .focus]))
         }
+        if let street { f.append(point(street.at, ["role": "street", "id": street.id])) }
         if let puck { f.append(point(puck, ["role": "puck", "heading": heading])) }
         return collection(f)
     }
