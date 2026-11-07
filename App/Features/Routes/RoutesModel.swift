@@ -66,6 +66,7 @@ final class RoutesModel {
         area = a
         moved = nil
         selected = nil
+        movedBeforeSelect = nil
         outside = !inside(a.center)
         all = outside ? [] : (storeAt(a.center)?.routes(in: Geo.bbox([a.center], padding: Self.radius), near: a.center, filter: .all, limit: 300) ?? [])
         refilter()
@@ -113,8 +114,21 @@ final class RoutesModel {
         focus = id
     }
 
-    func select(_ id: Int64) { selected = id; focus = id }
-    func deselect() { selected = nil }
+    /// Selecting a route opens its detail and fits it; closing gives back the list as it was, framing and all (Filippo,
+    /// 7 Nov: a pan inside the detail used to replace the list with "The map moved").
+    func select(_ id: Int64) {
+        if selected == nil { movedBeforeSelect = moved }
+        selected = id; focus = id
+    }
+
+    func deselect() {
+        guard selected != nil else { return }
+        selected = nil
+        moved = movedBeforeSelect
+        movedBeforeSelect = nil
+    }
+
+    private var movedBeforeSelect: Area?
 
     var selectedRoute: CycleRoute? { selected.flatMap { s in results.first { $0.id == s } } }
     var focusedRoute: CycleRoute? { focus.flatMap { f in results.first { $0.id == f } } }
@@ -155,9 +169,14 @@ final class RoutesModel {
         return m
     }
 
-    /// The camera frames the route in focus (or the selected one), else the area.
+    /// What the camera frames: the selected route; else every listed route, once per search or filter (scrolling the
+    /// list only highlights, Filippo 7 Nov); nothing once the map moved (it stays where the rider put it).
     var fitPoints: [LatLon]? {
-        if let r = selectedRoute ?? focusedRoute { return r.line }
-        return nil
+        if let r = selectedRoute { return r.line }
+        guard moved == nil else { return nil }
+        let pts = results.flatMap(\.line)
+        guard let lat0 = pts.map(\.lat).min(), let lat1 = pts.map(\.lat).max(),
+              let lon0 = pts.map(\.lon).min(), let lon1 = pts.map(\.lon).max() else { return nil }
+        return [LatLon(lat: lat0, lon: lon0), LatLon(lat: lat1, lon: lon1)]
     }
 }

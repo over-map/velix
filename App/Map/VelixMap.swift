@@ -65,7 +65,10 @@ struct VelixMap: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> MLNMapView {
-        let map = MLNMapView(frame: .zero)
+        let map = SizedMapView(frame: .zero)
+        // The camera is worked out from the view's size: set it again once the view first has one (a riding map
+        // opened at z≈5 and glided in, Filippo 7 Nov).
+        map.onFirstSize = { [weak coordinator = context.coordinator] map in coordinator?.applyCamera(on: map, animated: false) }
         // P8: map lines aren't focusable; route cards, hazard rows and route keys are their accessible twins.
         map.accessibilityElementsHidden = true
         map.delegate = context.coordinator
@@ -134,6 +137,15 @@ struct VelixMap: UIViewRepresentable {
 
         func applyCamera(on map: MLNMapView, animated: Bool) {
             cameraPending = map.bounds.isEmpty
+            if map.bounds.isEmpty {
+                // No size yet: altitudes mean nothing, so place centre, zoom and heading directly (no fit, no pitch);
+                // the first layout applies the full camera.
+                if let c = state?.camera {
+                    map.setCenter(CLLocationCoordinate2D(latitude: c.center.lat, longitude: c.center.lon), zoomLevel: c.zoom,
+                                  direction: c.bearing, animated: false)
+                }
+                return
+            }
 
             // Timed motions (riding) glide or cut; the standard one keeps MapLibre's flight.
             let motion = state?.motion ?? .standard
@@ -343,6 +355,7 @@ struct VelixMap: UIViewRepresentable {
                 }
             }
             MapImages.avoidedTexts = Dictionary(uniqueKeysWithValues: (s.route?.avoided ?? []).map { ($0.id, $0.reason) })
+            if let street = s.route?.street { MapImages.streetTexts[street.id] = street.name }
             let r = s.route
             setShape("velix-route", r?.routeGeoJSON(), in: style)
             setTravelled(r, in: map)
@@ -447,6 +460,17 @@ struct VelixMap: UIViewRepresentable {
             shapes[id] = data
             source.shape = try? MLNShape(data: data, encoding: String.Encoding.utf8.rawValue)
         }
+    }
+}
+
+/// An MLNMapView that reports the first time it has a size (``VelixMap`` sets its camera then).
+final class SizedMapView: MLNMapView {
+    var onFirstSize: ((MLNMapView) -> Void)?
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard !bounds.isEmpty, let first = onFirstSize else { return }
+        onFirstSize = nil
+        first(self)
     }
 }
 

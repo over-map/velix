@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// MapControlStack (P2 §08, S4/S5): voice, view and overview, one 60 × 64 pt cell each (riding targets).
+/// MapControlStack (P2 §08, S4/S5): voice, view and overview, one 60 × 64 pt cell each (riding targets). Icons only
+/// (Filippo, 7 Nov: "Overview" didn't fit; the icons say it); VoiceOver keeps the names.
 struct MapControlStack: View {
     enum Voice: CaseIterable { case all, alerts, mute }
     enum View3D: CaseIterable { case twoD, threeD, north }
@@ -15,11 +16,11 @@ struct MapControlStack: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            cell(voiceIcon, voiceLabel, a11y: "Voice: \(voiceA11y)", hint: "Double-tap cycles: \(voiceHint).", action: onVoice)
+            cell(voiceIcon, a11y: "Voice: \(voiceA11y)", hint: "Double-tap cycles: \(voiceHint).", action: onVoice)
             divider
-            cell(viewIcon, viewLabel, a11y: "View: \(viewA11y)", hint: "Double-tap cycles: \(viewHint).", action: onView)
+            cell(viewIcon, a11y: "View: \(viewA11y)", hint: "Double-tap cycles: \(viewHint).", action: onView)
             divider
-            cell(.route, "Overview", a11y: "Route overview", on: overview, toggle: true, action: onOverview)
+            cell(.route, a11y: "Route overview", on: overview, toggle: true, action: onOverview)
         }
         .frame(width: 60)
         .background(Color.velix.surface)
@@ -29,17 +30,14 @@ struct MapControlStack: View {
 
     private var divider: some View { Rectangle().fill(Color.velix.line).frame(height: 1) }
 
-    private func cell(_ icon: VelixIcon, _ label: String, a11y: String, hint: String? = nil, on: Bool = false,
+    private func cell(_ icon: VelixIcon, a11y: String, hint: String? = nil, on: Bool = false,
                       toggle: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 3) {
-                VelixIconView(icon, size: 24)
-                Text(label).velixType(VelixType.ridingLabel.sized(12, lineHeight: 15))
-            }
-            .foregroundStyle(on ? Color.velix.surface : Color.velix.ink)
-            .frame(width: 60, height: 64)
-            .background(on ? Color.velix.ink : Color.clear)
-            .contentShape(Rectangle())
+            VelixIconView(icon, size: 26)
+                .foregroundStyle(on ? Color.velix.surface : Color.velix.ink)
+                .frame(width: 60, height: 64)
+                .background(on ? Color.velix.ink : Color.clear)
+                .contentShape(Rectangle())
         }
         .buttonStyle(VelixPressStyle())
         .accessibilityLabel(a11y)
@@ -50,14 +48,12 @@ struct MapControlStack: View {
     }
 
     private var voiceIcon: VelixIcon { switch voice { case .all: .volume2; case .alerts: .volume1; case .mute: .volumeX } }
-    private var voiceLabel: String { switch voice { case .all: "All"; case .alerts: "Alerts"; case .mute: "Mute" } }
     // P8 S4: "Voice: all prompts", "View: 2D follow", with what the next taps give.
     private var voiceA11y: String { switch voice { case .all: "all prompts"; case .alerts: "alerts only"; case .mute: "mute" } }
     private var voiceHint: String { switch voice { case .all: "alerts only, mute"; case .alerts: "mute, all prompts"; case .mute: "all prompts, alerts only" } }
     private var viewA11y: String { switch view { case .twoD: "2D follow"; case .threeD: "3D follow"; case .north: "north up" } }
     private var viewHint: String { switch view { case .twoD: "3D, north up"; case .threeD: "north up, 2D"; case .north: "2D, 3D" } }
     private var viewIcon: VelixIcon { switch view { case .twoD: .navigation2; case .threeD: .rotate3d; case .north: .compass } }
-    private var viewLabel: String { switch view { case .twoD: "2D"; case .threeD: "3D"; case .north: "North" } }
 }
 
 #Preview {

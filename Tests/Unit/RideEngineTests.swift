@@ -116,6 +116,21 @@ struct RouteTrackTests {
         #expect(abs(t.remaining - 500) < 20)
     }
 
+    @Test func theNextStreetSitsJustPastTheTurn() throws {
+        var t = RouteTrack(shape: shape)
+        t.update(LatLon(lat: 45.4701, lon: 9.2064))          // 500 m along: the left turn 500 m ahead
+        let turn = RideTurn(maneuver: .left, meters: 500, street: "Via Pacini", secondsLeft: 300, metersLeft: 1500)
+        let s = try #require(RideScreenState.street(turn, position: t.position, track: t))
+        #expect(s.name == "Via Pacini")
+        #expect(s.at.lon > 9.2127 && s.at.lat > 45.4701)     // on the new street, north of the corner
+        #expect(abs(Geo.distance(s.at, shape[1]) - RideScreenState.streetPast) < 15)
+        // No name ("Turn left." on an unnamed way), straight on, arriving: no tag.
+        let unnamed = RideTurn(maneuver: .left, meters: 500, street: Maneuver.left.spoken, secondsLeft: 300, metersLeft: 1500)
+        #expect(RideScreenState.street(unnamed, position: t.position, track: t) == nil)
+        let arrive = RideTurn(maneuver: .arrive, meters: 1500, street: "Politecnico", secondsLeft: 300, metersLeft: 1500)
+        #expect(RideScreenState.street(arrive, position: t.position, track: t) == nil)
+    }
+
     @Test func offRouteFixesDoNotMoveIt() {
         var t = RouteTrack(shape: shape)
         t.update(LatLon(lat: 45.4701, lon: 9.2064))

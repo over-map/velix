@@ -155,7 +155,25 @@ struct RideScreenState: Equatable {
         map.end = full.last
         map.place = r.destination.location
         if !r.chevron, let rider = r.rider { map.puck = rider; map.heading = r.heading }
+        // Following, the street of the next turn just past it (not in the overview or a pan: the camera isn't there).
+        if r.chevron, !r.rerouting, !r.arriving, let turn = r.turn {
+            map.street = Self.street(turn, position: r.track.position, track: r.track)
+        }
         self.map = map
+    }
+
+    /// How far past the turn the street tag sits: on the new street, clear of the corner.
+    static let streetPast = 35.0
+
+    /// The next turn's street on the route, ``streetPast`` beyond the turn; none on an unnamed way ("Turn right."),
+    /// for going straight on, or when the route ends first. The turn's place is rounded to 10 m so the tag doesn't
+    /// re-upload with every fix.
+    static func street(_ turn: RideTurn, position: Double, track: RouteTrack) -> MapRouteModel.Street? {
+        guard turn.street != turn.maneuver.spoken, !turn.street.isEmpty,
+              turn.maneuver != .arrive, turn.maneuver != .straight else { return nil }
+        let at = ((position + turn.meters) / 10).rounded() * 10 + streetPast
+        guard at < track.length else { return nil }
+        return .init(at: track.point(at: at), name: turn.street)
     }
 
     /// The near stretches: from 200 m marks, 400 m long, a new one every 200 m (MapLibre's 256-step gradient ramp

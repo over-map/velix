@@ -14,12 +14,15 @@ struct RidingView: View {
     /// Bumped on every return from a pan (Recenter, or the 10 s resume): stopped, the follow camera equals the held
     /// one and the map would stay put (``MapCamera/revision``).
     @State private var returns = 0
+    /// Start (Filippo, 7 Nov): the map opens on the trip as route options showed it, then flies into follow.
+    @State private var intro = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let state = screen
         RidingScreen(state: state, camera: camera, voice: session.voice.mode, mapStyle: MapStyleKind(app.mapStyle),
                      bikeLanes: app.bikeLanes, transitLines: app.transitLines, target: target(state), motion: motion,
+                     intro: intro,
                      onVoice: { session.voice.cycle() },
                      onView: { change { camera.cycleView() } },
                      onOverview: { change { camera.toggleOverview(at: Date()) } },
@@ -33,6 +36,9 @@ struct RidingView: View {
             .onAppear { if ProcessInfo.processInfo.arguments.contains("-ride-3d"), camera.view == .twoD { camera.cycleView() } }
             #endif
             .task {
+                // The trip for a moment, then one flight into the follow camera (a cut with Reduce Motion).
+                try? await Task.sleep(for: .seconds(Self.introSeconds))
+                change { intro = false }
                 // Overview and pan go back to follow after 10 s (P5 S4d, S4j).
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(1))
@@ -48,10 +54,13 @@ struct RidingView: View {
         let t0 = CACurrentMediaTime()
         defer { Perf.add("screen", CACurrentMediaTime() - t0) }
         #endif
-        var state = session.screen(chevron: camera.drawsRider, now: AppClock.now)
+        var state = session.screen(chevron: camera.drawsRider && !intro, now: AppClock.now)
         transit?.decorate(&state)
         return state
     }
+
+    /// How long Start shows the trip before flying into follow.
+    static let introSeconds = 0.35
 
     /// A tap on a control: the camera moves at the view-change pace (a cut with Reduce Motion), then tracks again.
     private func change(_ update: () -> Void) {
@@ -78,6 +87,8 @@ struct RidingScreen: View {
     var transitLines = false
     var target: MapCamera?
     var motion: MapCameraMotion = .track
+    /// The first moments of a ride: the trip fitted as in route options, before the follow camera.
+    var intro = false
     var onVoice: () -> Void = {}
     var onView: () -> Void = {}
     var onOverview: () -> Void = {}
@@ -198,10 +209,11 @@ struct RidingScreen: View {
         if liveMap, let target = placed {
             // The overview, and the train stage (P6 S5d: the whole trip between the strip and the sheet), fit the trip.
             let train = state.onTrain != nil
+            let trip = camera.isOverview || intro
             VelixMap(style: mapStyle, mode: MapMode(scheme, mapAppearance), bikeLanes: bikeLanes, transitLines: transitLines,
                      route: state.map, camera: target,
-                     insets: train ? trainInsets : camera.isOverview ? Self.overviewInsets : .zero,
-                     fit: (camera.isOverview || train) && state.ahead.count > 1 ? state.ahead : nil, motion: motion,
+                     insets: train ? trainInsets : trip ? Self.overviewInsets : .zero,
+                     fit: (trip || train) && state.ahead.count > 1 ? state.ahead : nil, motion: motion,
                      riding: true, coveredBottom: train ? nil : etaBar, onUserPan: onPan)
         } else {
             Color.velix.surface2
@@ -211,7 +223,7 @@ struct RidingScreen: View {
     /// The rider at the camera's anchor while following: the P3 chevron (2D, 3D) or the dot and cone (North up), and
     /// the weak-GPS halo.
     @ViewBuilder private var rider: some View {
-        if camera.isFollowing, let target = placed {
+        if camera.isFollowing, !intro, let target = placed {
             GeometryReader { g in
                 ZStack {
                     if state.weakGPS {

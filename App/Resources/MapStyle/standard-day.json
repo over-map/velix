@@ -17944,6 +17944,34 @@
    }
   },
   {
+   "id": "route-street",
+   "type": "symbol",
+   "source": "velix-markers",
+   "filter": [
+    "==",
+    [
+     "get",
+     "role"
+    ],
+    "street"
+   ],
+   "layout": {
+    "icon-image": [
+     "concat",
+     "street-",
+     [
+      "get",
+      "id"
+     ],
+     "-day"
+    ],
+    "icon-anchor": "bottom",
+    "icon-allow-overlap": true,
+    "icon-ignore-placement": true,
+    "symbol-sort-key": 0
+   }
+  },
+  {
    "id": "puck",
    "type": "symbol",
    "source": "velix-markers",

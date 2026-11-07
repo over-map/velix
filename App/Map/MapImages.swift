@@ -7,6 +7,8 @@ import UIKit
 enum MapImages {
     /// Avoided-road tag texts by id, set with the route (`avoided-<id>-<mode>`).
     static var avoidedTexts: [String: String] = [:]
+    /// Next-turn street names by id (`street-<id>-<mode>`, ``MapRouteModel/Street``).
+    static var streetTexts: [String: String] = [:]
 
     static func image(named name: String) -> UIImage? {
         var parts = name.split(separator: "-", omittingEmptySubsequences: false).map(String.init)
@@ -28,6 +30,7 @@ enum MapImages {
         case "end": return end(pal)
         case "puck": return puck(CGFloat(Int(parts.last ?? "34") ?? 34), pal)
         case "avoided": return avoidedTexts[parts.dropFirst().joined(separator: "-")].flatMap { swiftUI(AvoidedTag(reason: $0), mode) }
+        case "street": return streetTexts[parts.dropFirst().joined(separator: "-")].flatMap { swiftUI(StreetTag(name: $0), mode) }
         case "ev": return euroVelo(parts.dropFirst().joined(separator: "-"))
         case "key": return parts.count >= 2 ? Int(parts[1]).flatMap { swiftUI(RouteKeyTile(number: $0, focused: parts.last == "sel"), mode) } : nil
         default: return nil
