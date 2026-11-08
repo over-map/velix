@@ -75,6 +75,8 @@ struct VelixMap: UIViewRepresentable {
         map.logoView.isHidden = true
         map.compassView.isHidden = true
         map.attributionButton.isHidden = !showsAttribution
+        // M10: the riding map draws at most 30 frames a second (MapLibre's low-power rate), for the battery; the rider chevron is SwiftUI and stays at 60. Other maps keep 60.
+        if riding { map.preferredFramesPerSecond = .lowPower }
         context.coordinator.state = self
         #if DEBUG
         Perf.startHeartbeat()
