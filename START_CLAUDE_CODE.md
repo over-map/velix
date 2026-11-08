@@ -1,5 +1,7 @@
 # Start building Velix with Claude Code
 
+> **Taking over an existing build?** This file is the original kick-off from October 2026. For the state of the project and the prompt for a new session, see `docs/HANDOVER.md` and `docs/NEW_SESSION_PROMPT.md`.
+
 ## 1. One-time setup on your Mac
 - **Xcode 16+** from the App Store; open it once and install the iOS 17+ simulator.
 - **Homebrew**, then `brew install xcodegen git gh` (and Docker Desktop for the region pack).

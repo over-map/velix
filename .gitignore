@@ -25,3 +25,7 @@ LiveActivity/Info.plist
 pipeline/out/
 pipeline/cache/
 *.osm.pbf
+__pycache__/
+
+# Claude Code: personal, machine-specific notes
+CLAUDE.local.md

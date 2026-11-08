@@ -5,7 +5,7 @@ description: Build, test and publish the Velix offline region pack (Valhalla rou
 
 # Velix region pack
 
-Contents (separate Release assets, each xz): `valhalla_tiles.tar` · `hazards.sqlite` (R*Tree) · `routes.sqlite` (OSM cycle relations) · `transit.sqlite` (GTFS subset + bike_rules) · `manifest.json` (version, bbox, sizes, sha256 packed + unpacked, sources, licences). Budget for Lombardy: ≤ 220 MB **download** (first pack: 120 MB). Full reference: `pipeline/README.md`.
+Contents (separate Release assets, each xz): `valhalla_tiles.tar` · `hazards.sqlite` (R*Tree) · `routes.sqlite` (OSM cycle relations) · `transit.sqlite` (GTFS subset + bike_rules) · `manifest.json` (version, bbox, sizes, sha256 packed + unpacked, sources, licences). Budget: **≤ 320 MB download per region** (Filippo, 2 Nov 2026; was 220, then 300). Routing data (tiles, hazards, cycle routes, timetable) reaches 10 km past the region border so border-crossing trips plan in one pack; map tiles (basemap, overlays) stop at the border. If new content doesn't fit, bring options to Filippo before cutting anything. Regions published (Nov 2026): Lombardy, Piedmont, Veneto, Emilia-Romagna, Trentino-South Tyrol, plus a `pack-index` release the app reads. Full reference: `pipeline/README.md`.
 
 ## Build locally (Docker required)
 `make -C pipeline pack` runs every stage in `pipeline/stages/` (extract → elevation → tiles → hazards → routes → transit → package → validate → smoke). One stage: `make -C pipeline <stage>`. Config: `pipeline/config/<region>.yml`; curated bike rules: `pipeline/config/bikes_allowed_rules.yml`.

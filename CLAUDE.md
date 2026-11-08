@@ -108,7 +108,21 @@ Keep this section accurate when commands change.
 - Work milestone by milestone from `docs/BUILD_PLAN.md`. Start each milestone in **plan mode**, show the plan, wait for approval, then implement.
 - Small commits with clear messages; one milestone = one branch + PR to `main`.
 - Write tests first for logic (routing profiles, difference line, transit triggers, hazard proximity, late/missed). Snapshot-test every component and screen, light and dark, against the design references.
-- To build a screen, use the **`velix-screen`** skill. To check work, use **`velix-verify`**. For the region pack, **`velix-region-pack`**. To put the app on Filippo's iPhone or cut a release, **`velix-ship`**.
+- To build a screen, use the **`velix-screen`** skill. To check work, use **`velix-verify`**. For the region pack, **`velix-region-pack`**. For a demo build or a release, **`velix-ship`**. To build, install, launch on and copy logs from Filippo's iPhone, **`velix-phone`**. For commits, PRs, merging and DECISIONS rows, **`velix-pr`**.
+- **Where the project stands, and what's next:** `docs/HANDOVER.md` (last updated 8 Nov 2026). Machine and device details: `CLAUDE.local.md` (local, not committed).
+
+## Working agreements with Filippo
+
+- **Plan mode first** for every milestone part; one PR per part.
+- **Merge only on his explicit "check CI and merge #N"** (or "go ahead" right after a PR), only with CI green, with `gh pr merge N --merge --delete-branch`. If CI is pending, say so and stop: never poll or schedule CI checks. Stacked PRs merge in stack order; retarget the child to `main` before its parent's branch is deleted.
+- **Ask before** any map-style or visual change, new copy, or anything that grows a pack past 320 MB. Otherwise, when he says "you decide", make the call and say why: he wants a recommendation, not a list of open questions.
+- **Services must be free, keyless and work globally.** No API keys, no accounts, no paid tiers.
+- **Performance beats features:** if something isn't smooth on the iPhone 11, drop it or simplify it.
+- **Minimal UI while riding:** icons without labels, little camera motion, no hazard visuals or warnings while riding (set aside 29 Oct).
+- **The dark map style is the reference**; light mirrors its rules exactly.
+- Install on the phone only after a successful build, and check the .app first. He checks visual work on the iPhone 11 after each feedback round.
+- "Do this task here: <title>" means do that suggested task in the current session.
+- Reports to him: short plain sentences, bold lead words, numbers in tables, and an explicit "what I need from you" when he has to act.
 - Accessibility is part of done: riding targets ≥ 60 pt (else 44), Dynamic Type caps as in HANDOFF, VoiceOver labels from `design/Velix P8 Accessibility.dc.html`.
 - Log every product or technical decision (and any deviation from the design) in `docs/DECISIONS.md` with the reason.
 
@@ -122,4 +136,4 @@ Keep this section accurate when commands change.
 
 ## Data licences
 
-OSM data (ODbL): show "© OpenStreetMap contributors" on every map. OpenFreeMap, Copernicus DEM, Trenord/ATM GTFS: attribution in You → About. Satellite: open data only (Sentinel-2, AGEA orthophoto CC BY 4.0), never Esri/Google/Bing/Mapbox/Maxar/Apple.
+OSM data (ODbL): show "© OpenStreetMap contributors" on every map. OpenFreeMap, Copernicus DEM, Trenord/ATM GTFS: attribution in You → About. Satellite (online only, never in packs): Esri World Imagery through its public tile address without a key (Filippo, 7 Nov 2026; Esri could start refusing keyless requests at any time), with EOX Sentinel-2 cloudless (CC BY-NC-SA 4.0) as the fallback; attribution in the map ⓘ and You → About (see THIRD_PARTY.md). Never Google/Bing/Mapbox/Apple imagery.

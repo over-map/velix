@@ -6,7 +6,7 @@ description: Put Velix on Filippo's iPhone (free Apple ID / Personal Team), prep
 # Ship Velix
 
 ## Iteration 1: Filippo's iPhone (free Apple ID)
-1. Run velix-verify first; everything green.
+1. Run velix-verify first; everything green. For the day-to-day install / launch / copy-logs loop, use the **velix-phone** skill.
 2. Filippo connects the iPhone (Developer Mode on) and selects his Personal Team in Xcode → Signing. Claude can't sign in to Apple accounts; ask Filippo to do this step.
 3. Build and install: `xcodebuild -scheme Velix -destination 'platform=iOS,name=<iPhone name>' -allowProvisioningUpdates build` then install, or Run from Xcode.
 4. Remind Filippo: free provisioning expires after **7 days** (re-install), max 3 apps, some capabilities may be unavailable (see M1 findings in docs/DECISIONS.md).
