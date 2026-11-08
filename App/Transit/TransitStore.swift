@@ -82,6 +82,8 @@ final class TransitStore: @unchecked Sendable {
     private(set) var hasTrack = false
     private var routes: [String: TransitRoute] = [:]
     private var stops: [String: TransitStop] = [:]
+    /// Feeds that run only metro (ATM, Brescia): their stops are dense, so the planner caps them (``DirectPlanner/nearby``).
+    private var metroFeeds: Set<String> = []
     private var rules: [(operator: String, routes: [String], weekdays: [Bool], start: Int, end: Int, rule: BikeRule)] = []
 
     enum Failure: Error { case cannotOpen(String) }
@@ -106,6 +108,8 @@ final class TransitStore: @unchecked Sendable {
             r.ticket = feeds[r.feed]?.ticket
             routes[r.id] = r
         }
+        let railFeeds = Set(routes.values.filter { $0.mode == .rail }.map(\.feed))
+        metroFeeds = Set(routes.values.map(\.feed)).subtracting(railFeeds)
         rows("SELECT id, feed, name, lat, lon FROM stops") { s in
             let feed = Self.text(s, 1) ?? ""
             let stop = TransitStop(id: Self.text(s, 0) ?? "", feed: feed, name: Self.displayName(Self.text(s, 2) ?? "", feed: feed),
@@ -139,10 +143,15 @@ final class TransitStore: @unchecked Sendable {
 
     func stop(_ id: String) -> TransitStop? { stops[id] }
 
+    /// A metro stop (its feed runs only metro), not a railway station.
+    func isMetro(_ stop: TransitStop) -> Bool { metroFeeds.contains(stop.feed) }
+
     // MARK: Departures
 
     /// Direct runs from any of `boards` to any of `alights`, leaving between `after` and `before` (absolute times),
-    /// in service that day. A run that calls at several of the stops comes back once per board/alight pair.
+    /// in service that day. A run that calls at several of the stops comes back once per board/alight pair. A run whose
+    /// arrival is before its departure is skipped: 5 Trenord runs in the Nov 2026 pack go out and back with the return's
+    /// times restarting at 00:00 (S2 22624), which read as a trip of minus 8 hours.
     func departures(from boards: [String], to alights: [String], after: Date, before: Date) -> [TransitDeparture] {
         guard !boards.isEmpty, !alights.isEmpty else { return [] }
         let day = serviceDay(of: after)
@@ -151,7 +160,7 @@ final class TransitStore: @unchecked Sendable {
         let sql = """
             SELECT a.trip, a.stop, a.dep, a.seq, b.stop, b.arr, b.seq, t.route, t.short_name, t.headsign
             FROM stop_times a
-            JOIN stop_times b ON b.trip = a.trip AND b.seq > a.seq
+            JOIN stop_times b ON b.trip = a.trip AND b.seq > a.seq AND b.arr >= a.dep
             JOIN trips t ON t.id = a.trip
             WHERE a.stop IN (\(list(boards))) AND b.stop IN (\(list(alights))) AND a.dep BETWEEN \(from) AND \(to)
               AND t.service IN (SELECT service FROM service_dates WHERE date = \(day.number))

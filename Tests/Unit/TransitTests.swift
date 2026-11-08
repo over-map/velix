@@ -21,7 +21,11 @@ enum TransitFixture {
         return c.date(from: DateComponents(year: y, month: mo, day: d, hour: h, minute: m))!
     }
 
-    static func store() throws -> TransitStore {
+    /// Via Soave 20, south Milan: Centrale is 4.4 km away, with small stations much nearer.
+    static let viaSoave = LatLon(lat: 45.447767, lon: 9.1963936)
+
+    /// `extra`: more SQL after the base fixture (decoy stops in the station tests).
+    static func store(extra: String = "") throws -> TransitStore {
         let url = FileManager.default.temporaryDirectory.appending(path: "transit-\(UUID().uuidString).sqlite")
         var db: OpaquePointer?
         sqlite3_open(url.path, &db)
@@ -66,7 +70,7 @@ enum TransitFixture {
             sql += "INSERT INTO trips VALUES ('\(id)','\(id.split(separator: ":")[0])','\(route)','\(service)','\(head)','\(name)',0,0);\n"
             for (i, c) in calls.enumerated() { sql += "INSERT INTO stop_times VALUES ('\(id)',\(i + 1),'\(c.0)',\(c.1),\(c.1));\n" }
         }
-        sqlite3_exec(db, sql, nil, nil, nil)
+        sqlite3_exec(db, sql + extra, nil, nil, nil)
         return try TransitStore(path: url)
     }
 }
@@ -113,6 +117,57 @@ struct DirectPlannerTests {
         #expect(late.first?.departure.tripName == "25510")
     }
 
+    /// 7 small railway stations and 8 metro stops within 1.3 km of Via Soave, none with a Monza train (as Scalo Romana,
+    /// Tibaldi, Romolo… on 8 Nov: no bike + train from there).
+    static let decoys: String = {
+        var sql = ""
+        for i in 0..<7 {
+            sql += "INSERT INTO stops VALUES ('trenord:D\(i)','trenord','Small station \(i)',\(45.4478 + Double(i) * 0.0015),9.2050,NULL,0);\n"
+        }
+        for i in 0..<8 {
+            sql += "INSERT INTO stops VALUES ('atm:D\(i)','atm','METRO \(i)',\(45.4500 + Double(i) * 0.001),9.1900,NULL,0);\n"
+        }
+        return sql
+    }()
+
+    @Test func everyRailStationWithin5km() throws {
+        // 08:05 at Via Soave: Centrale (4.4 km, ≈ 23 min) is the only station with Monza trains, behind 7 nearer ones.
+        let s = try TransitFixture.store(extra: Self.decoys)
+        let c = DirectPlanner.candidates(s, from: TransitFixture.viaSoave, to: TransitFixture.villaReale, at: TransitFixture.thursday(8, 5))
+        #expect(c.first?.departure.board.name == "Milano Centrale")
+        #expect(c.first?.departure.tripName == "25510")             // the 08:20 leaves before he gets there
+    }
+
+    @Test func metroStopsStayCappedPerFeed() throws {
+        let s = try TransitFixture.store(extra: Self.decoys)
+        let near = DirectPlanner.nearby(s, TransitFixture.viaSoave)
+        #expect(near.filter { $0.stop.feed == "atm" }.count == DirectPlanner.stationsPerEnd)
+        #expect(near.filter { $0.stop.feed == "trenord" }.count == 8)      // the 7 small ones and Centrale
+        #expect(near.allSatisfy { $0.meters <= DirectPlanner.stationRadius })
+        #expect(s.isMetro(near.first { $0.stop.feed == "atm" }!.stop))
+        #expect(!s.isMetro(near.first { $0.stop.feed == "trenord" }!.stop))
+    }
+
+    /// 8 Nov: 5 Trenord runs in the Lombardy pack go out and back with the return's times restarting at 00:00 (S2 22624:
+    /// Seveso → Rogoredo 09:07, then Porta Vittoria 00:00 → Affori 00:24). Read as Centrale 08:25 → Monza 00:10 it is a
+    /// trip of minus 8 hours, which every trigger takes for a saving.
+    @Test func runsWhoseTimesGoBackwardsAreSkipped() throws {
+        let t = { (h: Int, m: Int) in h * 3600 + m * 60 }
+        let loop = """
+            INSERT INTO trips VALUES ('trenord:loop','trenord','trenord:RE8','WK','Loop','99999',0,0);
+            INSERT INTO stop_times VALUES ('trenord:loop',1,'trenord:S01700',\(t(8, 25)),\(t(8, 25))),
+                                          ('trenord:loop',2,'trenord:S01650',\(t(8, 32)),\(t(8, 32))),
+                                          ('trenord:loop',3,'trenord:S01322',\(t(0, 10)),\(t(0, 10)));
+            """
+        let s = try TransitFixture.store(extra: loop)
+        let runs = s.departures(from: ["trenord:S01700"], to: ["trenord:S01322"],
+                                after: TransitFixture.thursday(8, 0), before: TransitFixture.thursday(9, 0))
+        #expect(!runs.contains { $0.tripName == "99999" })
+        #expect(runs.allSatisfy { $0.arrives >= $0.departs })
+        let c = DirectPlanner.candidates(s, from: TransitFixture.portaVenezia, to: TransitFixture.villaReale, at: TransitFixture.thursday(8, 5))
+        #expect(c.first?.departure.tripName == "2816")
+    }
+
     @Test func nextTrainsOfThePair() throws {
         let s = try TransitFixture.store()
         let first = try #require(DirectPlanner.candidates(s, from: TransitFixture.portaVenezia, to: TransitFixture.villaReale,
@@ -137,6 +192,7 @@ struct TransitTriggerTests {
         #expect(shows(30, 8, 28, climb: 220))      // avoids 220 m of climbing
         #expect(shows(30, 8, 29, outside: true))   // destination outside the city
         #expect(!shows(30, 8, 31, outside: true))  // never when it's slower
+        #expect(!shows(38, 8.1, -449))             // a broken run (times going backwards) never shows (8 Nov)
     }
 
     @Test func cityAreaContains() {

@@ -21,8 +21,8 @@ This is for a new Claude Code session that knows nothing about the work so far. 
 | M10 PR 1 Accessibility | ✅ #49 | |
 | M10 PR 2 Performance | ✅ #54, #55 | Numbers in §4 |
 | M10 PR 3 Weather notice | ❌ removed | Built (#57), then removed on 8 Nov: Filippo doesn't want it |
-| **Bike + train station fix** | **next** | §2.2 |
-| M11 Europe | after the fix | §2.3. Not yet in BUILD_PLAN |
+| Bike + train station fix | ✅ | §2.2 |
+| **M11 Europe** | **next** | §2.3. Not yet in BUILD_PLAN |
 | Backlog | after M11 | §2.4 |
 | M10 PR 4 Demo build + script | last | §2.5. Moved after M11 and the backlog (8 Nov). M10 closes when Filippo signs off the demo |
 
@@ -34,8 +34,8 @@ This is for a new Claude Code session that knows nothing about the work so far. 
 The free Personal Team profiles were renewed on 8 Nov (Filippo signed in to Xcode again) and now expire at **2026-11-15 20:56 UTC**. After that the app won't open on the iPhone.
 - Rebuilding doesn't renew them. The steps are in the `velix-phone` skill, "Rules". Xcode needs Filippo's Apple ID in Xcode → Settings → Accounts.
 
-### 2.2 Bike + train from south Milan: no suggestion (found 8 Nov)
-Via Soave → Monza (Villa Reale) gets no bike + train option at any time, while Porta Venezia → Monza does (RE8, 35 min). The data is fine; the station choice isn't. `DirectPlanner.nearby` keeps the **6 nearest stops per operator within 4 km**, and around Via Soave those are small stations (Scalo Romana, Tibaldi, Romolo, Porta Vittoria, Dateo, Cadorna) with almost no Monza trains. Rogoredo (3.7 km, 11th), Centrale and Garibaldi (4.3 km) are left out. With every rail station within 5 km (metro still capped), Thursday 08:05 gives Garibaldi 08:31 → Monza, door to door 51 min vs 81 by bike, so the trigger fires. Fix it first, then M11.
+### 2.2 Bike + train from south Milan: fixed (9 Nov)
+Every railway station within 5 km now counts (metro still the 6 nearest per operator), and runs whose times go backwards are skipped (DECISIONS 9 Nov). **For M11's pipeline:** fix the NeTEx import so out-and-back Trenord runs don't restart at 00:00 (5 runs in the Nov pack, e.g. S2 22624), and check every new region's feed for the same.
 
 ### 2.3 M11 "Europe" (after the bike + train fix; plan mode; several PRs)
 Filippo's choices on 8 Nov aren't in the repo yet. **At the start of M11, add M11 to `docs/BUILD_PLAN.md` and these four choices to DECISIONS:**

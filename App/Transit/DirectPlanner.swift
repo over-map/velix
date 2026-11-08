@@ -63,9 +63,11 @@ struct TransitCandidate: Hashable, Sendable {
 /// Direct connections only (BUILD_PLAN M8, iteration 1): ride to a station, one train or metro run that takes bikes,
 /// ride on. No changes. Static timetable from the pack; no live delays.
 enum DirectPlanner {
-    /// Stations considered at each end, per operator (metro stops are dense: nearest-overall would leave out every
-    /// railway station in central Milan), and how far.
-    static let stationRadius = 4000.0
+    /// Stops considered at each end: every railway station within 5 km, and the 6 nearest metro stops per operator
+    /// (metro stops are dense: uncapped they'd crowd the query). 8 Nov: with the 6 nearest of every operator within
+    /// 4 km, Via Soave → Monza found no train: its 6 nearest Trenord stations have almost none, and Rogoredo (11th),
+    /// Centrale and Garibaldi (4.3 km) were left out.
+    static let stationRadius = 5000.0
     static let stationsPerEnd = 6
     /// How far ahead departures are searched.
     static let window: TimeInterval = 90 * 60
@@ -106,7 +108,10 @@ enum DirectPlanner {
 
     static func nearby(_ store: TransitStore, _ p: LatLon) -> [(stop: TransitStop, meters: Double)] {
         let all = store.stops(near: p, within: stationRadius, limit: .max)
-        return Dictionary(grouping: all, by: \.stop.feed).values.flatMap { $0.prefix(stationsPerEnd) }
+        let rail = all.filter { !store.isMetro($0.stop) }
+        let metro = Dictionary(grouping: all.filter { store.isMetro($0.stop) }, by: \.stop.feed).values
+            .flatMap { $0.prefix(stationsPerEnd) }
+        return (rail + metro).sorted { $0.meters < $1.meters }
     }
 
     /// The next runs between the same two stops after `d` (the "Next trains" chips).
@@ -220,7 +225,8 @@ enum TransitTrigger {
     }
 
     static func shows(bike: Bike, transitSeconds: TimeInterval, transitClimb: Double, destinationOutsideCity: Bool) -> Bool {
-        guard bike.meters >= minimumTrip else { return false }
+        // A transit trip of no time or less is broken data, never a saving.
+        guard bike.meters >= minimumTrip, transitSeconds > 0 else { return false }
         let saves = bike.seconds - transitSeconds
         guard saves > 0 else { return false }
         if saves >= 20 * 60 || saves >= 0.3 * bike.seconds { return true }
