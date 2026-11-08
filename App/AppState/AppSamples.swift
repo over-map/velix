@@ -128,6 +128,8 @@ enum AppSamples {
     }
 
     static let storm = WeatherWarning(title: "Severe weather in Milan", message: "Thunderstorms until 18:00. Take care if you ride.",
-                                      pill: "Storm until 18:00")
+                                      pill: "Storm until 18:00", id: "sample-storm",
+                                      credit: "Issued 14:05 by Aeronautica Militare via MeteoAlarm",
+                                      link: URL(string: "https://meteoalarm.org?geocode=EMMA_ID:IT003"))
 }
 #endif

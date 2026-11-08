@@ -15,6 +15,7 @@ enum PlaceSearchError: Error, Equatable { case offline, badResponse }
 
 /// Photon geocoder (https://photon.komoot.io, fair use): biased to the rider, limited to the pack region.
 struct PhotonSearch: PlaceSearch {
+    static let userAgent = "Velix/0.1 (https://github.com/over-map/velix)"
     var endpoint = URL(string: "https://photon.komoot.io/api/")!
     /// Around the regions Velix offers (Lombardy and its neighbours, Filippo 2 Nov): a place found outside the
     /// downloaded ones offers its region's download (search first, Find route).
@@ -46,7 +47,7 @@ struct PhotonSearch: PlaceSearch {
 
     private func fetch(_ url: URL) async throws -> [Place] {
         var request = URLRequest(url: url, timeoutInterval: 10)
-        request.setValue("Velix/0.1 (https://github.com/over-map/velix)", forHTTPHeaderField: "User-Agent")
+        request.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
         do {
             let (data, response) = try await session.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw PlaceSearchError.badResponse }
@@ -106,5 +107,46 @@ struct PhotonSearch: PlaceSearch {
             return .poi
         default: return type == "house" ? .address : (type == "street" ? .street : .poi)
         }
+    }
+}
+
+/// The rider's region for the weather notice (M10), from Photon's reverse geocoder: the region in its local name
+/// (lang=default, "Lombardia", as MeteoAlarm spells it) and the city and region in English (lang=en, "Milan").
+/// The two calls run together; MeteoAlarm caches the answer until the rider moves 5 km.
+struct PhotonPlaceLookup: WeatherPlaceLookup {
+    var endpoint = PhotonSearch().endpoint.deletingLastPathComponent().appending(path: "reverse")
+    var session: URLSession = .shared
+
+    func place(at p: LatLon) async -> WeatherPlace? {
+        async let local = properties(at: p, lang: "default")
+        async let english = properties(at: p, lang: "en")
+        guard let l = await local, let region = l["state"], let country = l["countrycode"] else { return nil }
+        let en = await english
+        return WeatherPlace(region: region, regionName: en?["state"] ?? region, city: en?["city"] ?? l["city"],
+                            countryCode: country.uppercased())
+    }
+
+    /// The first feature's string properties ("state", "city", "countrycode"…), nil offline or on a bad answer.
+    private func properties(at p: LatLon, lang: String) async -> [String: String]? {
+        var c = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)!
+        c.queryItems = [URLQueryItem(name: "lat", value: String(p.lat)), URLQueryItem(name: "lon", value: String(p.lon)),
+                        URLQueryItem(name: "lang", value: lang), URLQueryItem(name: "limit", value: "1")]
+        var request = URLRequest(url: c.url!, timeoutInterval: 10)
+        request.setValue(PhotonSearch.userAgent, forHTTPHeaderField: "User-Agent")
+        guard let (data, response) = try? await session.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return Self.parse(data)
+    }
+
+    static func parse(_ data: Data) -> [String: String]? {
+        struct FC: Decodable { let features: [F] }
+        struct F: Decodable { let properties: [String: Value] }
+        /// Photon properties mix strings, numbers and arrays; only the strings matter here.
+        struct Value: Decodable {
+            let string: String?
+            init(from decoder: Decoder) throws { string = try? decoder.singleValueContainer().decode(String.self) }
+        }
+        guard let first = (try? JSONDecoder().decode(FC.self, from: data))?.features.first else { return nil }
+        return first.properties.compactMapValues(\.string)
     }
 }

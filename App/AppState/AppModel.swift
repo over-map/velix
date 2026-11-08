@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import SwiftUI
 
-/// Severe-weather warnings for the S1 notice. The source (MeteoAM / ARPA CAP) is decided in M10; until then none.
+/// Severe-weather warnings for the S1 notice: MeteoAlarm (M10, `App/Weather/MeteoAlarm.swift`).
 protocol WeatherWarnings: Sendable {
     func current(near: LatLon?) async -> WeatherWarning?
 }
@@ -11,6 +11,12 @@ struct WeatherWarning: Equatable, Sendable {
     var title: String        // "Severe weather in Milan"
     var message: String      // "Thunderstorms until 18:00. Take care if you ride."
     var pill: String         // "Storm until 18:00"
+    /// The source's id: a new warning shows its banner again, a dismissed one stays a pill.
+    var id: String = ""
+    /// "Issued 14:05 by Aeronautica Militare via MeteoAlarm", linking `link` (the source's terms).
+    var credit: String?
+    var link: URL?
+    var expires: Date?
 }
 
 struct NoWeatherWarnings: WeatherWarnings {
@@ -33,7 +39,11 @@ final class AppModel {
     /// Session only: "Lit streets only" for the next ride (S8 Tonight), off when a ride ends.
     var litStreetsOnly = false
     var warning: WeatherWarning?
-    var warningDismissed = false
+    /// The banner was closed: the warning shows as a pill until a different one comes.
+    var warningDismissed = false {
+        didSet { if warningDismissed, let id = warning?.id { dismissedWarnings.insert(id) } }
+    }
+    @ObservationIgnored private var dismissedWarnings: Set<String> = []
     /// MapStyleSheet overlays (session).
     var bikeLanes = false
     var transitLines = false
@@ -44,7 +54,7 @@ final class AppModel {
     private let store: AppStore
 
     init(store: AppStore = .live, location: LocationService = LocationService(), pack: PackService = PackService(),
-         search: PlaceSearch = PhotonSearch(), weather: WeatherWarnings = NoWeatherWarnings(),
+         search: PlaceSearch = PhotonSearch(), weather: WeatherWarnings = MeteoAlarm.live(),
          history: RideHistory? = nil) {
         self.store = store
         self.state = store.load()
@@ -64,8 +74,14 @@ final class AppModel {
         return !packContains(here)
     }
 
+    /// On launch, on the first location fix, back in the foreground and when the warning ends; not during a ride
+    /// (no notices while riding). The banner shows once per warning per app open, then the pill.
     func refreshWarning() async {
-        warning = await weather.current(near: location.coordinate)
+        guard ride == nil else { return }
+        let w = await weather.current(near: location.coordinate)
+        guard w != warning else { return }
+        warning = w
+        warningDismissed = w.map { dismissedWarnings.contains($0.id) } ?? false
     }
 
     /// Search first (Filippo, 2 Nov): a searched place framed on the map before its route options (Find route).
