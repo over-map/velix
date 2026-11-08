@@ -139,7 +139,10 @@ struct RideView: View {
             if app.warningDismissed {
                 NoticePill(text: w.pill).frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                NoticeBanner.weather(w.title, w.message) { app.warningDismissed = true }
+                NoticeBanner.weather(w.title, w.message,
+                                     credit: w.credit.map { c in (c, { if let url = w.link { UIApplication.shared.open(url) } }) }) {
+                    app.warningDismissed = true
+                }
             }
         }
     }

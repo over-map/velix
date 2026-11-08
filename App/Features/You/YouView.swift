@@ -256,6 +256,8 @@ struct AboutView: View {
                                        ("Map outside your regions", "OpenFreeMap · © OpenMapTiles · © OpenStreetMap contributors"),
                                        ("Hillshade", "Mapterhorn: Copernicus GLO-30 (© DLR e.V. 2010–2014 and © Airbus 2014–2018, provided under "
                                         + "COPERNICUS by the EU and ESA), swisstopo, Regione Lombardia and other national elevation data"),
+                                       ("Weather warnings", "MeteoAlarm (EUMETNET), issued by Aeronautica Militare. "
+                                        + "They may be delayed; check official sources. meteoalarm.org"),
                                        ("Satellite imagery", "Esri World Imagery: Esri, Maxar, Earthstar Geographics, and the GIS User Community"),
                                        ("Satellite imagery, fallback", "Sentinel-2 cloudless (s2maps.eu) by EOX IT Services GmbH, "
                                         + "contains modified Copernicus Sentinel data 2024 (CC BY-NC-SA 4.0)")]

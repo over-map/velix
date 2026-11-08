@@ -3,7 +3,7 @@
 This is for a new Claude Code session that knows nothing about the work so far. Read it after `CLAUDE.md`, and keep it current: when an item here is done, strike it or delete it in the same PR.
 
 ## 1. Where the project stands
-- **`main` is at `759b4a9`** (merge of #55). All 55 PRs are merged except #35, which was closed and replaced by #38. The working tree is clean, and no PRs or issues are open.
+- **`main` is at `042d2c3`** (merge of #56, this handover). All PRs up to #56 are merged except #35, which was closed and replaced by #38. The working tree is clean, and no PRs or issues are open.
 - **M0–M9 are done.** M10 "Polish and showcase" has had two of its four parts merged:
 
 | Milestone | State | Notes |
@@ -20,51 +20,20 @@ This is for a new Claude Code session that knows nothing about the work so far. 
 | M9 Routes, history | ✅ | Apple Health and Strava dropped (6 Nov). GPX share only |
 | M10 PR 1 Accessibility | ✅ #49 | |
 | M10 PR 2 Performance | ✅ #54, #55 | Numbers in §4 |
-| **M10 PR 3 Weather notice** | **next** | §2.2 |
-| M10 PR 4 Demo build + script | after PR 3 | §2.3. M10 closes when Filippo signs off the demo |
+| M10 PR 3 Weather notice | ✅ `m10-weather` | MeteoAlarm, see DECISIONS 8 Nov |
+| **M10 PR 4 Demo build + script** | **next** | §2.3. M10 closes when Filippo signs off the demo |
 | M11 Europe | after M10 | §2.4. Not yet in BUILD_PLAN |
 
 - **On the phone:** `main` at e907509, the same app code as today's main.
 
 ## 2. What to do next, in order
 
-### 2.1 Before Fri 13 Nov 14:08 (Italy): renew signing
-The free Personal Team profiles expire at **2026-11-13 13:08 UTC**. After that the app won't open on the iPhone.
-- Rebuilding doesn't renew them. The steps are in the `velix-phone` skill, "Rules".
-- **Blocker:** on 8 Nov Xcode had no Apple account signed in, so the build said "No Accounts" as soon as the old profiles were moved away. Ask Filippo to add his Apple ID in Xcode → Settings → Accounts, then renew and reinstall.
+### 2.1 Signing: renew before Sun 15 Nov 21:56 (Italy)
+The free Personal Team profiles were renewed on 8 Nov (Filippo signed in to Xcode again) and now expire at **2026-11-15 20:56 UTC**. After that the app won't open on the iPhone.
+- Rebuilding doesn't renew them. The steps are in the `velix-phone` skill, "Rules". Xcode needs Filippo's Apple ID in Xcode → Settings → Accounts.
 
-### 2.2 M10 PR 3: severe-weather notice (start in plan mode)
-**Already decided (Filippo picked "MeteoAlarm (Recommended)" when M10 was planned on 6 Nov):**
-- **Source:** MeteoAlarm Atom feed, `https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-italy`. It's free and needs no key, and it answered 200 on 8 Nov with 11 entries.
-- Each entry has these `cap:` fields: `areaDesc` (a region name, e.g. "Lombardia", "Emilia e Romagna"), `event` (e.g. "Orange Thunderstorm Warning"), `severity`, `onset`, `effective`, `expires`, `sent`, `geocode` (EMMA_ID), `identifier`, `certainty`, `urgency`, `status` and `scope`.
-- **Licence:** CC BY 4.0-like. Any reuse must:
-  - credit the national service (Aeronautica Militare);
-  - show the issue time;
-  - link meteoalarm.org;
-  - carry a "may be delayed, check official sources" disclaimer.
-
-**The plan agreed then (re-confirm it in plan mode):**
-- **New file** `App/Weather/MeteoAlarm.swift`, implementing the existing `WeatherWarnings` protocol in `App/AppState/AppModel.swift`. `NoWeatherWarnings` is wired today.
-- **Parsing:** `XMLParser`, with a 15-minute cache.
-- **Region matching:** a Photon reverse lookup (`lang=default`) gives the rider's region, which is then matched to `cap:areaDesc`.
-  - Names differ ("Emilia e Romagna" vs "Emilia-Romagna"), so normalise them, or match on the `geocode` value.
-- **Which warnings show:** only orange and red (`severity` Severe/Extreme) that are active now or start within 12 h. Show the most severe, then the soonest.
-- **Copy:**
-  - The design copy is "Severe weather in Milan" / "Thunderstorms until 18:00. Take care if you ride."; see `App/AppState/AppSamples.swift` `.storm`, P4 S1a and P8.
-  - Add a credit line, "Issued HH:MM by Aeronautica Militare via MeteoAlarm", that links meteoalarm.org. **That line is new copy, so flag it in the PR.**
-- **When it refreshes:**
-  - `refreshWarning()` sits at the end of `RootView.task` today. Move it so it doesn't wait for the rest.
-  - Also refresh on returning to the foreground and on the first location fix.
-  - The notice shows once per app open (P4 note). Dismissing it gives a compact pill (`NoticeBanner` already has both).
-- **Tests and docs:**
-  - Fixture XML tests for parsing, filtering and region matching;
-  - MeteoAlarm credits in You → About;
-  - a `THIRD_PARTY.md` row;
-  - DECISIONS rows.
-- **Design references:**
-  - `design/Velix P4 Ride Search Route Options.dc.html` (S1a, light and dark);
-  - `design/Velix P8 Accessibility.dc.html`: VoiceOver reads "Severe weather in Milan. Thunderstorms until 18:00. Take care if you ride.", and it's static text announced as an alert. `NoticeBanner` already announces warnings.
-- **Thinking ahead to M11:** MeteoAlarm publishes one feed per country (`meteoalarm-legacy-atom-<country>`). Keep the country a parameter so Europe later is only a config change.
+### 2.2 M10 PR 3: severe-weather notice: done
+MeteoAlarm feed per country, orange and red warnings for the rider's region (Photon reverse), credit line on the banner, You → About. Details in DECISIONS (8 Nov); debug with `-weather-fixture orange|red|later`. For M11, each new country is a row in `MeteoAlarm.countries` (feed slug + issuer); check its `areaDesc` granularity against Photon's `state` first (some countries warn per province or county).
 
 ### 2.3 M10 PR 4: demo (plan agreed on 6 Nov: "Script + recorded clips (Recommended)")
 - Install a Release build on the phone and run a smoke pass.
