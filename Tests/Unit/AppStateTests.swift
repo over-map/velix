@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import Testing
 @testable import Velix
@@ -6,6 +7,25 @@ private final class Token {}
 
 struct AppStateTests {
     let dir = FileManager.default.temporaryDirectory.appending(path: "velix-state-\(UUID().uuidString)")
+
+    /// M10: one GPS at a time. While a ride runs, the app's location takes the ride's fixes; otherwise its own.
+    @MainActor @Test func theAppLocationFollowsTheRideWhilePaused() {
+        let location = LocationService()
+        location.setForTesting(access: .allowed, location: LatLon(lat: 45.46, lon: 9.19))
+        let fix = CLLocation(latitude: 45.47, longitude: 9.20)
+        location.feed(fix)
+        #expect(location.coordinate == LatLon(lat: 45.46, lon: 9.19))   // not riding: ignored
+        location.paused = true
+        location.feed(fix)
+        #expect(location.coordinate == LatLon(lat: 45.47, lon: 9.20))
+        location.feed(CLLocation(latitude: 45.4705, longitude: 9.20))   // ≈ 56 m on: not yet
+        #expect(location.coordinate == LatLon(lat: 45.47, lon: 9.20))
+        location.feed(CLLocation(latitude: 45.471, longitude: 9.20))    // ≈ 111 m on
+        #expect(location.coordinate == LatLon(lat: 45.471, lon: 9.20))
+        location.paused = false
+        location.feed(CLLocation(latitude: 45.48, longitude: 9.21))
+        #expect(location.coordinate == LatLon(lat: 45.471, lon: 9.20))
+    }
 
     @Test func storeRoundTrips() {
         let store = AppStore(url: dir.appending(path: "state.json"))

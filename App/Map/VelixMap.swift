@@ -75,6 +75,8 @@ struct VelixMap: UIViewRepresentable {
         map.logoView.isHidden = true
         map.compassView.isHidden = true
         map.attributionButton.isHidden = !showsAttribution
+        // M10: the riding map draws at most 30 frames a second (MapLibre's low-power rate), for the battery; the rider chevron is SwiftUI and stays at 60. Other maps keep 60.
+        if riding { map.preferredFramesPerSecond = .lowPower }
         context.coordinator.state = self
         #if DEBUG
         Perf.startHeartbeat()
@@ -297,15 +299,14 @@ struct VelixMap: UIViewRepresentable {
             if let nearest = places.min(by: { $0.1 < $1.1 }) { onTapFeature(nearest.0) }
         }
 
-        #if DEBUG
+        // Every build: the ride log's fps and the launch's first map frame (PerfLog); `-map-perf` in DEBUG.
         nonisolated func mapViewWillStartRenderingFrame(_ mapView: MLNMapView) {
-            MainActor.assumeIsolated { Perf.frameStart = CACurrentMediaTime() }
+            MainActor.assumeIsolated { MapFrames.willRender() }
         }
 
         nonisolated func mapViewDidFinishRenderingFrame(_ mapView: MLNMapView, fullyRendered: Bool) {
-            MainActor.assumeIsolated { Perf.add("frame", CACurrentMediaTime() - Perf.frameStart) }
+            MainActor.assumeIsolated { MapFrames.didRender(fullyRendered: fullyRendered) }
         }
-        #endif
 
         nonisolated func mapView(_ mapView: MLNMapView, didFailToLoadImage imageName: String) -> UIImage? {
             MainActor.assumeIsolated {
@@ -406,7 +407,8 @@ struct VelixMap: UIViewRepresentable {
             }
             if link == nil, glide != nil || !clearUntil.isEmpty {
                 let l = CADisplayLink(target: self, selector: #selector(stepGlide))
-                l.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30)
+                // 20 steps a second (M10, was up to 30): at 5 m/s a step moves the cut 0.25 m, under a pixel at riding zooms.
+                l.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 20, preferred: 20)
                 l.add(to: .main, forMode: .common)
                 link = l
             }
@@ -481,7 +483,6 @@ enum Perf {
     static let on = ProcessInfo.processInfo.arguments.contains("-map-perf")
     private static var counts: [String: (n: Int, t: Double)] = [:]
     private static var since = CACurrentMediaTime()
-    static var frameStart = CACurrentMediaTime()
     /// A 60 Hz heartbeat: fewer ticks than 60 a second means the main thread was busy.
     private static var beat: CADisplayLink?
     private final class Beat: NSObject { @objc func tick() { MainActor.assumeIsolated { Perf.add("main", 0) } } }

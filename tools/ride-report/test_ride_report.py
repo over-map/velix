@@ -60,7 +60,7 @@ def ride(seconds: int = 300, speed: float = 5.0, gaps: tuple[int, ...] = (), sto
                     {"t": t + 2, "e": "voice", "s": "finished", "text": "Turn left onto Via Pacini", "locked": True, "background": True}]
         if i and i % 60 == 0:
             out += [{"t": t, "e": "health", "battery": 0.9 - i / 36000, "charging": False, "thermal": "nominal", "mb": 180 + i / 10,
-                     "fixes": 60}, {"t": t, "e": "activity", "s": "updates", "n": 6}]
+                     "fixes": 60, "fps": 40.0 if i == 120 else 58.0, "slow": 1}, {"t": t, "e": "activity", "s": "updates", "n": 6}]
         for r in reroutes:
             if i == int(r):
                 out += [{"t": t, "e": "reroute", "s": "requested"}, {"t": t + 0.05, "e": "reroute", "s": "accepted", "ms": 50, "m": 1500}]
@@ -123,6 +123,46 @@ class RideReportTests(unittest.TestCase):
         self.assertIn("## Summary", text)
         self.assertNotIn("45.47", text)
         self.assertNotIn("9.2", text.replace("9.2 km", ""))
+
+    def test_map_fps_leaves_out_the_start_and_locked_minutes(self):
+        # Health at 60 (the start), 120 (40 fps, on screen), 180 and 240 (58); locked from 200 drops 240.
+        r = rr.Ride.load(write(ride(seconds=300, locked_from=200)))
+        self.assertEqual(rr.map_fps(r), "map 49 fps median, worst minute 40 fps, 2 slow frame(s) over 2 min on screen")
+        self.assertIsNone(rr.map_fps(rr.Ride.load(write(ride(seconds=100)))))
+
+    def test_launch_summary(self):
+        lines = [{"t": T0, "app": "1.0 (9)", "prewarmed": False, "rootMs": 900, "mapMs": 1400, "phases": {"history": 120.5}},
+                 {"t": T0 + 60, "app": "1.0 (9)", "prewarmed": False, "rootMs": 700, "phases": {"history": 80}},
+                 {"t": T0 + 120, "app": "1.0 (9)", "prewarmed": True, "rootMs": 9000, "phases": {"history": 1}}]
+        text = rr.launches(write(lines))
+        self.assertIn("2 launch(es), 1 prewarmed left out", text)
+        self.assertIn("| First screen (from process start) | 800 | 900 | 2 |", text)
+        self.assertIn("| First full map frame | 1400 | 1400 | 1 |", text)
+        self.assertIn("|   history | 100 | 120 | 2 |", text)
+
+
+class BatteryStepsTests(unittest.TestCase):
+    def _ride(self, levels):
+        events = [{"t": 0, "e": "start", "type": "city", "sim": False, "to": "X", "m": 1000, "app": "1", "voice": "all",
+                   "view": "2D", "battery": levels[0], "charging": False, "lowPower": False}]
+        events += [{"t": i * 60, "e": "health", "battery": b, "charging": False, "thermal": "nominal", "mb": 300, "fixes": 60,
+                    "cpu": 90 if i == 0 else 30 + i % 3 * 10}
+                   for i, b in enumerate(levels)]
+        return rr.Ride("r", events=events)
+
+    def test_one_step_gives_no_rate(self):
+        # 100 % held for 56 min, then one 5 % step: not 5 %/h.
+        out = rr.health(self._ride([1.0] * 56 + [0.95] * 7))
+        self.assertTrue(any("1 step(s): too few for a rate" in h for h in out), out)
+
+    def test_rate_between_the_first_and_the_last_step(self):
+        # Steps at minute 10 (→ 0.90) and minute 40 (→ 0.85): 5 % in 30 min.
+        out = rr.health(self._ride([0.95] * 10 + [0.90] * 30 + [0.85] * 10))
+        self.assertTrue(any("(10 %/h between the first and the last step)" in h for h in out), out)
+
+    def test_cpu_median_leaves_out_the_first_line(self):
+        out = rr.health(self._ride([0.9] * 10))
+        self.assertIn("CPU 40 % of a core median, 50 % worst minute", out)
 
 
 if __name__ == "__main__":

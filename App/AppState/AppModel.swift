@@ -73,7 +73,14 @@ final class AppModel {
     /// S3: the destination whose route options are open.
     var destination: Place?
     /// The ride in progress (Start).
-    var ride: RideSession?
+    var ride: RideSession? {
+        // One GPS at a time (M10): the ride's own provider while riding; the app's location follows its fixes.
+        didSet {
+            guard ride !== oldValue else { return }
+            ride?.onLocation = { [weak self] in self?.location.feed($0) }
+            location.paused = ride != nil
+        }
+    }
     /// S6, after a ride that ended by itself at the door (not after End).
     var summary: RideSummaryModel?
     /// The bike + transit stages of the ride in progress (P6), if it is one.

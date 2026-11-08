@@ -23,7 +23,9 @@ final class RideLog: @unchecked Sendable {
         /// "active", "background", "locked", "unlocked", "terminate", "memoryWarning".
         case app(String)
         /// Once a minute: battery (0–1, -1 unknown), plugged in, thermal state, memory footprint, fixes that minute.
-        case health(battery: Double, charging: Bool, thermal: String, memoryMB: Double, fixes: Int)
+        /// `fps`: frames the map drew a second over the minute (MapLibre draws only when something changes); `slowFrames`: frames over 33 ms.
+        /// `cpu`: the app's CPU time over the minute, in % of one core (iOS reports the battery only in 5 % steps, too coarse to compare builds).
+        case health(battery: Double, charging: Bool, thermal: String, memoryMB: Double, fixes: Int, fps: Double = 0, slowFrames: Int = 0, cpu: Double = -1)
         /// The Live Activity: "started", "unavailable", "failed" (once), "updates" (count in the last minute).
         case activity(String, count: Int = 0)
     }
@@ -49,7 +51,9 @@ final class RideLog: @unchecked Sendable {
     let url: URL
     let started: Date
     private let lock = NSLock()
-    private var handle: FileHandle?
+    /// The file is written here, in order, off the main thread (M10: a write a second on main while riding).
+    private let queue = DispatchQueue(label: "app.velix.ridelog", qos: .utility)
+    private var handle: FileHandle?   // used on `queue` only after init
     private(set) var stats = RideStats()
     /// The ride as ridden, a point every 10 m (the S6 map).
     private(set) var ridden: [LatLon] = []
@@ -116,8 +120,9 @@ final class RideLog: @unchecked Sendable {
         case let .voice(s, text, locked, background):
             write(["t": t, "e": "voice", "s": s, "text": text, "locked": locked, "background": background])
         case let .app(s): write(["t": t, "e": "app", "s": s])
-        case let .health(b, charging, thermal, mb, fixes):
-            write(["t": t, "e": "health", "battery": Self.r2(b), "charging": charging, "thermal": thermal, "mb": Self.r1(mb), "fixes": fixes])
+        case let .health(b, charging, thermal, mb, fixes, fps, slow, cpu):
+            write(["t": t, "e": "health", "battery": Self.r2(b), "charging": charging, "thermal": thermal, "mb": Self.r1(mb), "fixes": fixes,
+                   "fps": Self.r1(fps), "slow": slow, "cpu": Self.r1(cpu)])
         case let .activity(s, count):
             var o: [String: Any] = ["t": t, "e": "activity", "s": s]
             if s == "updates" { o["n"] = count }
@@ -152,14 +157,21 @@ final class RideLog: @unchecked Sendable {
         return fixes >= 10 && accuracies == [5]
     }
 
+    /// Writes what's queued and closes the file (before it's read: the history, the GPX, app termination).
     func close() {
         lock.lock(); defer { lock.unlock() }
-        try? handle?.close()
-        handle = nil
+        queue.sync {
+            try? handle?.close()
+            handle = nil
+        }
     }
+
+    /// Waits for the queued lines (tests, readers of a log still open).
+    func flush() { queue.sync {} }
 
     /// The ride as GPX 1.1 (S6 Share GPX: the fixes only, no events), written next to the log.
     func gpx(name: String) throws -> URL {
+        flush()
         let lines = try String(contentsOf: url, encoding: .utf8).split(separator: "\n").map(String.init)
         let out = url.deletingPathExtension().appendingPathExtension("gpx")
         try Self.gpx(lines: lines, name: name).write(to: out, atomically: true, encoding: .utf8)
@@ -188,8 +200,8 @@ final class RideLog: @unchecked Sendable {
     }
 
     private func write(_ object: [String: Any]) {
-        guard let handle, let data = try? JSONSerialization.data(withJSONObject: object) else { return }
-        handle.write(data + Data("\n".utf8))
+        guard let data = try? JSONSerialization.data(withJSONObject: object) else { return }
+        queue.async { [self] in handle?.write(data + Data("\n".utf8)) }
     }
 }
 

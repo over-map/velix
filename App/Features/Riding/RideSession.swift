@@ -45,6 +45,8 @@ final class RideSession {
     private(set) var betweenLegs = false
     /// Every accepted fix, after the session has taken it (the transit coordinator's late check, the train stage).
     var onFixed: (CLLocation) -> Void = { _ in }
+    /// Every accepted fix, for the app's own location, which pauses its GPS during a ride (M10: one GPS at a time).
+    var onLocation: (CLLocation) -> Void = { _ in }
     /// Adds the transit stage to the Live Activity (P6 L3, D6, D7).
     var decorateActivity: ((inout RideActivityAttributes.ContentState) -> Void)?
     /// When the current leg started, on the app clock (the late check measures the rider's pace).
@@ -70,6 +72,8 @@ final class RideSession {
     private var rerouteAsked: Date?
     private var lastHeldLogged = Date.distantPast
     private var fixesThisMinute = 0
+    /// The process CPU time and the clock at the last health line.
+    private var lastCPU = (cpu: RideSession.cpuSeconds(), at: CACurrentMediaTime())
     private var activityUpdates = 0
     private var healthTimer: Timer?
     private var observers: [NSObjectProtocol] = []
@@ -187,6 +191,7 @@ final class RideSession {
         }
         log?.fix(fix, ridden: !betweenLegs)
         fixesThisMinute += 1
+        onLocation(fix)
         let here = LatLon(lat: fix.coordinate.latitude, lon: fix.coordinate.longitude)
         self.here = here
         if betweenLegs {
@@ -426,14 +431,26 @@ final class RideSession {
         case .critical: "critical"
         @unknown default: "unknown"
         }
+        let frames = MapFrames.take()
+        let cpuNow = Self.cpuSeconds(), now = CACurrentMediaTime()
+        let cpu = now > lastCPU.at ? (cpuNow - lastCPU.cpu) / (now - lastCPU.at) * 100 : -1
+        lastCPU = (cpuNow, now)
         log?.event(.health(battery: Double(d.batteryLevel), charging: state == .charging || state == .full, thermal: thermal,
-                           memoryMB: Self.memoryMB(), fixes: fixesThisMinute))
+                           memoryMB: Self.memoryMB(), fixes: fixesThisMinute, fps: frames.fps, slowFrames: frames.slow, cpu: cpu))
         if activity != nil { log?.event(.activity("updates", count: activityUpdates)) }
         fixesThisMinute = 0
         activityUpdates = 0
     }
 
     /// The app's memory footprint (what iOS counts against it).
+    /// User and system CPU seconds of the whole process, all threads (MapLibre's render thread included).
+    nonisolated static func cpuSeconds() -> Double {
+        var u = rusage()
+        guard getrusage(RUSAGE_SELF, &u) == 0 else { return 0 }
+        func s(_ t: timeval) -> Double { Double(t.tv_sec) + Double(t.tv_usec) / 1_000_000 }
+        return s(u.ru_utime) + s(u.ru_stime)
+    }
+
     nonisolated static func memoryMB() -> Double {
         var info = task_vm_info_data_t()
         var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)

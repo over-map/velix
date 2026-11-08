@@ -290,12 +290,21 @@ def health(ride: Ride) -> list[str]:
     out = []
     unplugged = [e for e in h if not e.get("charging") and e.get("battery", -1) >= 0]
     if len(unplugged) >= 2 and unplugged[-1]["t"] > unplugged[0]["t"]:
-        hours = (unplugged[-1]["t"] - unplugged[0]["t"]) / 3600
-        drop = (unplugged[0]["battery"] - unplugged[-1]["battery"]) * 100
-        out.append(f"battery {unplugged[0]['battery'] * 100:.0f} → {unplugged[-1]['battery'] * 100:.0f} % unplugged "
-                   f"({drop / hours:.0f} %/h)" if hours > 0 else "battery: not enough time")
+        span = f"battery {unplugged[0]['battery'] * 100:.0f} → {unplugged[-1]['battery'] * 100:.0f} % unplugged"
+        # iOS reports the level in 5 % steps and holds 100 % for a while off the charger, so the start-to-end drop
+        # isn't a rate. Time it between the first and the last step instead; it needs two steps at least.
+        steps = [b for a, b in zip(unplugged, unplugged[1:]) if b["battery"] < a["battery"]]
+        if len(steps) >= 2 and steps[-1]["t"] > steps[0]["t"]:
+            rate = (steps[0]["battery"] - steps[-1]["battery"]) * 100 / ((steps[-1]["t"] - steps[0]["t"]) / 3600)
+            out.append(f"{span} ({rate:.0f} %/h between the first and the last step)")
+        else:
+            out.append(f"{span} ({len(steps)} step(s): too few for a rate)")
     elif h and h[0].get("charging"):
         out.append("battery: charging during the ride")
+    # CPU over each minute (from 8 Nov); the first line covers the time before the ride.
+    cpu = [e["cpu"] for e in h[1:] if e.get("cpu", -1) >= 0]
+    if cpu:
+        out.append(f"CPU {statistics.median(cpu):.0f} % of a core median, {max(cpu):.0f} % worst minute")
     mb = [e.get("mb", -1) for e in h if e.get("mb", -1) > 0]
     if mb:
         out.append(f"memory peak {max(mb):.0f} MB")
@@ -306,6 +315,45 @@ def health(ride: Ride) -> list[str]:
     if warnings:
         out.append(f"{len(warnings)} memory warning(s)")
     return out
+
+
+def map_fps(ride: Ride) -> str | None:
+    """Frames the map drew a second, per minute on screen (M10). The first health line (ride start) covers the time
+    before the ride, and a locked or background minute draws nothing, so both are left out."""
+    h = [e for e in ride.of("health") if "fps" in e][1:]
+    on_screen = [e for e in h if ride.state_at(e["t"] - 30) == "active"]
+    if not on_screen:
+        return None
+    fps = sorted(e["fps"] for e in on_screen)
+    slow = sum(e.get("slow", 0) for e in on_screen)
+    return (f"map {statistics.median(fps):.0f} fps median, worst minute {fps[0]:.0f} fps, "
+            f"{slow} slow frame(s) over {len(on_screen)} min on screen")
+
+
+def launches(path: str) -> str:
+    """Launch times from `Documents/diagnostics/launch.jsonl` (PerfLog): median and worst per phase, prewarmed left out."""
+    rows = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    cold = [r for r in rows if not r.get("prewarmed")]
+    if not cold:
+        return f"# Velix launches\n\nNo launches in {os.path.basename(path)} ({len(rows)} prewarmed).\n"
+    def line(name: str, values: list[float]) -> str:
+        return f"| {name} | {statistics.median(values):.0f} | {max(values):.0f} | {len(values)} |"
+    out = [f"# Velix launches\n\n{len(cold)} launch(es), {len(rows) - len(cold)} prewarmed left out; "
+           f"apps {', '.join(sorted({r.get('app', '?') for r in cold}))}.\n",
+           "| Step | Median ms | Worst ms | Launches |", "|---|---|---|---|"]
+    out.append(line("First screen (from process start)", [r["rootMs"] for r in cold]))
+    maps = [r["mapMs"] for r in cold if "mapMs" in r]
+    if maps:
+        out.append(line("First full map frame", maps))
+    for name in sorted({k for r in cold for k in r.get("phases", {})}):
+        out.append(line(f"  {name}", [r["phases"][name] for r in cold if name in r.get("phases", {})]))
+    return "\n".join(out) + "\n"
 
 
 def load_crashes(directory: str | None) -> list[tuple[float, float, str]]:
@@ -355,6 +403,8 @@ def report(rides: list[Ride], crashes: list[tuple[float, float, str]]) -> str:
             lines.append(f"- {mark(ok)} **{title}**: {summary}")
             lines += [f"  - {d}" for d in details]
         lines.append(f"- **Battery, memory, heat**: {'; '.join(health(r))}")
+        if fps := map_fps(r):
+            lines.append(f"- **Map**: {fps}")
         sections.append("\n".join(lines))
         rows.append(f"| {r.name} | {r.meters() / 1000:.1f} km | {mmss(e - b)} | " + " | ".join(cells) + " |")
     table = ["| Ride | Distance | Time | " + " | ".join(t for t, _ in CHECKS) + " |",
@@ -365,12 +415,17 @@ def report(rides: list[Ride], crashes: list[tuple[float, float, str]]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("paths", nargs="+", help="ride logs (.jsonl) or folders of them")
+    ap.add_argument("paths", nargs="*", help="ride logs (.jsonl) or folders of them")
+    ap.add_argument("--launch", help="summarise launch times instead (Documents/diagnostics/launch.jsonl)")
     ap.add_argument("--diagnostics", help="folder of MetricKit payloads (Documents/diagnostics)")
     ap.add_argument("--include-simulated", action="store_true", help="also report simulated rides")
     ap.add_argument("--min-km", type=float, default=0.5, help="skip shorter rides (tries, aborted starts)")
     ap.add_argument("-o", "--output", help="write the markdown here (default: stdout)")
     a = ap.parse_args(argv)
+    if a.launch:
+        return emit(launches(a.launch), a.output)
+    if not a.paths:
+        ap.error("give ride logs, or --launch")
     files = []
     for p in a.paths:
         files += sorted(glob.glob(os.path.join(p, "*.jsonl"))) if os.path.isdir(p) else [p]
@@ -385,11 +440,15 @@ def main(argv: list[str] | None = None) -> int:
             rides.append(r)
     out = (f"# Velix ride report\n\n{len(rides)} ride(s); skipped {skipped_sim} simulated and {skipped_short} "
            f"under {a.min_km:g} km.\n\n") + (report(rides, load_crashes(a.diagnostics)) if rides else "No rides to report.\n")
-    if a.output:
-        with open(a.output, "w", encoding="utf-8") as f:
-            f.write(out)
+    return emit(out, a.output)
+
+
+def emit(text: str, output: str | None) -> int:
+    if output:
+        with open(output, "w", encoding="utf-8") as f:
+            f.write(text)
     else:
-        sys.stdout.write(out)
+        sys.stdout.write(text)
     return 0
 
 
