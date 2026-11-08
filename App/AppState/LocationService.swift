@@ -70,8 +70,14 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         }
     }
 
+    /// While riding, the app's location moves only every ``feedStep`` metres: weather, packs and the region check don't
+    /// need more, and the home map under the riding screen redraws its puck on every change (≈ 30 fps of hidden frames
+    /// at one fix a second, measured on the iPhone 11).
+    static let feedStep: CLLocationDistance = 100
+
     func feed(_ fix: CLLocation) {
         guard paused, !pinned else { return }
+        if let l = location, l.distance(from: fix) < Self.feedStep { return }
         location = fix
         cannotFind = false
     }

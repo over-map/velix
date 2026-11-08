@@ -18,9 +18,13 @@ struct AppStateTests {
         location.paused = true
         location.feed(fix)
         #expect(location.coordinate == LatLon(lat: 45.47, lon: 9.20))
+        location.feed(CLLocation(latitude: 45.4705, longitude: 9.20))   // ≈ 56 m on: not yet
+        #expect(location.coordinate == LatLon(lat: 45.47, lon: 9.20))
+        location.feed(CLLocation(latitude: 45.471, longitude: 9.20))    // ≈ 111 m on
+        #expect(location.coordinate == LatLon(lat: 45.471, lon: 9.20))
         location.paused = false
         location.feed(CLLocation(latitude: 45.48, longitude: 9.21))
-        #expect(location.coordinate == LatLon(lat: 45.47, lon: 9.20))
+        #expect(location.coordinate == LatLon(lat: 45.471, lon: 9.20))
     }
 
     @Test func storeRoundTrips() {
