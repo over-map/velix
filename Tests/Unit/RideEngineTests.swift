@@ -388,7 +388,7 @@ struct RideRecordTests {
         log.event(.reroute("failed", reason: "planner: no route"))
         log.event(.voice("finished", text: "Turn left", locked: true, background: true))
         log.event(.app("locked"))
-        log.event(.health(battery: 0.86, charging: false, thermal: "fair", memoryMB: 201.37, fixes: 60, fps: 58.44, slowFrames: 3))
+        log.event(.health(battery: 0.86, charging: false, thermal: "fair", memoryMB: 201.37, fixes: 60, fps: 58.44, slowFrames: 3, cpu: 41.26))
         log.event(.activity("updates", count: 6))
         log.close()
         let lines = try String(contentsOf: log.url, encoding: .utf8).split(separator: "\n").map(String.init)
@@ -402,7 +402,7 @@ struct RideRecordTests {
         #expect(o[4]["kept"] as? Bool == true && o[4]["reason"] as? String == "planner: no route")
         #expect(o[5]["locked"] as? Bool == true && o[6]["s"] as? String == "locked")
         #expect(o[7]["mb"] as? Double == 201.4 && o[8]["n"] as? Int == 6)
-        #expect(o[7]["fps"] as? Double == 58.4 && o[7]["slow"] as? Int == 3)
+        #expect(o[7]["fps"] as? Double == 58.4 && o[7]["slow"] as? Int == 3 && o[7]["cpu"] as? Double == 41.3)
         // Simulated rides stay out of the history.
         #expect(RideLog.isSimulated(lines: lines))
         #expect(RideHistory.record(lines: lines, logFile: "x.jsonl") == nil)

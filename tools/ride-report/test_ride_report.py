@@ -145,7 +145,8 @@ class BatteryStepsTests(unittest.TestCase):
     def _ride(self, levels):
         events = [{"t": 0, "e": "start", "type": "city", "sim": False, "to": "X", "m": 1000, "app": "1", "voice": "all",
                    "view": "2D", "battery": levels[0], "charging": False, "lowPower": False}]
-        events += [{"t": i * 60, "e": "health", "battery": b, "charging": False, "thermal": "nominal", "mb": 300, "fixes": 60}
+        events += [{"t": i * 60, "e": "health", "battery": b, "charging": False, "thermal": "nominal", "mb": 300, "fixes": 60,
+                    "cpu": 90 if i == 0 else 30 + i % 3 * 10}
                    for i, b in enumerate(levels)]
         return rr.Ride("r", events=events)
 
@@ -158,6 +159,10 @@ class BatteryStepsTests(unittest.TestCase):
         # Steps at minute 10 (→ 0.90) and minute 40 (→ 0.85): 5 % in 30 min.
         out = rr.health(self._ride([0.95] * 10 + [0.90] * 30 + [0.85] * 10))
         self.assertTrue(any("(10 %/h between the first and the last step)" in h for h in out), out)
+
+    def test_cpu_median_leaves_out_the_first_line(self):
+        out = rr.health(self._ride([0.9] * 10))
+        self.assertIn("CPU 40 % of a core median, 50 % worst minute", out)
 
 
 if __name__ == "__main__":

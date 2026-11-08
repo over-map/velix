@@ -301,6 +301,10 @@ def health(ride: Ride) -> list[str]:
             out.append(f"{span} ({len(steps)} step(s): too few for a rate)")
     elif h and h[0].get("charging"):
         out.append("battery: charging during the ride")
+    # CPU over each minute (from 8 Nov); the first line covers the time before the ride.
+    cpu = [e["cpu"] for e in h[1:] if e.get("cpu", -1) >= 0]
+    if cpu:
+        out.append(f"CPU {statistics.median(cpu):.0f} % of a core median, {max(cpu):.0f} % worst minute")
     mb = [e.get("mb", -1) for e in h if e.get("mb", -1) > 0]
     if mb:
         out.append(f"memory peak {max(mb):.0f} MB")
