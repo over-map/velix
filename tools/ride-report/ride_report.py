@@ -290,10 +290,15 @@ def health(ride: Ride) -> list[str]:
     out = []
     unplugged = [e for e in h if not e.get("charging") and e.get("battery", -1) >= 0]
     if len(unplugged) >= 2 and unplugged[-1]["t"] > unplugged[0]["t"]:
-        hours = (unplugged[-1]["t"] - unplugged[0]["t"]) / 3600
-        drop = (unplugged[0]["battery"] - unplugged[-1]["battery"]) * 100
-        out.append(f"battery {unplugged[0]['battery'] * 100:.0f} → {unplugged[-1]['battery'] * 100:.0f} % unplugged "
-                   f"({drop / hours:.0f} %/h)" if hours > 0 else "battery: not enough time")
+        span = f"battery {unplugged[0]['battery'] * 100:.0f} → {unplugged[-1]['battery'] * 100:.0f} % unplugged"
+        # iOS reports the level in 5 % steps and holds 100 % for a while off the charger, so the start-to-end drop
+        # isn't a rate. Time it between the first and the last step instead; it needs two steps at least.
+        steps = [b for a, b in zip(unplugged, unplugged[1:]) if b["battery"] < a["battery"]]
+        if len(steps) >= 2 and steps[-1]["t"] > steps[0]["t"]:
+            rate = (steps[0]["battery"] - steps[-1]["battery"]) * 100 / ((steps[-1]["t"] - steps[0]["t"]) / 3600)
+            out.append(f"{span} ({rate:.0f} %/h between the first and the last step)")
+        else:
+            out.append(f"{span} ({len(steps)} step(s): too few for a rate)")
     elif h and h[0].get("charging"):
         out.append("battery: charging during the ride")
     mb = [e.get("mb", -1) for e in h if e.get("mb", -1) > 0]

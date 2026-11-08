@@ -141,5 +141,24 @@ class RideReportTests(unittest.TestCase):
         self.assertIn("|   history | 100 | 120 | 2 |", text)
 
 
+class BatteryStepsTests(unittest.TestCase):
+    def _ride(self, levels):
+        events = [{"t": 0, "e": "start", "type": "city", "sim": False, "to": "X", "m": 1000, "app": "1", "voice": "all",
+                   "view": "2D", "battery": levels[0], "charging": False, "lowPower": False}]
+        events += [{"t": i * 60, "e": "health", "battery": b, "charging": False, "thermal": "nominal", "mb": 300, "fixes": 60}
+                   for i, b in enumerate(levels)]
+        return rr.Ride("r", events=events)
+
+    def test_one_step_gives_no_rate(self):
+        # 100 % held for 56 min, then one 5 % step: not 5 %/h.
+        out = rr.health(self._ride([1.0] * 56 + [0.95] * 7))
+        self.assertTrue(any("1 step(s): too few for a rate" in h for h in out), out)
+
+    def test_rate_between_the_first_and_the_last_step(self):
+        # Steps at minute 10 (→ 0.90) and minute 40 (→ 0.85): 5 % in 30 min.
+        out = rr.health(self._ride([0.95] * 10 + [0.90] * 30 + [0.85] * 10))
+        self.assertTrue(any("(10 %/h between the first and the last step)" in h for h in out), out)
+
+
 if __name__ == "__main__":
     unittest.main()
