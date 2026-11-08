@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// NoticeBanner (P2 §08, S1/S3/S5): severe weather, lit streets, late, missed; dismissed weather → compact pill.
+/// NoticeBanner (P2 §08, S1/S3/S5): lit streets, late, missed, weak GPS, and the S1 region and location notices.
 struct NoticeBanner: View {
     enum Tone { case warning, info }
 
@@ -11,9 +11,6 @@ struct NoticeBanner: View {
     var onDismiss: (() -> Void)?
     /// An underlined action under the message (S1f "Open Settings").
     var link: (title: String, action: () -> Void)?
-    /// A small underlined source line under the message (severe weather: "Issued 14:05 by … via MeteoAlarm"). Read as
-    /// part of the one element; opening it is an action, like Close.
-    var footnote: (text: String, action: () -> Void)?
 
     var body: some View {
         Group {
@@ -21,17 +18,14 @@ struct NoticeBanner: View {
                 // P8: one element read as static text, "title. message"; Close is an action, not a separate stop.
                 banner
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(footnote.map { "\(title). \(message) \($0.text)." } ?? "\(title). \(message)")
+                    .accessibilityLabel("\(title). \(message)")
                     .accessibilityAddTraits(.isStaticText)
-                    .accessibilityActions {
-                        if let footnote { Button("Open MeteoAlarm", action: footnote.action) }
-                        if let onDismiss { Button("Close", action: onDismiss) }
-                    }
+                    .accessibilityActions { if let onDismiss { Button("Close", action: onDismiss) } }
             } else {
                 banner.accessibilityElement(children: .contain)
             }
         }
-        // Warnings (severe weather, late, missed, weak GPS) are alerts: announced when they appear.
+        // Warnings (late, missed, weak GPS) are alerts: announced when they appear.
         .onAppear { if tone == .warning { AccessibilityNotification.Announcement("\(title). \(message)").post() } }
     }
 
@@ -41,16 +35,6 @@ struct NoticeBanner: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).velixType(.rowTitle)
                 Text(message).velixType(.rowSubtitle).fixedSize(horizontal: false, vertical: true)
-                if let footnote {
-                    Button(action: footnote.action) {
-                        Text(footnote.text).underline().velixType(.footnote).fixedSize(horizontal: false, vertical: true)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.top, 2)
-                    // A 44 pt tall target without growing the banner.
-                    .padding(.vertical, 12).contentShape(Rectangle()).padding(.vertical, -12)
-                    .accessibilityAddTraits(.isLink)
-                }
                 if let link {
                     Button(action: link.action) { Text(link.title).underline().velixType(.label) }
                         .buttonStyle(.plain)
@@ -74,29 +58,7 @@ struct NoticeBanner: View {
     }
 }
 
-/// The dismissed severe-weather notice: a pill that stays on the map ("Storm until 18:00").
-struct NoticePill: View {
-    let text: String
-    var icon: VelixIcon = .cloudLightning
-    var body: some View {
-        HStack(spacing: 6) {
-            VelixIconView(icon, size: 18)
-            Text(text).velixType(VelixType.label.sized(14, lineHeight: 18))
-        }
-        .padding(.horizontal, CGFloat.velix.s)
-        .frame(height: 36)
-        .foregroundStyle(Color.velix.warningInk)
-        .background(Color.velix.warningSurface, in: Capsule())
-    }
-}
-
 extension NoticeBanner {
-    /// S1a. `credit`: the source line MeteoAlarm's terms ask for (issuer, issue time, a link to meteoalarm.org).
-    static func weather(_ title: String, _ message: String, credit: (text: String, action: () -> Void)? = nil,
-                        onDismiss: @escaping () -> Void = {}) -> NoticeBanner {
-        NoticeBanner(title: title, message: message, icon: VelixIconView(.cloudLightning, size: 22), onDismiss: onDismiss,
-                     footnote: credit)
-    }
     static func litStreets(onDismiss: @escaping () -> Void = {}) -> NoticeBanner {
         NoticeBanner(title: "Lit streets only", message: "On for this ride. Switches off when the ride ends.",
                      icon: VelixIconView(.lamp, size: 22), tone: .info, onDismiss: onDismiss)
@@ -116,11 +78,9 @@ extension NoticeBanner {
 
 #Preview {
     VStack(spacing: 16) {
-        NoticeBanner.weather("Storm warning until 18:00", "Strong wind and hail in Milan. Consider the train.")
         NoticeBanner.litStreets()
         NoticeBanner.late("Running late, switched to fastest", "You still make the 08:12. Adds 2 rail crossings.")
         NoticeBanner.missed("Missed the 08:12, now on the 08:27", "Arrival 09:41, 15 min later.")
-        NoticePill(text: "Storm until 18:00")
     }
     .padding().background(Color.velix.canvas)
 }

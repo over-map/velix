@@ -33,7 +33,7 @@ Competitors to study: Komoot, Bikemap, Geovelo, bbbike, Cyclers, Naviki, Google 
 
 ### Iteration 1 (phase 1, €0 showcase)
 - iPhone only (free Apple ID install) + demo video. Pilot: **Milan** (Lombardy region pack).
-- Six ride types; Best + Fastest; why-this-route; turn-by-turn with hazard alerts (EN voice, haptics, Live Activity); bike + transit (train + metro) as a suggestion; Routes tab (OSM cycle routes); ride history, GPX share (no Strava or Apple Health sync: dropped 6 Nov); map styles per ride type + overlays; severe-weather notice; lit-streets-only rule (manual, off at ride end).
+- Six ride types; Best + Fastest; why-this-route; turn-by-turn with hazard alerts (EN voice, haptics, Live Activity); bike + transit (train + metro) as a suggestion; Routes tab (OSM cycle routes); ride history, GPX share (no Strava or Apple Health sync: dropped 6 Nov); map styles per ride type + overlays; lit-streets-only rule (manual, off at ride end).
 - Routing **offline only** on the phone; the region pack (~220 MB) downloads at first launch.
 
 ### Phase 2 (store fees only)
@@ -58,7 +58,6 @@ Competitors to study: Komoot, Bikemap, Geovelo, bbbike, Cyclers, Naviki, Google 
 | Elevation | Copernicus GLO-30 | Contours/hillshade for Outdoor style too |
 | Transit | GTFS (Trenord, ATM metro) + curated bikes-allowed rules | Platforms are "planned" only |
 | Search | Photon (public instance) | Self-host later |
-| Weather | MeteoAlarm / Open-Meteo warnings (to verify) | One notice on app open |
 | Satellite | Source and licence to verify (Lombardy orthophoto WMS, Sentinel-2) | |
 | Storage | SwiftData on device, iCloud backup | No account |
 
@@ -74,7 +73,7 @@ Competitors to study: Komoot, Bikemap, Geovelo, bbbike, Cyclers, Naviki, Google 
 - Quality of OSM surface and lane data in Milan.
 - Size and battery cost of on-device Valhalla.
 - Bikes-allowed rules for trains and metro must be curated; platforms not confirmed.
-- Licences for satellite imagery and weather warnings.
+- Licences for satellite imagery.
 - iOS free-provisioning limits (7-day re-sign).
 - "Velix" needs a trademark and domain check.
 
@@ -85,7 +84,7 @@ Competitors to study: Komoot, Bikemap, Geovelo, bbbike, Cyclers, Naviki, Google 
 | Simplicity rule | Commute = open → Work → Start (2 taps). Every screen is judged by taps and decisions removed. One place per setting |
 | First launch | Location → usual ride type → download region (map explorable meanwhile; first route after download) |
 | Tabs | Ride, Routes, You |
-| Ride (home) | Map first. Search bar "Where to?" with Home and Work buttons inside it; recents after tapping the bar. Ride-type chip bottom-left (the only place to pick the ride type). Map button (styles + overlays). Severe-weather notice when relevant |
+| Ride (home) | Map first. Search bar "Where to?" with Home and Work buttons inside it; recents after tapping the bar. Ride-type chip bottom-left (the only place to pick the ride type). Map button (styles + overlays) |
 | Ride types | City, E-bike, Road, Gravel, MTB, Cargo / kids. Each has its own "best" ("Calmest for city", "Best for e-bike", "Smoothest asphalt", "Most scenic", "Most off-road", "Step-free and smooth") and rules editable in You. No garage of owned bikes |
 | Route options | Best (named by ride type) + Fastest, compared by difference. One "Best and fastest" card when fastest is <5% quicker. "Why this route" on the map always, as a list on tap |
 | Explain the route | Hazards on route: striped tubes + markers. Avoided roads: dashed red + reason tag |
@@ -96,7 +95,7 @@ Competitors to study: Komoot, Bikemap, Geovelo, bbbike, Cyclers, Naviki, Google 
 | Routes tab | OSM cycle routes near you; filters: Fits {ride type}, All, Paved, Gravel, MTB; "Search routes in this area"; Ride this route = plan to nearest point, then follow |
 | You | Ride types and rules; Lit streets only (switch; turns off when the ride ends); your rides; offline map (region, size, auto-update); privacy line |
 | Map styles | Follow the ride type, everywhere: City/Road/Cargo → Standard or Satellite; Gravel/MTB/E-bike → Outdoor or Satellite. First is default; choice remembered per type. Overlays: bike lanes, train & metro lines. Set only before riding. No traffic overlay |
-| Weather | No overlay. One severe-weather notice on app open |
+| Weather | None: no severe-weather notice and no overlay (removed 8 Nov 2026, Filippo) |
 | Data | Local only, no account. Voice English only |
 | Name / repo | Velix, "ride smooth". Public GitHub, permissive licence |
 

@@ -6,8 +6,8 @@ description: The Velix branch → commit → PR → CI → merge protocol, inclu
 # Velix PRs and merging
 
 ## The protocol (Filippo's rules, never bend them)
-1. **Each milestone starts in plan mode.** Show the plan and wait for approval. A milestone ships as **one PR per part** (for example M10 PR 2 performance, PR 3 weather, PR 4 demo).
-2. Branch from an up-to-date `main` with a short kebab name (`m10-weather`).
+1. **Each milestone starts in plan mode.** Show the plan and wait for approval. A milestone ships as **one PR per part** (for example M10 PR 1 accessibility, PR 2 performance, PR 4 demo).
+2. Branch from an up-to-date `main` with a short kebab name (`m10-performance`).
 3. Small commits with clear messages. Every commit message ends with the attribution trailer your harness gives. In the original sessions that was `Co-Authored-By: Claude <model> <noreply@anthropic.com>`.
 4. Push with `git push -u origin <branch>`. The remote is `git@github.com-personal:over-map/velix.git`, an SSH host alias for Filippo's personal GitHub account. `gh` has two accounts logged in, and **`over-map` must be the active one** (`gh auth status`). Never use the TomTom account for this repo.
 5. `gh pr create`. The PR body ends with the line your harness gives (originally `🤖 Generated with [Claude Code](https://claude.com/claude-code)`).

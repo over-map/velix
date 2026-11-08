@@ -17,7 +17,7 @@ description: Put Velix on Filippo's iPhone (free Apple ID / Personal Team), prep
 - Update CHANGELOG.md, bump `MARKETING_VERSION` / build number in project.yml, tag `vX.Y.Z`, create a GitHub Release with notes and screenshots. No secrets in the repo.
 
 ## Demo video
-- Simulator or device recording (`xcrun simctl io booted recordVideo`), 60–90 s: commute in 2 taps → riding with a hazard alert → long trip with the train suggestion → gravel route in Routes. Show OSM attribution.
+- Simulator or device recording (`xcrun simctl io booted recordVideo`), 60–90 s: commute in 2 taps → riding → long trip with the train suggestion → gravel route in Routes → ride summary and GPX share (no hazard-alert scene: alerts while riding were set aside 29 Oct). Show OSM attribution.
 
 ## Phase 2 (not now)
 Apple Developer Program (€99/yr) → TestFlight → App Store; fastlane for signing and upload; privacy nutrition label ("data not collected").

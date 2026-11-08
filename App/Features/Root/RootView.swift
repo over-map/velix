@@ -6,7 +6,6 @@ struct RootView: View {
     @State private var tab: TabBar.Tab = .ride
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var scenePhase
     @State private var sheet: RideSheet?
     /// S0e–g: the download sheet over the live map, right after onboarding.
     @State private var showDownload = false
@@ -53,19 +52,6 @@ struct RootView: View {
             }
             if let place = Self.launchDestination { app.choose(place) }
             #endif
-        }
-        // Severe weather (M10), apart from the task above so it doesn't wait for the catalogue: on launch and back in
-        // the foreground, on the first location fix (the region comes from it), and when the warning ends.
-        .onChange(of: scenePhase, initial: true) { _, phase in
-            if phase == .active { Task { await app.refreshWarning() } }
-        }
-        .onChange(of: app.location.coordinate == nil) { _, missing in
-            if !missing { Task { await app.refreshWarning() } }
-        }
-        .task(id: app.warning?.id) {
-            guard let end = app.warning?.expires else { return }
-            try? await Task.sleep(for: .seconds(max(1, end.timeIntervalSinceNow)))
-            if !Task.isCancelled { await app.refreshWarning() }
         }
     }
 
