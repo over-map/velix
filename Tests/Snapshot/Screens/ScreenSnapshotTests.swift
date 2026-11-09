@@ -351,5 +351,8 @@ final class ScreenSnapshotTests: XCTestCase {
                                                           files: [], downloadBytes: 222_000_000, unpackedBytes: 0, budgetBytes: 0,
                                                           sources: [])), region: "piemonte")
         check(YouView(app: both).defaultScrollAnchor(.bottom), named: "S8d-removeRegion")
+        // About and data, and the open-source licences it links to (public release, 9 Nov).
+        check(AboutView(app: app()), named: "S8e-about")
+        check(NavigationStack { OpenSourceLicencesView() }, named: "S8f-licences")
     }
 }

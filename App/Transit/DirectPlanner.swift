@@ -65,7 +65,7 @@ struct TransitCandidate: Hashable, Sendable {
 enum DirectPlanner {
     /// Stops considered at each end: every railway station within 5 km, and the 6 nearest metro stops per operator
     /// (metro stops are dense: uncapped they'd crowd the query). 8 Nov: with the 6 nearest of every operator within
-    /// 4 km, Via Soave → Monza found no train: its 6 nearest Trenord stations have almost none, and Rogoredo (11th),
+    /// 4 km, south Milan → Monza found no train: its 6 nearest Trenord stations have almost none, and Rogoredo (11th),
     /// Centrale and Garibaldi (4.3 km) were left out.
     static let stationRadius = 5000.0
     static let stationsPerEnd = 6

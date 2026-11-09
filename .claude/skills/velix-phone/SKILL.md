@@ -33,8 +33,8 @@ xcrun devicectl device process launch --terminate-existing --device $UDID io.git
 Run the xcodebuild in the background when it might take more than 2 minutes. A clean build takes 5–10 min; an incremental one about 1 min.
 
 Useful launch arguments (Debug builds; the full list is in CLAUDE.md "Commands"):
-- `-simulate-ride -ride-to 45.5845,9.2744,Monza -start-ride`: a simulated 2D City ride from the phone's real position to Monza (add `-fake-location 45.447767,9.1963936` if the phone isn't in a downloaded region). 18.8 km at 5 m/s, so about **63 minutes**. Shorter runs: pick a nearer `-ride-to`, or add `-simulate-speed 10`.
-- `-fake-location 45.447767,9.1963936` plans from Via Soave 20 when the phone is elsewhere.
+- `-simulate-ride -ride-to 45.5845,9.2744,Monza -start-ride`: a simulated 2D City ride from the phone's real position to Monza (add `-fake-location 45.448,9.196` if the phone isn't in a downloaded region). 18.8 km at 5 m/s, so about **63 minutes**. Shorter runs: pick a nearer `-ride-to`, or add `-simulate-speed 10`.
+- `-fake-location 45.448,9.196` plans from south Milan when the phone is elsewhere.
 - `-map-perf` prints fps to the console (add `--console` to the launch).
 
 ## Copy files off the phone

@@ -29,6 +29,7 @@ jobs:
           python3 tools/icongen.py
           git diff --exit-code -- App/DesignSystem/Generated App/Resources/Assets.xcassets/VelixIcons || { echo "Icons out of date: run python3 tools/icongen.py"; exit 1; }
           node tools/stylegen/stylegen.mjs --check
+          python3 tools/licenses/licenses.py --check
           npx --yes -p @maplibre/maplibre-gl-style-spec@26.4.4 gl-style-validate App/Resources/MapStyle/*.json
           if grep -rn "systemName:" App LiveActivity Shared --include='*.swift'; then echo "SF Symbols are not allowed (CLAUDE.md)"; exit 1; fi
           if grep -rnE 'Color\(red:|Color\(hex|"#[0-9A-Fa-f]{6}"' App LiveActivity Shared --include='*.swift' | grep -v '/Generated/'; then echo "Colour literal outside Generated/"; exit 1; fi

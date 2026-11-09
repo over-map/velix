@@ -21,12 +21,12 @@ struct CommuteGoldenTests {
         #expect(route.geometry.count > 10)
     }
 
-    /// Filippo's trip: Via Soave 20 → Piazza Santo Stefano. With walking stretches on (City), Best is his own route
+    /// Filippo's trip: south Milan → Piazza Santo Stefano. With walking stretches on (City), Best is his own route
     /// (Patellani → Oriani → Giardino Oriana Fallaci → Quadronno → Via Gaetano Pini → Calimero → Sforza → Laghetto,
     /// 20 Oct); Fastest is its own card through Ripamonti and Porta Romana, walking stretches on or off.
-    @Test func soaveToSantoStefano() async throws {
+    @Test func southMilanToSantoStefano() async throws {
         let planner = try #require(GoldenPack.planner).get()
-        let from = LatLon(lat: 45.447767, lon: 9.1963936), to = LatLon(lat: 45.4621338, lon: 9.194385)
+        let from = LatLon(lat: 45.448, lon: 9.196), to = LatLon(lat: 45.4621338, lon: 9.194385)
         var walking = RuleSet.defaults(for: .city)
         walking.enabled.insert(.walkingStretches)
         guard case let .options(o) = try await planner.plan(from: from, to: to, rules: walking) else { Issue.record("no options"); return }

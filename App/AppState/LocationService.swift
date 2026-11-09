@@ -50,7 +50,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
 
     /// Direction of travel for route planning: the GPS course, only while actually riding (≥ 2 m/s). Standing still,
     /// the compass says where the phone points, not where the rider will go, and Valhalla would force the route's
-    /// first metres that way (Via Soave, 19 Oct: Fastest went west along Corso Italia instead of east to Ripamonti).
+    /// first metres that way (south Milan, 19 Oct: Fastest went west along Corso Italia instead of east to Ripamonti).
     var travelHeading: Double? {
         guard let l = location, l.speed >= 2, l.course >= 0, l.courseAccuracy >= 0, l.courseAccuracy <= 30 else { return nil }
         return l.course

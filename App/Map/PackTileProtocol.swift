@@ -81,7 +81,7 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
             return Self.fetch(url) { [self] data in respond(data ?? Data(), contentType: "image/webp") }
         }
         if parts[0] == "imagery" {
-            // Satellite (7 Nov): Esri World Imagery, keyless; EOX Sentinel-2 cloudless where Esri fails. Online, cached.
+            // Satellite: EOX Sentinel-2 cloudless (Filippo, 9 Nov: no Esri in a public app). Online, cached.
             return Self.imagery(z: z, x: x, y: y) { [self] data in respond(data ?? Data(), contentType: "image/jpeg") }
         }
         if parts[0] == "overlays" {
@@ -180,20 +180,15 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
     /// publish it (Lombardy 5 m, Switzerland 0.5–2 m); z0–12 everywhere.
     static let terrainTemplate = "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp"
 
-    /// Esri World Imagery (Filippo, 7 Nov: no API key): sub-metre in European cities. Its tile path is z/y/x.
-    static let imageryTemplate = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-    /// EOX Sentinel-2 cloudless 2024 (s2maps.eu, CC BY-NC-SA 4.0), 10 m: where Esri doesn't answer.
-    static let imageryFallbackTemplate = "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg"
+    /// EOX Sentinel-2 cloudless 2024 (s2maps.eu, CC BY-NC-SA 4.0: Velix is non-commercial), 10 m, so z14 is its finest
+    /// zoom; the map enlarges it above that. Esri World Imagery was dropped on 9 Nov (Filippo): keyless use in a
+    /// public app isn't clearly allowed by its terms.
+    static let imageryTemplate = "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg"
 
-    /// One satellite tile: Esri, else EOX, else the cache (the map's `imagery` source).
+    /// One satellite tile: EOX, else the cache (the map's `imagery` source).
     static func imagery(z: Int, x: Int, y: Int, done: @escaping @Sendable (Data?) -> Void) {
-        guard let esri = url(imageryTemplate, z: z, x: x, y: y), let eox = url(imageryFallbackTemplate, z: z, x: x, y: y) else {
-            return done(nil)
-        }
-        fetch(esri) { data in
-            if let data { return done(data) }
-            fetch(eox, done: done)
-        }
+        guard let eox = url(imageryTemplate, z: z, x: x, y: y) else { return done(nil) }
+        fetch(eox, done: done)
     }
 
     static func url(_ template: String, z: Int, x: Int, y: Int) -> URL? {

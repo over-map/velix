@@ -30,7 +30,7 @@ struct RerouteGoldenTests {
     @Test func aFastestRideReroutesOnTheFastest() async throws {
         let planner = try #require(GoldenPack.planner).get()
         let provider = PlannedRouteProvider(planner: planner, rules: .defaults(for: .city), choice: .fastest)
-        let here = UserLocation(clCoordinateLocation2D: .init(latitude: 45.447767, longitude: 9.1963936))   // Via Soave
+        let here = UserLocation(clCoordinateLocation2D: .init(latitude: 45.448, longitude: 9.196))   // south Milan
         let to = Waypoint(coordinate: GeographicCoordinate(lat: 45.4621338, lng: 9.194385), kind: .break)
         _ = try await provider.getRoutes(userLocation: here, waypoints: [to])
         let names = Set(try #require(provider.lastOption).analysis.edges.compactMap(\.name))
