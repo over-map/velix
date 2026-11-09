@@ -55,7 +55,10 @@ struct MapPreviewView: View {
             if chrome { controls }
         }
         .task {
-            if ProcessInfo.processInfo.arguments.contains("-map-planned") { await planSample() } else { loadP3Sample() }
+            // `-map-transit`: the sample bike + train plan to Monza (train and ride legs, stations), with `-map-frame route`.
+            if ProcessInfo.processInfo.arguments.contains("-map-transit"), let p = AppSamples.monzaTransit().first {
+                route = MapRouteModel(transit: p, endName: "Villa Reale")
+            } else if ProcessInfo.processInfo.arguments.contains("-map-planned") { await planSample() } else { loadP3Sample() }
             // `-map-sweep [from,to,seconds]`: zoom 15 → 18 over 6 s by default, like a pinch (with `-map-perf`: frames per
             // second while POIs appear); `-map-sweep 4,17,26` films every zoom's transitions.
             let a = ProcessInfo.processInfo.arguments

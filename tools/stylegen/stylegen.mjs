@@ -362,6 +362,11 @@ function style(name, mode) {
         'fill-extrusion-base': ramp(i === 0 ? minH : at(i / SLICES)), 'fill-extrusion-height': ramp(at((i + 1) / SLICES)),
         'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
   }
+  // From the landing zoom up (z15+, flat camera): roofs alone barely part from the land, so a thin outline over them
+  // (`edgeHi`; Filippo, 9 Nov): lighter than the roofs in light, darker in dark. It traces the footprint, which a
+  // flat camera draws on the roof edge; the app hides it when the camera is pitched.
+  if (!sat && P.edgeHi) omt('building', 'building-outline', 'line', { minzoom: 14.9, filter: ['!=', ['get', 'hide_3d'], true],
+    paint: { 'line-color': P.edgeHi, 'line-width': 0.6, 'line-opacity': fade(14.9, 15) } });
   if (sat && P.dim) add({ id: 'night-dim', type: 'background', paint: { 'background-color': `rgba(5,8,12,${P.dim})` } });
 
   // ---- road labels (below the route: it covers its own street names) ----
@@ -410,20 +415,13 @@ function style(name, mode) {
   route('route-best', 'line', { filter: role('best'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
   route('route-best-near', 'line', { filter: role('best-near'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
   route('route-best-near-b', 'line', { filter: role('best-near-b'), layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
-  // Train leg drawn as a route with ink ties; metro leg: casing, white core, dashed line colour.
+  // Train and metro legs: solid, like the trip bar in the card (Filippo, 9 Nov: no ties, no dashes). Train: the
+  // train colour with the route's ink casing, at every zoom; metro: its line colour on its casing.
   route('leg-train-casing', 'line', { filter: role('leg-train'), layout: lineLayout, paint: { 'line-color': T.casing, 'line-width': rw('routeCase') } });
-  // Overviews: accent with ink ties (P6). Close in (z14+, riding up to the station) the ties crowd: a plain line in
-  // the train colour instead (Filippo, 30 Oct).
-  route('leg-train', 'line', { filter: role('leg-train'), maxzoom: 14, layout: lineLayout, paint: { 'line-color': T.accent, 'line-width': rw('route') } });
-  route('leg-train-near', 'line', { filter: role('leg-train'), minzoom: 14, layout: lineLayout,
+  route('leg-train', 'line', { filter: role('leg-train'), layout: lineLayout,
     paint: { 'line-color': tokenColor('transitTrain', mode), 'line-width': rw('route') } });
-  const tieW = (z) => Math.max(1.6, interp(W.route, z) * 0.34);
-  route('leg-train-ties', 'line', { filter: role('leg-train'), maxzoom: 14, layout: { 'line-cap': 'butt' },
-    paint: { 'line-color': T.casing, 'line-width': width(tieW), 'line-dasharray': dash([1.1, 0.9].map((x) => x * 9), tieW) } });
   route('leg-metro-casing', 'line', { filter: role('leg-metro'), layout: lineLayout, paint: { 'line-color': T.metroCase, 'line-width': w('leg', 1, 2) } });
-  route('leg-metro-core', 'line', { filter: role('leg-metro'), layout: lineLayout, paint: { 'line-color': mode === 'day' ? '#FFFFFF' : '#1E2125', 'line-width': w('leg') } });
-  route('leg-metro', 'line', { filter: role('leg-metro'), layout: { 'line-cap': 'butt' },
-    paint: { 'line-color': ['get', 'color'], 'line-width': w('leg'), 'line-dasharray': dash([10, 4], (z) => interp(W.leg, z)) } });
+  route('leg-metro', 'line', { filter: role('leg-metro'), layout: lineLayout, paint: { 'line-color': ['get', 'color'], 'line-width': w('leg') } });
   route('hazard-tube', 'line', { filter: role('tube'), layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: { 'line-pattern': `hz-stripe-${mode}`, 'line-width': w('tube') } });
   // On foot to the place or the station from where the ride ends: dotted ink (Filippo, 30 Oct).

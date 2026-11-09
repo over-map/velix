@@ -52,7 +52,7 @@
     }
   },
   "map": {
-    "_reason": "Filippo, 2 Nov 2026: light keeps one colour per feature at every zoom, like dark (the reference). Dark's chart line becomes the casing of the filled road (lesser classes the same colour toward the land), paths are the chart colour, landmarks a deeper blue of the roof family. Applies to standard and outdoor (satellite keeps its own). Contrast between buildings and land in light by dark's numbers (Filippo, 2 Nov): roofs 35 % toward a light sky blue #9CC6D8, still light (L* 84) but as far from the residential land as dark's (ΔE 14 from P3's residential, dark 17; a slate roof was too heavy); the outline colour (wallD) sits where dark's does, 18 % of the way from the land to the roof, so it reads as a soft edge as in dark, not a dark line; land uses stay P3's; walls lighten 55 % at the bottom (dark 30 %: on a pale colour the same share hardly shows; stronger since 2 Nov)",
+    "_reason": "Filippo, 2 Nov 2026: light keeps one colour per feature at every zoom, like dark (the reference). Dark's chart line becomes the casing of the filled road (lesser classes the same colour toward the land), paths are the chart colour, landmarks a deeper blue of the roof family. Applies to standard and outdoor (satellite keeps its own). Contrast between buildings and land in light by dark's numbers (Filippo, 2 Nov): roofs 35 % toward a light sky blue #9CC6D8, still light (L* 84) but as far from the residential land as dark's (ΔE 14 from P3's residential, dark 17; a slate roof was too heavy); the outline colour (wallD) sits where dark's does, 18 % of the way from the land to the roof, so it reads as a soft edge as in dark, not a dark line; land uses stay P3's; walls lighten 55 % at the bottom (dark 30 %: on a pale colour the same share hardly shows; stronger since 2 Nov). Building outline from the landing zoom up (edgeHi, z15+, over the roofs; Filippo, 9 Nov 2026): lighter than the roofs in light (roof halfway to white, #E0EBED) and darker in dark (roof halfway to the land, #184158), so buildings read at z15 without darker roofs",
     "light": {
       "motorCase": "#2C5870",
       "primaryCase": "#2C5870",
@@ -69,8 +69,11 @@
         "#C3D8DC",
         "#BCD2D7"
       ],
-      "wallD": "#E0E4D9"
+      "wallD": "#E0E4D9",
+      "edgeHi": "#E0EBED"
     },
-    "dark": {}
+    "dark": {
+      "edgeHi": "#184158"
+    }
   }
 }
