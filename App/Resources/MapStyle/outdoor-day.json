@@ -9888,7 +9888,7 @@
    ],
    "paint": {
     "line-color": "#E0EBED",
-    "line-width": 0.4,
+    "line-width": 0.6,
     "line-opacity": [
      "interpolate",
      [

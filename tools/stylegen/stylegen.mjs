@@ -366,7 +366,7 @@ function style(name, mode) {
   // (`edgeHi`; Filippo, 9 Nov): lighter than the roofs in light, darker in dark. It traces the footprint, which a
   // flat camera draws on the roof edge; the app hides it when the camera is pitched.
   if (!sat && P.edgeHi) omt('building', 'building-outline', 'line', { minzoom: 14.9, filter: ['!=', ['get', 'hide_3d'], true],
-    paint: { 'line-color': P.edgeHi, 'line-width': 0.4, 'line-opacity': fade(14.9, 15) } });
+    paint: { 'line-color': P.edgeHi, 'line-width': 0.6, 'line-opacity': fade(14.9, 15) } });
   if (sat && P.dim) add({ id: 'night-dim', type: 'background', paint: { 'background-color': `rgba(5,8,12,${P.dim})` } });
 
   // ---- road labels (below the route: it covers its own street names) ----
