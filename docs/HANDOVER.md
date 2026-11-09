@@ -20,11 +20,13 @@ This is for a new Claude Code session that knows nothing about the work so far. 
 | M9 Routes, history | ✅ | Apple Health and Strava dropped (6 Nov). GPX share only |
 | M10 PR 1 Accessibility | ✅ #49 | |
 | M10 PR 2 Performance | ✅ #54, #55 | Numbers in §4 |
-| M10 PR 3 Weather notice | ✅ `m10-weather` | MeteoAlarm, see DECISIONS 8 Nov |
-| **M10 PR 4 Demo build + script** | **next** | §2.3. M10 closes when Filippo signs off the demo |
-| M11 Europe | after M10 | §2.4. Not yet in BUILD_PLAN |
+| M10 PR 3 Weather notice | ❌ removed | Built (#57), then removed on 8 Nov: Filippo doesn't want it |
+| **Bike + train station fix** | **next** | §2.2 |
+| M11 Europe | after the fix | §2.3. Not yet in BUILD_PLAN |
+| Backlog | after M11 | §2.4 |
+| M10 PR 4 Demo build + script | last | §2.5. Moved after M11 and the backlog (8 Nov). M10 closes when Filippo signs off the demo |
 
-- **On the phone:** `main` at e907509, the same app code as today's main.
+- **On the phone:** `main` at b56be08 (with the weather notice, removed since).
 
 ## 2. What to do next, in order
 
@@ -32,22 +34,10 @@ This is for a new Claude Code session that knows nothing about the work so far. 
 The free Personal Team profiles were renewed on 8 Nov (Filippo signed in to Xcode again) and now expire at **2026-11-15 20:56 UTC**. After that the app won't open on the iPhone.
 - Rebuilding doesn't renew them. The steps are in the `velix-phone` skill, "Rules". Xcode needs Filippo's Apple ID in Xcode → Settings → Accounts.
 
-### 2.2 M10 PR 3: severe-weather notice: done
-MeteoAlarm feed per country, orange and red warnings for the rider's region (Photon reverse), credit line on the banner, You → About. Details in DECISIONS (8 Nov); debug with `-weather-fixture orange|red|later`. For M11, each new country is a row in `MeteoAlarm.countries` (feed slug + issuer); check its `areaDesc` granularity against Photon's `state` first (some countries warn per province or county).
+### 2.2 Bike + train from south Milan: no suggestion (found 8 Nov)
+Via Soave → Monza (Villa Reale) gets no bike + train option at any time, while Porta Venezia → Monza does (RE8, 35 min). The data is fine; the station choice isn't. `DirectPlanner.nearby` keeps the **6 nearest stops per operator within 4 km**, and around Via Soave those are small stations (Scalo Romana, Tibaldi, Romolo, Porta Vittoria, Dateo, Cadorna) with almost no Monza trains. Rogoredo (3.7 km, 11th), Centrale and Garibaldi (4.3 km) are left out. With every rail station within 5 km (metro still capped), Thursday 08:05 gives Garibaldi 08:31 → Monza, door to door 51 min vs 81 by bike, so the trigger fires. Fix it first, then M11.
 
-### 2.3 M10 PR 4: demo (plan agreed on 6 Nov: "Script + recorded clips (Recommended)")
-- Install a Release build on the phone and run a smoke pass.
-- Write `docs/demo/DEMO_SCRIPT.md` for a 60–90 s video in 5 scenes, with **no hazard-alert scene** (alerts while riding were set aside):
-  1. commute in 2 taps;
-  2. riding;
-  3. a long trip with the train suggestion;
-  4. a gravel route from Routes;
-  5. the ride summary and GPX share.
-  Show the OSM attribution.
-- Record simulator clips with `xcrun simctl io booted recordVideo` into `build/demo/`. Filippo films or assembles the phone parts himself.
-- **M10 closes only when Filippo signs off the demo build.**
-
-### 2.4 M11 "Europe" (after M10; plan mode; several PRs)
+### 2.3 M11 "Europe" (after the bike + train fix; plan mode; several PRs)
 Filippo's choices on 8 Nov aren't in the repo yet. **At the start of M11, add M11 to `docs/BUILD_PLAN.md` and these four choices to DECISIONS:**
 1. **Coverage:** packs for the EU, EFTA and the UK, about 250–300 of them.
    - Region configs are generated automatically.
@@ -75,7 +65,7 @@ Gaps found on 8 Nov:
 - attribution for each pack;
 - smoke trips that each region needs.
 
-### 2.5 Backlog: raised and never decided (ask Filippo when relevant; don't build unasked)
+### 2.4 Backlog: raised and never decided (ask Filippo when relevant; don't build unasked)
 1. **Picking a start point other than the current location.** Asked 19 Oct and 29 Oct: "I can't set an origin and destination in the app, only the destination". DECISIONS (18 Oct) deferred it. `RouteOptionsModel` plans only from `app.location`. This is the most-requested missing feature.
 2. **Hazards on the browse map.** 29 Oct: "Perhaps they are more useful in browsing mode and free driving modes… only show cobbles, steps, and steep climbs". There's no free-ride mode, and steep climbs aren't in the pack sidecar.
 3. **A cap on long Best detours.** Noted "still to do" on 19 Oct; the Road golden trip 6 tolerance was raised instead.
@@ -104,6 +94,18 @@ Gaps found on 8 Nov:
 - dark satellite;
 - a map style remembered per ride type (it's per session now);
 - more M10 test rides.
+
+### 2.5 M10 PR 4: demo, last (moved after M11 and the backlog on 8 Nov) (plan agreed on 6 Nov: "Script + recorded clips (Recommended)")
+- Install a Release build on the phone and run a smoke pass.
+- Write `docs/demo/DEMO_SCRIPT.md` for a 60–90 s video in 5 scenes, with **no hazard-alert scene** (alerts while riding were set aside):
+  1. commute in 2 taps;
+  2. riding;
+  3. a long trip with the train suggestion;
+  4. a gravel route from Routes;
+  5. the ride summary and GPX share.
+  Show the OSM attribution.
+- Record simulator clips with `xcrun simctl io booted recordVideo` into `build/demo/`. Filippo films or assembles the phone parts himself.
+- **M10 closes only when Filippo signs off the demo build.**
 
 ## 3. How Filippo works (beyond CLAUDE.md "Working agreements")
 - He is the only user and reviewer. He tests on an iPhone 11 after each round and sends feedback as numbered lists, sometimes with screen recordings in `~/Downloads`.
@@ -155,7 +157,7 @@ Gaps found on 8 Nov:
 - **Skills:** `.claude/skills/velix-{screen,verify,region-pack,ship,phone,pr}/SKILL.md`
 - **App entry points:**
   - `App/VelixApp.swift`
-  - `App/AppState/AppModel.swift` (app state, weather slot)
+  - `App/AppState/AppModel.swift` (app state)
   - `App/Features/Root/RootView.swift`
   - `App/Features/Ride/RideView.swift` (S1, where the notice shows)
   - `App/Features/Riding/RideSession.swift`

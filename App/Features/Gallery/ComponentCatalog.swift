@@ -39,16 +39,10 @@ enum ComponentCatalog {
         e("RecenterButton", "free", width: nil) { RecenterButton() },
         e("RecenterButton", "following", width: nil) { RecenterButton(following: true) },
         e("RecenterButton", "riding", width: nil) { RecenterButton(riding: true) },
-        e("NoticeBanner", "weather") { NoticeBanner.weather("Storm warning until 18:00", "Strong wind and hail in Milan. Consider the train.", onDismiss: {}) },
-        e("NoticeBanner", "weatherCredit") {
-            NoticeBanner.weather(AppSamples.storm.title, AppSamples.storm.message,
-                                 credit: (AppSamples.storm.credit ?? "", {}), onDismiss: {})
-        },
         e("NoticeBanner", "litStreets") { NoticeBanner.litStreets() },
         e("NoticeBanner", "late") { NoticeBanner.late("Running late, switched to fastest", "You still make the 08:12. Adds 2 rail crossings.") },
         e("NoticeBanner", "weakGPS") { NoticeBanner.weakGPS() },
         e("NoticeBanner", "missed") { NoticeBanner.missed("Missed the 08:12, now on the 08:27", "Arrival 09:41, 15 min later.") },
-        e("NoticeBanner", "pill", width: nil) { NoticePill(text: "Storm until 18:00") },
         e("RouteCard", "best") { RouteCard(model: .sampleBest) },
         e("RouteCard", "fastest") { RouteCard(model: .sampleFastest) },
         e("RouteCard", "bestAndFastest") { RouteCard(model: .sampleSingle) },

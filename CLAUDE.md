@@ -25,6 +25,7 @@ If two sources disagree, follow the higher one and log the conflict in `docs/DEC
 | Lit streets only | Manual, session only, off at ride end | Follow handoff: switch in You, **turns off when the ride ends** | Confirmed by Filippo 11 Oct: a night-time rule shouldn't follow you into the morning |
 | No route meets the rules | Name the blocking rule, link to You | Follow handoff | One place for rules |
 | Ride summary share | GPX only | Follow handoff | |
+| Severe-weather notice | S1 NoticeBanner + pill | **None** (removed 8 Nov) | Filippo doesn't want it |
 
 ## Product rules that override convenience
 
@@ -84,7 +85,6 @@ docs/                    BRIEF, BUILD_PLAN, DECISIONS, TEST_TRIPS
 - Riding with transit in the simulator (debug builds): add `-simulate-ride -time-scale 4` (and `-simulate-speed 3` for a slow rider, late / missed); e.g. late from Duomo: `-fake-location 45.4642,9.1900 -fake-time 2026-11-05T08:26 -time-scale 4 -simulate-ride -simulate-speed 3.0 -ride-to 45.5885,9.2740,Villa Reale`. Decisions land in the ride log as `"e":"transit"`
 - Bike + transit at a fixed time (debug builds): add `-fake-time 08:05` (today, Rome time) or `-fake-time 2026-11-05T08:05`; e.g. Monza: `-fake-location 45.4746,9.2050 -fake-time 2026-11-05T08:05 -ride-to 45.5885,9.2740,Villa Reale`
 - Try a ride away from Lombardy (debug builds): `-- -fake-location <lat>,<lon> -simulate-ride -ride-to <lat>,<lon>,<name>`; the ride log lands in `Documents/rides/`
-- Severe-weather notice (debug builds): `-weather-fixture orange|red|later` serves a Lombardy MeteoAlarm warning around now instead of the live feed (needs a location in Lombardy, e.g. `-fake-location 45.447767,9.1963936`, and Photon online). The console logs `[weather]` with the feed's warning count and the pick
 - Fixed position on a phone (debug builds): launch with `-- -fake-location <lat>,<lon>` (e.g. Via Soave 20: `45.447767,9.1963936`) to plan from Lombardy while away
 - Map performance on a phone (debug builds): `-start-ride` starts the planned bike route by itself; `-map-perf` prints once a second (console: `xcrun devicectl device process launch --console …`) the map frames drawn and their time, a 60 Hz main-thread heartbeat (`main`: under 60 means the main thread was busy), and time in map updates, fades, fixes and the riding state; `-map-lite <prefix,…>` hides style layers by id prefix to bisect a slowdown. Profile with `xcrun xctrace record --template 'Time Profiler' --device iFil --attach Velix --time-limit 6s`
 - Performance (every build, M10): each ride log's health line has `fps`, `slow` and `cpu` (% of one core) per minute; each cold launch appends to `Documents/diagnostics/launch.jsonl`. Summarise with `python3 tools/ride-report/ride_report.py --include-simulated <ride.jsonl>` and `--launch <launch.jsonl>`. Compare builds on CPU, not battery (iOS's 5 % steps); xctrace's Power Profiler crashes on save in Xcode 27.0

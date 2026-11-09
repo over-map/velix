@@ -47,7 +47,7 @@ Each milestone: plan mode → approval → implement on a branch → PR with scr
 
 ## M6 · Core flows
 - S0 First launch (location → ride type → pack download with progress; map explorable meanwhile).
-- S1 Ride (search bar with Home/Work, ride-type chip, Map button, recenter, severe-weather notice, all states).
+- S1 Ride (search bar with Home/Work, ride-type chip, Map button, recenter, all states; the severe-weather notice was removed on 8 Nov).
 - S2 Search (Photon, recents, offline state).
 - S3 Route options (Best + Fastest, single card, why this route, transit suggestion row, no route, computing).
 - S8 You (rules per type, lit streets, rides, connections, offline map, about/attributions).
@@ -74,8 +74,8 @@ Each milestone: plan mode → approval → implement on a branch → PR with scr
 
 ## M10 · Polish and showcase
 - Accessibility pass against P8 (Dynamic Type, VoiceOver table, colour-blind check).
-- Performance: cold start, map FPS, battery per hour of riding. Weather notice (MeteoAM / ARPA CAP feed, decide source).
-- Demo build on Filippo's iPhone; 60–90 s demo video script (commute, long trip with train, gravel route).
+- Performance: cold start, map FPS, battery per hour of riding. ~~Weather notice~~ (built with MeteoAlarm in #57, then removed 8 Nov at Filippo's request; see DECISIONS).
+- Demo build on Filippo's iPhone; 60–90 s demo video script (commute, long trip with train, gravel route). **Moved after M11 and the backlog** (Filippo, 8 Nov): M10 closes last.
 - **Accept when:** Filippo signs off the demo build.
 
 ## Later (phase 2, not now)

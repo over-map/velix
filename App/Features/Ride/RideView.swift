@@ -135,16 +135,6 @@ struct RideView: View {
                              if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
                          }))
         }
-        if let w = app.warning {
-            if app.warningDismissed {
-                NoticePill(text: w.pill).frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                NoticeBanner.weather(w.title, w.message,
-                                     credit: w.credit.map { c in (c, { if let url = w.link { UIApplication.shared.open(url) } }) }) {
-                    app.warningDismissed = true
-                }
-            }
-        }
     }
 
     // MARK: Downloading (S1d)

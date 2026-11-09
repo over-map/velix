@@ -11,14 +11,11 @@ final class ScreenSnapshotTests: XCTestCase {
     private let portaVenezia = LatLon(lat: 45.4746, lon: 9.2050)
 
     struct NoSearch: PlaceSearch { func search(_ q: String, near: LatLon?) async throws -> [Place] { [] } }
-    struct Warning: WeatherWarnings {
-        func current(near: LatLon?) async -> WeatherWarning? { AppSamples.storm }
-    }
 
     private func app(onboarded: Bool = true, home: Bool = true, work: Bool = true, recents: Bool = true,
                      access: LocationService.Access = .allowed, here: LatLon? = LatLon(lat: 45.4746, lon: 9.2050),
                      cannotFind: Bool = false, pack: PackService.State = .ready(.sideloaded), expensive: Bool = false, online: Bool = true,
-                     rideType: RideType = .city, weather: WeatherWarnings = NoWeatherWarnings(), rides: Bool = false) -> AppModel {
+                     rideType: RideType = .city, rides: Bool = false) -> AppModel {
         let dir = FileManager.default.temporaryDirectory.appending(path: "velix-snap-\(UUID().uuidString)")
         let store = AppStore(url: dir.appending(path: "state.json"))
         var s = AppState()
@@ -35,8 +32,7 @@ final class ScreenSnapshotTests: XCTestCase {
         packService.setCatalogForTesting(Self.catalog)
         let history = RideHistory(inMemory: true)
         if rides { Self.sampleRides.forEach(history.add) }
-        return AppModel(store: store, location: location, pack: packService, search: NoSearch(), weather: weather,
-                        history: history)
+        return AppModel(store: store, location: location, pack: packService, search: NoSearch(), history: history)
     }
 
     /// Lombardy and two neighbours, as boxes (the index ships simplified borders).
@@ -103,14 +99,9 @@ final class ScreenSnapshotTests: XCTestCase {
     // MARK: S1 Ride
 
     func testS1Ride() async {
-        // The weather comes from the source (RootView refreshes it on appear), not set directly: no race with that task.
-        let weather = app(weather: Warning())
-        weather.warning = AppSamples.storm
-        check(RootView(app: weather), named: "S1a-weather")
-        let panned = app(weather: Warning())
-        panned.warning = AppSamples.storm
-        panned.warningDismissed = true
-        check(RootView(app: panned, following: false), named: "S1b-panned")
+        // No severe-weather notice (removed 8 Nov, Filippo): S1a is the plain Ride screen.
+        check(RootView(app: app()), named: "S1a-normal")
+        check(RootView(app: app(), following: false), named: "S1b-panned")
         check(RootView(app: app(home: false, work: false)), named: "S1c-unset")
         let mb = Int64(1_000_000)
         check(RootView(app: app(pack: .downloading(received: 132 * mb, total: 220 * mb))), named: "S1d-downloading")
