@@ -26,7 +26,8 @@ struct RouteOptionsView: View {
         ZStack(alignment: .top) {
             map.ignoresSafeArea()
             HStack {
-                Button(action: onClose) {
+                // Back leaves the transit card for the bike routes first (Filippo, 9 Nov 2026); ✕ always ends planning.
+                Button { if !model.back() { onClose() } } label: {
                     VelixIconView(.chevronLeft, size: 22).foregroundStyle(Color.velix.ink)
                         .frame(width: 44, height: 44)
                         .background(Color.velix.surface, in: Circle())
@@ -34,6 +35,7 @@ struct RouteOptionsView: View {
                 }
                 .buttonStyle(VelixPressStyle())
                 .accessibilityLabel("Back")
+                .accessibilityHint(model.transitSelected ? "Shows the bike routes" : "")
                 Spacer()
             }
             .padding(.horizontal, CGFloat.velix.m)
