@@ -9873,6 +9873,43 @@
    }
   },
   {
+   "id": "building-outline",
+   "type": "line",
+   "source": "omt",
+   "source-layer": "building",
+   "minzoom": 14.9,
+   "maxzoom": 16,
+   "filter": [
+    "!=",
+    [
+     "get",
+     "hide_3d"
+    ],
+    true
+   ],
+   "paint": {
+    "line-color": "#9AB3BC",
+    "line-width": 0.6,
+    "line-opacity": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14.9,
+     0,
+     15,
+     1,
+     15.6,
+     1,
+     16,
+     0
+    ]
+   }
+  },
+  {
    "id": "label-road-primary",
    "type": "symbol",
    "source": "omt",
@@ -11147,64 +11184,6 @@
     ],
     "leg-train"
    ],
-   "maxzoom": 14,
-   "layout": {
-    "line-cap": "round",
-    "line-join": "round"
-   },
-   "paint": {
-    "line-color": "#DBF227",
-    "line-width": [
-     "interpolate",
-     [
-      "exponential",
-      1.5
-     ],
-     [
-      "zoom"
-     ],
-     8,
-     4.5,
-     9,
-     4.5,
-     10,
-     4.5,
-     11,
-     4.5,
-     12,
-     4.5,
-     13,
-     5,
-     14,
-     6.6,
-     15,
-     9,
-     16,
-     11,
-     17,
-     14,
-     18,
-     16.4,
-     19,
-     20,
-     20,
-     20
-    ]
-   }
-  },
-  {
-   "id": "leg-train-near",
-   "type": "line",
-   "source": "velix-route",
-   "filter": [
-    "==",
-    [
-     "get",
-     "role"
-    ],
-    "leg-train"
-   ],
-   "minzoom": 14,
    "layout": {
     "line-cap": "round",
     "line-join": "round"
@@ -11246,171 +11225,6 @@
      20,
      20,
      20
-    ]
-   }
-  },
-  {
-   "id": "leg-train-ties",
-   "type": "line",
-   "source": "velix-route",
-   "filter": [
-    "==",
-    [
-     "get",
-     "role"
-    ],
-    "leg-train"
-   ],
-   "maxzoom": 14,
-   "layout": {
-    "line-cap": "butt"
-   },
-   "paint": {
-    "line-color": "#021624",
-    "line-width": [
-     "interpolate",
-     [
-      "exponential",
-      1.5
-     ],
-     [
-      "zoom"
-     ],
-     8,
-     1.6,
-     9,
-     1.6,
-     10,
-     1.6,
-     11,
-     1.6,
-     12,
-     1.6,
-     13,
-     1.7,
-     14,
-     2.24,
-     15,
-     3.06,
-     16,
-     3.74,
-     17,
-     4.76,
-     18,
-     5.58,
-     19,
-     6.8,
-     20,
-     6.8
-    ],
-    "line-dasharray": [
-     "step",
-     [
-      "zoom"
-     ],
-     [
-      "literal",
-      [
-       6.19,
-       5.06
-      ]
-     ],
-     9,
-     [
-      "literal",
-      [
-       6.19,
-       5.06
-      ]
-     ],
-     10,
-     [
-      "literal",
-      [
-       6.19,
-       5.06
-      ]
-     ],
-     11,
-     [
-      "literal",
-      [
-       6.19,
-       5.06
-      ]
-     ],
-     12,
-     [
-      "literal",
-      [
-       6.19,
-       5.06
-      ]
-     ],
-     13,
-     [
-      "literal",
-      [
-       5.82,
-       4.76
-      ]
-     ],
-     14,
-     [
-      "literal",
-      [
-       4.41,
-       3.61
-      ]
-     ],
-     15,
-     [
-      "literal",
-      [
-       3.24,
-       2.65
-      ]
-     ],
-     16,
-     [
-      "literal",
-      [
-       2.65,
-       2.17
-      ]
-     ],
-     17,
-     [
-      "literal",
-      [
-       2.08,
-       1.7
-      ]
-     ],
-     18,
-     [
-      "literal",
-      [
-       1.78,
-       1.45
-      ]
-     ],
-     19,
-     [
-      "literal",
-      [
-       1.46,
-       1.19
-      ]
-     ],
-     20,
-     [
-      "literal",
-      [
-       1.46,
-       1.19
-      ]
-     ]
     ]
    }
   },
@@ -11471,7 +11285,7 @@
    }
   },
   {
-   "id": "leg-metro-core",
+   "id": "leg-metro",
    "type": "line",
    "source": "velix-route",
    "filter": [
@@ -11485,61 +11299,6 @@
    "layout": {
     "line-cap": "round",
     "line-join": "round"
-   },
-   "paint": {
-    "line-color": "#FFFFFF",
-    "line-width": [
-     "interpolate",
-     [
-      "exponential",
-      1.5
-     ],
-     [
-      "zoom"
-     ],
-     8,
-     0.36,
-     9,
-     0.64,
-     10,
-     1.13,
-     11,
-     2,
-     12,
-     2.4,
-     13,
-     3,
-     14,
-     3.8,
-     15,
-     5,
-     16,
-     5.8,
-     17,
-     7,
-     18,
-     8.2,
-     19,
-     10,
-     20,
-     10
-    ]
-   }
-  },
-  {
-   "id": "leg-metro",
-   "type": "line",
-   "source": "velix-route",
-   "filter": [
-    "==",
-    [
-     "get",
-     "role"
-    ],
-    "leg-metro"
-   ],
-   "layout": {
-    "line-cap": "butt"
    },
    "paint": {
     "line-color": [
@@ -11581,115 +11340,6 @@
      10,
      20,
      10
-    ],
-    "line-dasharray": [
-     "step",
-     [
-      "zoom"
-     ],
-     [
-      "literal",
-      [
-       27.45,
-       10.98
-      ]
-     ],
-     9,
-     [
-      "literal",
-      [
-       15.56,
-       6.22
-      ]
-     ],
-     10,
-     [
-      "literal",
-      [
-       8.82,
-       3.53
-      ]
-     ],
-     11,
-     [
-      "literal",
-      [
-       5,
-       2
-      ]
-     ],
-     12,
-     [
-      "literal",
-      [
-       4.17,
-       1.67
-      ]
-     ],
-     13,
-     [
-      "literal",
-      [
-       3.33,
-       1.33
-      ]
-     ],
-     14,
-     [
-      "literal",
-      [
-       2.63,
-       1.05
-      ]
-     ],
-     15,
-     [
-      "literal",
-      [
-       2,
-       0.8
-      ]
-     ],
-     16,
-     [
-      "literal",
-      [
-       1.72,
-       0.69
-      ]
-     ],
-     17,
-     [
-      "literal",
-      [
-       1.43,
-       0.57
-      ]
-     ],
-     18,
-     [
-      "literal",
-      [
-       1.22,
-       0.49
-      ]
-     ],
-     19,
-     [
-      "literal",
-      [
-       1,
-       0.4
-      ]
-     ],
-     20,
-     [
-      "literal",
-      [
-       1,
-       0.4
-      ]
-     ]
     ]
    }
   },

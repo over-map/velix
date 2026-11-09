@@ -134,7 +134,8 @@ struct TripBar: View {
                 switch s.kind {
                 case .ride: Capsule().fill(Color.velix.accent).overlay(Capsule().strokeBorder(Color.velix.casing, lineWidth: 1.5))
                 case .wait: Capsule().fill(Color.velix.surface2)
-                case .train: TransitDashes(color: Color.velix.transitTrain).clipShape(Capsule())
+                // Solid, like the train leg on the map (Filippo, 9 Nov: no dashes).
+                case .train: Capsule().fill(Color.velix.transitTrain).overlay(Capsule().strokeBorder(Color.velix.casing, lineWidth: 1.5))
                 case let .metro(c): Capsule().fill(c)
                 }
             }
@@ -158,20 +159,6 @@ struct TripBar: View {
             }
         }
         .frame(height: height)
-    }
-}
-
-/// Transit leg fill: dash 8 / gap 2 on surface (P2 TripBar train segment).
-struct TransitDashes: View {
-    let color: Color
-    var body: some View {
-        Canvas { ctx, size in
-            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color.velix.surface))
-            for x in stride(from: 0.0, to: size.width, by: 10) {
-                ctx.fill(Path(CGRect(x: x, y: 0, width: 8, height: size.height)), with: .color(color))
-            }
-        }
-        .accessibilityHidden(true)
     }
 }
 
