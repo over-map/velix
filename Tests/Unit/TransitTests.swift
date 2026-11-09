@@ -233,6 +233,17 @@ struct TransitCopyTests {
         #expect(m.mapRoute?.legs.first?.line.count == 3)
         #expect(m.mapRoute?.rides.count == 1)
     }
+
+    /// Back on S3e returns to the bike routes (S3d); a second Back leaves route options.
+    @Test func backFromTheTransitCardShowsTheBikeRoutes() {
+        let m = RouteOptionsModel(destination: AppSamples.villaReale, state: .options(AppSamples.monzaOptions()),
+                                  transit: AppSamples.monzaTransit())
+        m.transitSelected = true
+        #expect(m.back())
+        #expect(!m.transitSelected)
+        #expect(m.transitRow != nil)
+        #expect(!m.back())
+    }
 }
 
 struct TrainCatchTests {

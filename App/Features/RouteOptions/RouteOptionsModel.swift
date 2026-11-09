@@ -30,6 +30,13 @@ final class RouteOptionsModel {
     var transitSelected = false
     var departureIndex = 0
 
+    /// Back steps out of the transit card (S3e → S3d) before it leaves route options. True when it stayed here.
+    func back() -> Bool {
+        guard transitSelected else { return false }
+        transitSelected = false
+        return true
+    }
+
     init(destination: Place, state: State = .computing, transit: [TransitPlan] = []) {
         self.destination = destination
         self.state = state
