@@ -362,11 +362,11 @@ function style(name, mode) {
         'fill-extrusion-base': ramp(i === 0 ? minH : at(i / SLICES)), 'fill-extrusion-height': ramp(at((i + 1) / SLICES)),
         'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
   }
-  // Landing zoom (z15, flat camera): roofs alone barely part from the land, so a thin outline over them, the roof
-  // colour moved away from the land (`edgeHi`; Filippo, 9 Nov). The extrusions are still low here, so the footprint
-  // matches the roof edge; it fades out by z16, and the app hides it when the camera is pitched.
-  if (!sat && P.edgeHi) omt('building', 'building-outline', 'line', { minzoom: 14.9, maxzoom: 16, filter: ['!=', ['get', 'hide_3d'], true],
-    paint: { 'line-color': P.edgeHi, 'line-width': 0.6, 'line-opacity': fade(14.9, 15, 15.6, 16) } });
+  // From the landing zoom up (z15+, flat camera): roofs alone barely part from the land, so a thin outline over them
+  // (`edgeHi`; Filippo, 9 Nov): lighter than the roofs in light, darker in dark. It traces the footprint, which a
+  // flat camera draws on the roof edge; the app hides it when the camera is pitched.
+  if (!sat && P.edgeHi) omt('building', 'building-outline', 'line', { minzoom: 14.9, filter: ['!=', ['get', 'hide_3d'], true],
+    paint: { 'line-color': P.edgeHi, 'line-width': 0.4, 'line-opacity': fade(14.9, 15) } });
   if (sat && P.dim) add({ id: 'night-dim', type: 'background', paint: { 'background-color': `rgba(5,8,12,${P.dim})` } });
 
   // ---- road labels (below the route: it covers its own street names) ----
