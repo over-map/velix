@@ -324,17 +324,6 @@ struct VelixMap: UIViewRepresentable {
 
         func applyStyleState(on map: MLNMapView) {
             guard loaded, let s = state, let style = map.style else { return }
-            #if DEBUG
-            // `-map-lite a,b`: hide layers whose id starts with any of these (performance experiments).
-            let args = ProcessInfo.processInfo.arguments
-            if let i = args.firstIndex(of: "-map-lite"), i + 1 < args.count {
-                let prefixes = args[i + 1].split(separator: ",").map(String.init)
-                for l in style.layers where prefixes.contains(where: { l.identifier.hasPrefix($0) }) { l.isVisible = false }
-            }
-            if args.contains("-map-poi-notext") {
-                for l in style.layers where l.identifier.hasPrefix("poi-t") { (l as? MLNSymbolStyleLayer)?.text = nil }
-            }
-            #endif
             let key = "\(s.bikeLanes)|\(s.transitLines)|\(s.route == nil)|\(s.riding)|\(s.camera.pitch > 0)"
             if key != styleKey {
                 styleKey = key
@@ -347,6 +336,8 @@ struct VelixMap: UIViewRepresentable {
                     (layer as? MLNFillExtrusionStyleLayer)?.fillExtrusionOpacity =
                         NSExpression(forConstantValue: s.riding && s.camera.pitch > 0 ? Self.ridingBuildingOpacity : 1)
                 }
+                // The z15 building outline traces footprints over the roofs: right only with a flat camera (9 Nov).
+                style.layer(withIdentifier: "building-outline")?.isVisible = s.camera.pitch == 0
                 // Riding: only the bike POIs, without names (see tools/stylegen: the full POI layers cost 3 fps).
                 for l in style.layers where l.identifier.hasPrefix("poi-t") { l.isVisible = !s.riding }   // the POI tiers
                 style.layer(withIdentifier: "poi-riding")?.isVisible = s.riding
@@ -364,6 +355,17 @@ struct VelixMap: UIViewRepresentable {
             var markers = r ?? MapRouteModel(best: [])
             if markers.puck == nil, let user = s.userLocation { markers.puck = user; markers.heading = s.userHeading ?? 0 }
             setShape("velix-markers", markers.markersGeoJSON(), in: style)
+            #if DEBUG
+            // `-map-lite a,b`: hide layers whose id starts with any of these (performance experiments). Last, so the switches above don't show them again.
+            let args = ProcessInfo.processInfo.arguments
+            if let i = args.firstIndex(of: "-map-lite"), i + 1 < args.count {
+                let prefixes = args[i + 1].split(separator: ",").map(String.init)
+                for l in style.layers where prefixes.contains(where: { l.identifier.hasPrefix($0) }) { l.isVisible = false }
+            }
+            if args.contains("-map-poi-notext") {
+                for l in style.layers where l.identifier.hasPrefix("poi-t") { (l as? MLNSymbolStyleLayer)?.text = nil }
+            }
+            #endif
         }
 
         /// The rider's position along the route, as last handed over and as drawn now (it glides between fixes).
