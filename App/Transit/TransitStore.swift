@@ -82,6 +82,8 @@ final class TransitStore: @unchecked Sendable {
     private(set) var hasTrack = false
     private var routes: [String: TransitRoute] = [:]
     private var stops: [String: TransitStop] = [:]
+    /// The first day of the pack's timetable ("2026-11-08"): the window runs 60 days from it.
+    private(set) var windowStartDay: String?
     /// Feeds that run only metro (ATM, Brescia): their stops are dense, so the planner caps them (``DirectPlanner/nearby``).
     private var metroFeeds: Set<String> = []
     private var rules: [(operator: String, routes: [String], weekdays: [Bool], start: Int, end: Int, rule: BikeRule)] = []
@@ -96,6 +98,7 @@ final class TransitStore: @unchecked Sendable {
             if let id = Self.text(s, 0), let z = TimeZone(identifier: id) { timeZone = z }
         }
         rows("SELECT value FROM meta WHERE key = 'hops'") { _ in hasTrack = true }
+        rows("SELECT value FROM meta WHERE key = 'window_start'") { s in windowStartDay = Self.text(s, 0) }
         var feeds: [String: (name: String, ticket: URL?)] = [:]
         rows("SELECT id, operator, ticket FROM feeds") { s in   // no such columns before Nov 2026: nothing
             feeds[Self.text(s, 0) ?? ""] = (Self.text(s, 1) ?? "", Self.text(s, 2).flatMap(URL.init(string:)))
