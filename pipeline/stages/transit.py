@@ -64,9 +64,9 @@ def fetch(feed: dict) -> zipfile.ZipFile:
         log(f"download {feed['id']} ← {url}")
         raw = path.with_suffix(".netex" if feed.get("format") == "netex" else ".part")
         req = urllib.request.Request(url, headers={"User-Agent": UA})
-        # The NAP drops connections mid-file now and then (CI, 2 Nov): retry the whole download, and convert only a
+        # The NAP drops connections mid-file now and then (CI, 2 and 10 Nov): retry the whole download, and convert only a
         # file that opens to the end.
-        for attempt in range(1, 5):
+        for attempt in range(1, 9):
             try:
                 with urllib.request.urlopen(req, timeout=600) as r, open(raw, "wb") as f:
                     while chunk := r.read(1 << 20):
@@ -80,10 +80,10 @@ def fetch(feed: dict) -> zipfile.ZipFile:
                     raise zipfile.BadZipFile(f"{raw.name}: corrupt member")
                 break
             except (OSError, EOFError, http.client.HTTPException, zipfile.BadZipFile) as e:
-                if attempt == 4:
+                if attempt == 8:
                     raise
-                log(f"download {feed['id']} failed ({e!r}), retrying ({attempt}/3)")
-                time.sleep(30 * attempt)
+                log(f"download {feed['id']} failed ({e!r}), retrying ({attempt}/7)")
+                time.sleep(min(120, 30 * attempt))   # 10 Nov: every one of 4 tries was cut off
         path.with_suffix(".part").rename(path)
     return zipfile.ZipFile(path)
 

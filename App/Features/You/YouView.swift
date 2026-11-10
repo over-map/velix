@@ -256,8 +256,7 @@ struct AboutView: View {
                                        ("Map outside your regions", "OpenFreeMap · © OpenMapTiles · © OpenStreetMap contributors"),
                                        ("Hillshade", "Mapterhorn: Copernicus GLO-30 (© DLR e.V. 2010–2014 and © Airbus 2014–2018, provided under "
                                         + "COPERNICUS by the EU and ESA), swisstopo, Regione Lombardia and other national elevation data"),
-                                       ("Satellite imagery", "Esri World Imagery: Esri, Maxar, Earthstar Geographics, and the GIS User Community"),
-                                       ("Satellite imagery, fallback", "Sentinel-2 cloudless (s2maps.eu) by EOX IT Services GmbH, "
+                                       ("Satellite imagery", "Sentinel-2 cloudless (s2maps.eu) by EOX IT Services GmbH, "
                                         + "contains modified Copernicus Sentinel data 2024 (CC BY-NC-SA 4.0)")]
         if case let .ready(m) = app.pack.state {
             for s in m.sources where !out.contains(where: { $0.1 == s.attribution }) { out.append((s.name, s.attribution)) }
@@ -272,6 +271,7 @@ struct AboutView: View {
                     LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–")
                     ForEach(app.pack.installed, id: \.pack) { m in LabeledContent("Region pack", value: "\(m.name) \(m.version)") }
                     Text("Open source under Apache 2.0. github.com/over-map/velix").velixType(.footnote)
+                    NavigationLink("Open-source licences") { OpenSourceLicencesView() }
                 }
                 Section("Data") {
                     ForEach(sources, id: \.1) { name, attribution in
@@ -286,5 +286,43 @@ struct AboutView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
+    }
+}
+
+/// The licence texts of what ships in the app (MIT, BSD, ISC and OFL ask for them to travel with every copy), from
+/// App/Resources/Licenses.json (tools/licenses/licenses.py).
+struct OpenSourceLicencesView: View {
+    struct Entry: Decodable, Identifiable {
+        let name: String
+        let license: String
+        let text: String
+        var id: String { name }
+    }
+
+    static let entries: [Entry] = {
+        guard let url = Bundle.main.url(forResource: "Licenses", withExtension: "json"),
+              let data = try? Data(contentsOf: url) else { return [] }
+        return (try? JSONDecoder().decode([Entry].self, from: data)) ?? []
+    }()
+
+    var body: some View {
+        List(Self.entries) { e in
+            NavigationLink {
+                ScrollView {
+                    Text(e.text).velixType(.footnote).foregroundStyle(Color.velix.ink)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(CGFloat.velix.m)
+                        .textSelection(.enabled)
+                }
+                .navigationTitle(e.name)
+                .navigationBarTitleDisplayMode(.inline)
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(e.name).velixType(.rowTitle)
+                    Text(e.license).velixType(.rowSubtitle).foregroundStyle(Color.velix.ink2)
+                }
+            }
+        }
+        .navigationTitle("Open-source licences")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

@@ -49,9 +49,17 @@ transit: tools
 # OpenMapTiles basemap. Tiles are stored uncompressed: the pack's xz then compresses across tiles (151 MB instead of
 # 203 MB with per-tile gzip, measured 16 Oct 2026); MapLibre reads uncompressed PMTiles tiles directly.
 # Planetiler's temp files stay inside the container (it runs as root: the host couldn't delete them on Linux).
+# Its other sources (water polygons, Natural Earth, lake centerlines) are fetched first by stages/planetiler_sources.py:
+# from the cache, else their own servers, else Velix's mirror (Release `pipeline-sources`). Planetiler never downloads:
+# with --download it asks each server for the file's size, and osmdata.openstreetmap.de down on 9–10 Nov 2026 failed
+# every region.
 basemap: tools
+	$(TOOLS) python stages/planetiler_sources.py
 	docker run --rm -v "$(ROOT)/pipeline/out:/out" -v "$(ROOT)/pipeline/cache:/cache" $(PLANETILER_IMAGE) \
-	  --osm-path=/out/$(REGION)/map.osm.pbf --download --download-dir=/cache/planetiler \
+	  --osm-path=/out/$(REGION)/map.osm.pbf --download-dir=/cache/planetiler \
+	  --water_polygons_path=/cache/planetiler/water-polygons-split-3857.zip \
+	  --natural_earth_path=/cache/planetiler/natural_earth_vector.sqlite.zip \
+	  --lake_centerlines_path=/cache/planetiler/lake_centerline.shp.zip \
 	  --tmpdir=/tmp/planetiler --bounds=$(REGION_BOUNDS) --maxzoom=$(BASEMAP_ZOOM) \
 	  --tile-compression=none --output-layerstats --output=/out/$(REGION)/basemap.pmtiles --force
 	$(TOOLS) python stages/basemap_meta.py

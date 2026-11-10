@@ -82,7 +82,7 @@ struct RoutePlanner: Sendable {
         guard !rules.respectOneways, needsOnewayCheck(free, rules: rules) else { return free }
         // One-ways ridden both ways (default) can lead Best into rule-breaking stretches the rounds don't clear:
         // plan once more following one-ways for Best and keep the better (never worse than before the setting
-        // existed). Fastest stays the free one: pure fastest, whatever Best needed (Via Soave → Ripamonti, 20 Oct).
+        // existed). Fastest stays the free one: pure fastest, whatever Best needed (south Milan → Ripamonti, 20 Oct).
         var strictRules = rules
         strictRules.respectOneways = true
         let strict = try await planOnce(from: origin, to: destination, heading: heading, rules: strictRules, fastest: fastest,
@@ -338,7 +338,7 @@ struct RoutePlanner: Sendable {
                     + "\ttrace \(Int(timings["trace"] ?? 0))\tanalyze \(Int(timings["analyze"] ?? 0))\t\(Int(route.distance)) m")
         #endif
         // Valhalla's bicycle costing never waits at traffic lights (a signal even lowers its turn stress): add the
-        // average wait per signalised junction, so routes compare as Google's do (Filippo's Via Soave commute, 19 Oct).
+        // average wait per signalised junction, so routes compare as Google's do (Filippo's south-Milan commute, 19 Oct).
         let waits = Double(analysis.signalStops.count) * Self.signalWait
         // Cobbles reach Valhalla as gravel (pack retag, so Best avoids them), which it rides at 40–75 % speed: time
         // them at riding pace (Filippo: pure fastest, cobbles at normal speed); the rules' penalties keep them out of Best.

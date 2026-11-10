@@ -12,4 +12,5 @@ print("\n## Sources and licences\n")
 for s in m["sources"]:
     until = f", service until {s['service_until']}" if s.get("service_until") else ""
     print(f"- **{s['name']}** ({s['date']}{until}): {s['licence']}. {s['attribution']}. <{s['url']}>")
-print("\nThe pack is a database derived from OpenStreetMap and is made available under the ODbL 1.0.")
+print("\nThe pack is a database derived from OpenStreetMap and is made available under the ODbL 1.0. "
+      "It is built by the open pipeline at <https://github.com/over-map/velix/tree/main/pipeline>.")

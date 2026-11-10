@@ -116,7 +116,7 @@ private struct StylePreview: View {
                 ctx.fill(Path(roundedRect: CGRect(x: size.width * 0.44, y: size.height * 0.4, width: size.width * 0.18, height: size.height * 0.22), cornerRadius: 3),
                          with: .color(Color.velix.mixQuiet))
             case .satellite:
-                // A photo-like tile (7 Nov: imagery from Esri / EOX): fields and woods in patches, a pale road on top.
+                // A photo-like tile (imagery from EOX Sentinel-2 cloudless): fields and woods in patches, a pale road on top.
                 let w = size.width, h = size.height
                 ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color.velix.mixQuiet.opacity(0.85)))
                 let patches: [(CGRect, Color)] = [

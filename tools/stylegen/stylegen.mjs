@@ -208,7 +208,7 @@ function style(name, mode) {
 
   // ---- satellite imagery (7 Nov): over the area fills (land cover and water stay below as the offline fallback
   // where no tile is cached), under boundaries, roads and labels; no buildings over photos. Served by the app
-  // (PackTileProtocol `imagery`: Esri World Imagery, EOX Sentinel-2 cloudless when Esri fails), online and cached.
+  // (PackTileProtocol `imagery`: EOX Sentinel-2 cloudless, 10 m, enlarged above z14; Esri dropped 9 Nov), online and cached.
   if (sat) add({ id: 'imagery', type: 'raster', source: 'imagery', paint: { 'raster-fade-duration': 150 } });
 
   // ---- roads ----
@@ -597,8 +597,8 @@ function style(name, mode) {
       // Elevation for the hillshade, online only (PackTileProtocol `terrain`: Mapterhorn, through the tile cache).
       ...(sat ? {} : { terrain: { type: 'raster-dem', tiles: ['https://tiles.velix.invalid/terrain/{z}/{x}/{y}'], tileSize: 512, encoding: 'terrarium',
         minzoom: 0, maxzoom: 12, attribution: '© Mapterhorn (Copernicus GLO-30 and national elevation data)' } }),
-      ...(sat ? { imagery: { type: 'raster', tiles: ['https://tiles.velix.invalid/imagery/{z}/{x}/{y}'], tileSize: 256, minzoom: 0, maxzoom: 19,
-        attribution: 'Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community · Sentinel-2 cloudless by EOX (Copernicus Sentinel data)' } } : {}),
+      ...(sat ? { imagery: { type: 'raster', tiles: ['https://tiles.velix.invalid/imagery/{z}/{x}/{y}'], tileSize: 256, minzoom: 0, maxzoom: 14,
+        attribution: 'Sentinel-2 cloudless by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2024)' } } : {}),
       'velix-route': { ...empty, lineMetrics: true },
       'velix-hazards': { ...empty, cluster: true, clusterRadius: 44, clusterMaxZoom: 14 },
       'velix-markers': empty,
