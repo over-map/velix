@@ -109,7 +109,7 @@ final class ValhallaOnDeviceProvider: RoutingProvider, @unchecked Sendable {
             "directions_type": .string("instructions"),
         ]
         // `ignore_oneways` only holds in the forward half of Valhalla's default bidirectional search: the reverse tree
-        // from the destination still respects one-ways, so contraflow streets near the end were never used (Via Soave →
+        // from the destination still respects one-ways, so contraflow streets near the end were never used (south Milan →
         // Piazza Santo Stefano skipped Sforza → Laghetto, 2.5 km instead of Google's 2.0 km). A departure time switches
         // Valhalla to its forward-only time-dependent A*, where the option applies everywhere.
         if profile.costingOptions["ignore_oneways"] == .bool(true) {

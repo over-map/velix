@@ -42,6 +42,10 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 | [@maplibre/maplibre-gl-style-spec](https://github.com/maplibre/maplibre-style-spec) 26.4.4 (`gl-style-validate`) | BSD-3-Clause | Validating the generated map styles (CI) |
 | [d3](https://d3js.org) 7.9.0 (cdnjs, P3 frame harness only) | ISC | `tools/p3-frames` runs the design's renderer, which uses d3 for contours |
 
+## In-app licence texts
+
+You → About → Open-source licences shows the full text of every licence above that ships in the app (`App/Resources/Licenses.json`, from `tools/licenses/licenses.py`; CI checks it against this file).
+
 ## Fonts (bundled in `App/Resources/Fonts/`)
 
 | Font | Files | Licence |
@@ -53,7 +57,7 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 
 | Asset | Licence |
 |---|---|
-| [Lucide](https://lucide.dev) icons (`design/assets/lucide/`, and `tools/icons-extra/` from lucide-static 0.460.0) | ISC |
+| [Lucide](https://lucide.dev) icons (`design/assets/lucide/`, and `tools/icons-extra/` from lucide-static 0.460.0) | ISC (`design/assets/lucide/LICENSE`) |
 | Velix custom glyphs and app icon (`design/assets/`, `tools/glyphs-extra/`) | Apache-2.0 (this project) |
 
 ## Map and routing data
@@ -67,8 +71,6 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 | Photon geocoder (komoot, photon.komoot.io; OpenStreetMap data) | Service: fair use; data ODbL 1.0 | "Search by Photon · © OpenStreetMap contributors" (You → About) |
 | OpenFreeMap tiles (outside the downloaded regions, 100 MB cache) | Free, attribution requested | "OpenFreeMap · © OpenMapTiles · © OpenStreetMap contributors" (You → About) |
 | Mapterhorn terrain tiles (tiles.mapterhorn.com; hillshade, z0–12, 100 MB cache): Copernicus GLO-30 and national elevation data (e.g. swisstopo swissALTI3D, Regione Lombardia DTM 5×5) | Per source: COPERNICUS free and open licence, CC BY 4.0, Open Government Data, … (download.mapterhorn.com/attribution.json) | "Mapterhorn: Copernicus GLO-30 (© DLR e.V. 2010–2014 and © Airbus 2014–2018, provided under COPERNICUS by the EU and ESA), swisstopo, Regione Lombardia and other national elevation data" (You → About) |
-| Esri World Imagery (server.arcgisonline.com; satellite style, z0–19, online only, 100 MB cache) | Esri terms of use; used without an API key (Filippo, 7 Nov) | "Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community" (map ⓘ, You → About) |
-| EOX Sentinel-2 cloudless 2024 (tiles.maps.eox.at; satellite fallback when Esri fails) | CC BY-NC-SA 4.0 (non-commercial) | "Sentinel-2 cloudless (s2maps.eu) by EOX IT Services GmbH, contains modified Copernicus Sentinel data 2024" (map ⓘ, You → About) |
+| EOX Sentinel-2 cloudless 2024 (tiles.maps.eox.at; the satellite style, z0–14, online only, 100 MB cache; Esri World Imagery dropped 9 Nov 2026) | CC BY-NC-SA 4.0 (non-commercial: Velix is free and non-commercial) | "Sentinel-2 cloudless (s2maps.eu) by EOX IT Services GmbH, contains modified Copernicus Sentinel data 2024" (map ⓘ, You → About) |
 | GEDTM30 global 30 m terrain model, Ho et al. (2025), OpenGeoHub (doi:10.5281/zenodo.15689805) | CC BY 4.0 | "GEDTM30, OpenGeoHub, CC BY 4.0" (You → About, release notes). Grades in the routing tiles only; the DEM is not shipped |
-| Trenord GTFS "Orario Ferroviario Regionale" (Regione Lombardia open data, dataset 3z4k-mxz9) | CC BY 4.0 | "Trenord" (You → About) |
-| ATM GTFS (Comune di Milano open data, ds929) | CC BY 4.0 | "ATM, via Comune di Milano" (You → About) |
+| Timetables from Italy's National Access Point (cciss.it/nap, NeTEx): Trenitalia, Trenord, ATM, Brescia Mobilità, GTT, Trenitalia Tper, Trentino Trasporti, SAD (in the Italian packs' `transit.sqlite`) | The datasets say "No licence – No contract" (EU 2017/1926). **Leaving in M11 PR 4** (Filippo, 9 Nov): bike + train moves to Transitous, so the packs stop carrying them | Each operator, via the National Access Point (You → About, from the pack) |

@@ -50,13 +50,13 @@ struct TransitGoldenTests {
               "\(Int(plan.seconds / 60)) min vs bike \(Int(bike.best.seconds / 60)) min, ride \(Int(plan.bikeSeconds / 60)) min, \(Int(ms)) ms")
     }
 
-    /// 8 Nov: from Via Soave (south Milan) no train was found at any time, because the 6 nearest Trenord stations have
+    /// 8 Nov: from south Milan no train was found at any time, because the 6 nearest Trenord stations have
     /// almost no Monza trains. With every railway station within 5 km, Garibaldi or Centrale take the bike to Monza.
-    @Test func viaSoaveFindsATrainToMonza() async throws {
+    @Test func southMilanFindsATrainToMonza() async throws {
         await GoldenPack.warmUp.value
         let planner = try #require(GoldenPack.planner).get()
         let store = try #require(TransitGolden.store)
-        let from = LatLon(lat: 45.447767, lon: 9.1963936), to = GoldenTrip.all[7].to
+        let from = LatLon(lat: 45.448, lon: 9.196), to = GoldenTrip.all[7].to
         let rules = RuleSet.defaults(for: .city)
         let now = TransitGolden.thursday(8, 5)
         guard case let .options(bike) = try await planner.plan(from: from, to: to, rules: rules) else {
@@ -70,7 +70,7 @@ struct TransitGoldenTests {
         let outside = TransitGolden.city.map { !$0.contains(to) } ?? true
         #expect(TransitTrigger.shows(bike: .init(seconds: bike.best.seconds, meters: bike.best.meters, climb: bike.best.analysis.climbM),
                                      transit: plan, destinationOutsideCity: outside))
-        print("Via Soave → Monza: \(plan.departure.name) from \(plan.departure.board.name) \(plan.departure.departs), " +
+        print("south Milan → Monza: \(plan.departure.name) from \(plan.departure.board.name) \(plan.departure.departs), " +
               "\(Int(plan.seconds / 60)) min vs bike \(Int(bike.best.seconds / 60)) min, \(Int(ms)) ms")
     }
 }

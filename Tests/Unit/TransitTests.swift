@@ -21,8 +21,8 @@ enum TransitFixture {
         return c.date(from: DateComponents(year: y, month: mo, day: d, hour: h, minute: m))!
     }
 
-    /// Via Soave 20, south Milan: Centrale is 4.4 km away, with small stations much nearer.
-    static let viaSoave = LatLon(lat: 45.447767, lon: 9.1963936)
+    /// South Milan: Centrale is 4.4 km away, with small stations much nearer.
+    static let southMilan = LatLon(lat: 45.448, lon: 9.196)
 
     /// `extra`: more SQL after the base fixture (decoy stops in the station tests).
     static func store(extra: String = "") throws -> TransitStore {
@@ -117,7 +117,7 @@ struct DirectPlannerTests {
         #expect(late.first?.departure.tripName == "25510")
     }
 
-    /// 7 small railway stations and 8 metro stops within 1.3 km of Via Soave, none with a Monza train (as Scalo Romana,
+    /// 7 small railway stations and 8 metro stops within 1.3 km of south Milan, none with a Monza train (as Scalo Romana,
     /// Tibaldi, Romolo… on 8 Nov: no bike + train from there).
     static let decoys: String = {
         var sql = ""
@@ -131,16 +131,16 @@ struct DirectPlannerTests {
     }()
 
     @Test func everyRailStationWithin5km() throws {
-        // 08:05 at Via Soave: Centrale (4.4 km, ≈ 23 min) is the only station with Monza trains, behind 7 nearer ones.
+        // 08:05 at south Milan: Centrale (4.4 km, ≈ 23 min) is the only station with Monza trains, behind 7 nearer ones.
         let s = try TransitFixture.store(extra: Self.decoys)
-        let c = DirectPlanner.candidates(s, from: TransitFixture.viaSoave, to: TransitFixture.villaReale, at: TransitFixture.thursday(8, 5))
+        let c = DirectPlanner.candidates(s, from: TransitFixture.southMilan, to: TransitFixture.villaReale, at: TransitFixture.thursday(8, 5))
         #expect(c.first?.departure.board.name == "Milano Centrale")
         #expect(c.first?.departure.tripName == "25510")             // the 08:20 leaves before he gets there
     }
 
     @Test func metroStopsStayCappedPerFeed() throws {
         let s = try TransitFixture.store(extra: Self.decoys)
-        let near = DirectPlanner.nearby(s, TransitFixture.viaSoave)
+        let near = DirectPlanner.nearby(s, TransitFixture.southMilan)
         #expect(near.filter { $0.stop.feed == "atm" }.count == DirectPlanner.stationsPerEnd)
         #expect(near.filter { $0.stop.feed == "trenord" }.count == 8)      // the 7 small ones and Centrale
         #expect(near.allSatisfy { $0.meters <= DirectPlanner.stationRadius })

@@ -351,5 +351,7 @@ final class ScreenSnapshotTests: XCTestCase {
                                                           files: [], downloadBytes: 222_000_000, unpackedBytes: 0, budgetBytes: 0,
                                                           sources: [])), region: "piemonte")
         check(YouView(app: both).defaultScrollAnchor(.bottom), named: "S8d-removeRegion")
+        // About and the open-source licences aren't snapshotted: they are system lists, drawn differently by the
+        // Xcode 27 SDK here and Xcode 26 on CI. LicencesTests checks their content.
     }
 }
