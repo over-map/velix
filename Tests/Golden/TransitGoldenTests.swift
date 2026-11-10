@@ -12,8 +12,8 @@ struct TransitGoldenTests {
         let store = try #require(TransitGolden.store)
         let from = AppSamples.portaVenezia, to = GoldenTrip.all[7].to
         let rules = RuleSet.defaults(for: .city)
-        // A Thursday inside the pack's 60-day timetable window.
-        let now = TransitGolden.rome(2026, 11, 5, 8, 5)
+        // A Thursday inside the pack's 60-day timetable window (a fixed date broke with each monthly pack).
+        let now = TransitGolden.thursday(8, 5)
 
         guard case let .options(bike) = try await planner.plan(from: from, to: to, rules: rules) else {
             Issue.record("no bike route"); return
@@ -58,7 +58,7 @@ struct TransitGoldenTests {
         let store = try #require(TransitGolden.store)
         let from = LatLon(lat: 45.447767, lon: 9.1963936), to = GoldenTrip.all[7].to
         let rules = RuleSet.defaults(for: .city)
-        let now = TransitGolden.rome(2026, 11, 5, 8, 5)
+        let now = TransitGolden.thursday(8, 5)
         guard case let .options(bike) = try await planner.plan(from: from, to: to, rules: rules) else {
             Issue.record("no bike route"); return
         }
@@ -80,6 +80,16 @@ enum TransitGolden {
         var c = Calendar(identifier: .gregorian)
         c.timeZone = TimeZone(identifier: "Europe/Rome")!
         return c.date(from: DateComponents(year: y, month: mo, day: d, hour: h, minute: m))!
+    }
+
+    /// h:m on the first Thursday at least two days into the pack's timetable window, Rome time.
+    static func thursday(_ h: Int, _ m: Int) -> Date {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "Europe/Rome")!
+        let parts = (store?.windowStartDay ?? "2026-11-02").split(separator: "-").compactMap { Int($0) }
+        var day = c.date(byAdding: .day, value: 2, to: c.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))!)!
+        while c.component(.weekday, from: day) != 5 { day = c.date(byAdding: .day, value: 1, to: day)! }
+        return c.date(bySettingHour: h, minute: m, second: 0, of: day)!
     }
 
     static let store: TransitStore? = GoldenPack.directory.flatMap { try? TransitStore(path: $0.appending(path: "transit.sqlite")) }
