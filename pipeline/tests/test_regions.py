@@ -4,8 +4,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stages"))
 try:
-    from common import PIPELINE, load_config, merge  # needs pyyaml (tools image)
+    from common import PIPELINE, load_config, merge, utm_epsg  # needs pyyaml (tools image)
     from coverage import grow, manifest_polygon        # needs shapely, pyproj
+    from country_admin import country_tags, parts, relation_id
     from shapely.geometry import Point, box
 except ImportError:  # pragma: no cover
     load_config = None
@@ -26,7 +27,7 @@ class RegionConfigs(unittest.TestCase):
             self.assertEqual(c["region"]["id"], r)
             for k in ("osm_relation", "city_area_relation", "timezone", "name"):
                 self.assertIn(k, c["region"], r)
-            self.assertTrue(c["osm"]["url"].endswith("italy-latest.osm.pbf"), r)
+            self.assertTrue(c["osm"].get("sources") or c["osm"]["url"].endswith("italy-latest.osm.pbf"), r)
             self.assertEqual(c["pack"]["budget_mb"], 320, r)
             self.assertGreaterEqual(c["coverage"]["buffer_km"], 0, r)
             self.assertTrue((PIPELINE / "config" / "smoke_trips" / f"{r}.txt").exists(), r)
@@ -38,6 +39,47 @@ class RegionConfigs(unittest.TestCase):
             self.assertEqual(feeds[0]["nap"], {"dataset": 1077621, "asset": "TRENITALIA"}, r)
             self.assertTrue(all(f["format"] == "netex" and f["operator"] for f in feeds), r)
         self.assertEqual(load_config("veneto")["transit"]["days"], 60)
+
+
+@unittest.skipIf(load_config is None, "run in the tools image")
+class Europe(unittest.TestCase):
+    def test_utm_zone_follows_the_region(self):
+        self.assertEqual(utm_epsg(-9.14, 38.72), 32629)    # Lisbon
+        self.assertEqual(utm_epsg(9.19, 45.46), 32632)     # Milan
+        self.assertEqual(utm_epsg(24.94, 60.17), 32635)    # Helsinki
+
+    def test_buffer_is_metres_far_from_northern_italy(self):
+        grown = grow(box(24.9, 60.1, 25.0, 60.2), 10)      # Helsinki: ≈ 10 km east is ≈ 0.18° of longitude
+        self.assertTrue(grown.contains(Point(25.0 + 0.16, 60.15)))
+        self.assertFalse(grown.contains(Point(25.0 + 0.20, 60.15)))
+
+    def test_a_coverage_across_a_border_is_split_between_the_countries(self):
+        it = {"type": "Feature", "properties": {"iso": "IT", "name": "Italy"}, "geometry": box(8, 44, 10, 46).__geo_interface__}
+        ch = {"type": "Feature", "properties": {"iso": "CH", "name": "Switzerland"},
+              "geometry": box(8, 45.95, 10, 47).__geo_interface__}           # overlaps Italy's by 0.05°
+        got = parts(box(9, 45.5, 9.5, 46.2), [ch, it])
+        self.assertEqual([iso for iso, _, _ in got], ["IT", "CH"])         # the larger share first
+        self.assertAlmostEqual(sum(g.area for _, _, g in got), 0.5 * 0.7, places=6)   # no overlap, nothing lost
+        self.assertNotEqual(relation_id("IT"), relation_id("CH"))
+
+    def test_france_and_the_uk_are_written_the_way_valhalla_reads_them(self):
+        self.assertEqual(country_tags("IT", "Italia", "Italy")["admin_level"], "2")
+        fr = country_tags("FR", "France", "France")
+        self.assertEqual((fr["admin_level"], fr["name:en"]), ("3", "Metropolitan France"))   # admin.lua → France, FR
+        self.assertEqual(country_tags("GB", "United Kingdom", "United Kingdom")["admin_level"], "3")
+
+    def test_every_catalogue_region_loads_with_its_sources(self):
+        cat = PIPELINE / "regions" / "europe.json"
+        if not cat.exists():
+            self.skipTest("no catalogue yet")
+        import json
+        for r in json.loads(cat.read_text())["regions"]:
+            c = load_config(r["id"])
+            self.assertEqual(c["region"]["name"], r["name"] if not (PIPELINE / "config" / f"{r['id']}.yml").exists()
+                             else c["region"]["name"])
+            self.assertTrue(c["osm"]["sources"] and all(u.startswith("https://download.geofabrik.de/") for u in c["osm"]["sources"]))
+            self.assertTrue(c["region"]["timezone"].startswith(("Europe/", "Atlantic/", "Africa/")), r["id"])
+            self.assertLessEqual(r["forecast_mb"], 320, r["id"])
 
 
 @unittest.skipIf(load_config is None, "run in the tools image")

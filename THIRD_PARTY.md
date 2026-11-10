@@ -34,6 +34,8 @@ Velix is licensed under Apache-2.0 (see `LICENSE`). Everything below keeps its o
 | [pyproj](https://github.com/pyproj4/pyproj) 3.7.1 | MIT | Metric projection |
 | [PyYAML](https://github.com/yaml/pyyaml) 6.0.2 | MIT | Config |
 | [jsonschema](https://github.com/python-jsonschema/jsonschema) 4.23.0 | MIT | Manifest validation |
+| [timezonefinder](https://github.com/jannikmi/timezonefinder) 6.5.9 | MIT | Each region's time zone (region catalogue) |
+| Geofabrik extract index (download.geofabrik.de/index-v1.json) | ODbL 1.0 (OSM-derived polygons) | Region catalogue: leaf extracts, their borders and the country borders in `pipeline/regions/` |
 | [planetiler](https://github.com/onthegomap/planetiler) 0.10.2 (OpenMapTiles profile) | Apache-2.0 (profile BSD-3-Clause) | Building the basemap tiles |
 | [tippecanoe](https://github.com/felt/tippecanoe) 2.79.0 | BSD-2-Clause | Building the overlay tiles |
 | [node-fontnik](https://github.com/mapbox/node-fontnik) 0.7.7 | BSD-3-Clause | Map label glyphs (SDF PBF) from the bundled fonts |

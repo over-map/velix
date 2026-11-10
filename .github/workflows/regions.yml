@@ -1,0 +1,48 @@
+name: Region catalogue
+
+# Generates pipeline/regions/europe.json and countries.geojson (stages/regions.py): every Velix pack in Europe.
+# Run by hand (about quarterly, so ids stay stable) or on a PR that changes the rules; the result is an artifact
+# to commit in that PR. Big Geofabrik leaves (≈ 12 GB) are split on the runner's /mnt disk.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ["pipeline/stages/regions.py", "pipeline/regions/rules.yml", ".github/workflows/regions.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regions-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  catalogue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scratch space on /mnt
+        run: sudo mkdir -p /mnt/regions && sudo chmod 777 /mnt/regions && df -h /mnt /
+
+      - name: Pipeline unit tests
+        run: make -C pipeline test
+
+      - name: Generate the catalogue
+        run: docker run --rm -v "$PWD:/work" -v /mnt/regions:/scratch -w /work/pipeline velix-pipeline-tools python stages/regions.py /scratch
+
+      - name: Summary
+        if: always()
+        run: cat /mnt/regions/report.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload the catalogue
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: region-catalogue
+          path: |
+            pipeline/regions/europe.json
+            pipeline/regions/countries.geojson
+            /mnt/regions/report.md
+          if-no-files-found: ignore
+          retention-days: 14

@@ -23,13 +23,20 @@ import json
 import osmium
 import shapely
 from pyproj import Transformer
-from shapely.geometry import LineString, Point
+from shapely.geometry import LineString, Point, shape
 from shapely.ops import transform
 
-from common import cobble_class, load_config, log, out_dir, write_json
+from common import cobble_class, load_config, log, out_dir, utm_epsg, write_json
 
+# Metres: the region's UTM zone, set in main() (was fixed at 32N, northern Italy, before M11).
 TO_M = Transformer.from_crs("EPSG:4326", "EPSG:32632", always_xy=True).transform
 TO_LL = Transformer.from_crs("EPSG:32632", "EPSG:4326", always_xy=True).transform
+
+
+def use_utm(epsg: int) -> None:
+    global TO_M, TO_LL
+    TO_M = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg}", always_xy=True).transform
+    TO_LL = Transformer.from_crs(f"EPSG:{epsg}", "EPSG:4326", always_xy=True).transform
 
 ROADS = {"primary", "primary_link", "secondary", "secondary_link", "tertiary", "tertiary_link", "unclassified",
          "residential", "living_street", "service", "trunk", "trunk_link"}
@@ -349,6 +356,8 @@ def write_sqlite(path, features, meta, ways=(), walk_ways=(), signals=()):
 def main():
     cfg = load_config()
     out = out_dir(cfg)
+    centre = shape(json.loads((out / "region.geojson").read_text())["features"][0]["geometry"]).representative_point()
+    use_utm(utm_epsg(centre.x, centre.y))
     c = Collect()
     log("reading OSM")
     c.apply_file(str(out / "region.osm.pbf"), locations=True, idx="flex_mem")

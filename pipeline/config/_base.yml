@@ -1,8 +1,10 @@
 # Shared by every region config (common.load_config merges the region file over this one, key by key).
 osm:
-  # The whole of Italy, so a region's border buffer reaches into its neighbours (nord-ovest alone stopped at Emilia).
+  # Sources: the Geofabrik leaves the region's border + buffer touches, across national borders (`osm.sources`, from
+  # the generated catalogue regions/europe.json). `url` is the fallback for a region not in the catalogue: the whole
+  # of Italy, so a buffer reaches into the neighbouring Italian regions (nord-ovest alone stopped at Emilia).
   url: https://download.geofabrik.de/europe/italy-latest.osm.pbf
-  name: OpenStreetMap (Geofabrik Italy)
+  name: OpenStreetMap (Geofabrik)
   licence: ODbL-1.0
   attribution: "© OpenStreetMap contributors"
 coverage:
