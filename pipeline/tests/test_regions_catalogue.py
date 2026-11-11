@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stages"))
 try:
     from shapely.geometry import box
-    from regions import MB, Region, Unit, assign_ids, group, merge_tiny, name_of, pick_level, slug
+    from regions import MB, Region, Unit, assign_ids, combine, group, merge_tiny, name_of, pick_level, region_timezone, slug
 except ImportError:  # pragma: no cover
     box = None
 
@@ -70,6 +70,7 @@ class Names(unittest.TestCase):
         r = Region(strip(3, [30, 90, 40]))
         self.assertEqual(name_of(r, {}), "Area 1 and around")
         self.assertEqual(name_of(Region(strip(1, [90])), {}), "Area 0")
+        self.assertEqual(name_of(r, {"Area 1 and around": "The Areas"}), "The Areas")
 
     def test_ids_are_slugs_and_get_the_country_when_two_share_a_name(self):
         a = Region([Unit("nl/limburg", "Limburg", "NL", 100 * MB, box(0, 0, 1, 1))])
@@ -92,6 +93,25 @@ class Levels(unittest.TestCase):
     def test_the_first_level_that_covers_the_leaf_wins(self):
         self.assertEqual(pick_level({4: [("a", 100)], 6: [("b", 50), ("c", 40)], 8: [("d", 45), ("e", 45)]}, 100), 6)
         self.assertIsNone(pick_level({4: [("a", 30), ("b", 20)]}, 100))
+
+    def test_two_levels_together_cover_a_leaf_across_two_countries(self):
+        # Ireland's counties at one level, Northern Ireland's districts at another; neither alone holds 80 %.
+        found = {6: [("Cork", box(0, 0, 1, 1), 40), ("Dublin", box(1, 0, 2, 1), 30)],
+                 8: [("Belfast", box(0, 2, 1, 3), 15), ("Derry", box(1, 2, 2, 3), 10), ("Cork city", box(0, 0, 0.5, 0.5), 5)]}
+        self.assertIsNone(pick_level({lv: [(n, b) for n, _, b in a] for lv, a in found.items()}, 100))
+        self.assertEqual(combine(found, 100), [(6, 0), (6, 1), (8, 0), (8, 1)])   # Cork city lies inside Cork
+        self.assertIsNone(combine({6: found[6]}, 100))
+
+
+@unittest.skipIf(box is None, "run in the tools image")
+class TimeZones(unittest.TestCase):
+    def test_a_region_whose_centre_is_sea_gets_its_land_zone(self):
+        from timezonefinder import TimezoneFinder
+        islands = box(8.1, 38.9, 9.8, 41.3).union(box(12.4, 36.6, 15.7, 38.3)).convex_hull   # Sardinia + Sicily
+        tf = TimezoneFinder()
+        c = islands.centroid
+        self.assertIsNone(tf.timezone_at_land(lng=c.x, lat=c.y))                              # the centre is sea
+        self.assertEqual(region_timezone(tf, islands), "Europe/Rome")
 
 
 if __name__ == "__main__":

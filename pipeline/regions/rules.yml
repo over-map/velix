@@ -20,11 +20,16 @@ tiny_mb: 40        # a region below this joins a neighbour of the same country w
 forecast_factor: 1.05
 buffer_km: 10      # coverage past the border: the source leaves are every leaf it touches
 
-# Admin levels tried, in order, to split a big leaf or area (the first that covers ≥ 80 % of it with ≥ 2 areas wins).
+# Admin levels tried, in order, to split a big leaf or area (the first that covers ≥ 80 % of it with ≥ 2 areas wins;
+# else the areas of several levels together, where a leaf spans two countries: Ireland's counties and Northern Ireland's).
 levels: [4, 5, 6, 7, 8]
 
 # Microstates merge like a part of their neighbour.
 join_country: {LI: CH}
+
+# Geofabrik's Ireland extract and border take in Northern Ireland, which the UK's border holds too: Ireland's border
+# loses the UK's part, and each area of the Irish split belongs to the country whose border holds it.
+carve: {IE: [GB]}
 
 # Today's Italian packs keep their ids, names and borders (installed packs keep updating). Matched by the admin
 # area's `name`; never grouped or merged.
@@ -61,3 +66,4 @@ names:
   Islas Baleares: Balearic Islands
   Canarias: Canary Islands
   Isole: Sicily and Sardinia
+  Newry, Mourne and Down District and around: Northern Ireland   # all eleven NI districts, one region

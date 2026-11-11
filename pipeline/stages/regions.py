@@ -117,7 +117,8 @@ def name_of(region: Region, names: dict) -> str:
         return lead.pinned["name"]
     base = names.get(lead.name, lead.name)
     split_parts = [u for u in region.members if "/" in u.key]    # admin areas of a split leaf
-    return f"{base} and around" if len(split_parts) > 1 else base
+    full = f"{base} and around" if len(split_parts) > 1 else base
+    return names.get(full, full)          # an override can name a whole group (Northern Ireland)
 
 
 def assign_ids(regions: list, names: dict) -> list:
@@ -148,7 +149,42 @@ def pick_level(candidates: dict, total: int) -> int | None:
     return None
 
 
+
+def combine(found: dict, total: int):
+    """Areas of several levels that together hold ≥ 80 % of the leaf's bytes, without overlaps: the level holding the
+    most, then each other level's areas that don't overlap those taken. found: {level: [(name, geometry, bytes)]} →
+    [(level, index)] or None. For a leaf across two countries whose areas sit at different levels."""
+    order = sorted(found, key=lambda lv: (-sum(b for _, _, b in found[lv]), lv))
+    taken, held, union = [], 0, None
+    for lv in order:
+        for i, (_, g, b) in enumerate(found[lv]):
+            if union is not None and g.intersection(union).area > 0.05 * g.area:
+                continue
+            taken.append((lv, i))
+            held += b
+            union = g if union is None else union.union(g)
+    return taken if len(taken) >= 2 and held >= 0.8 * total else None
+
 # ---- data (GitHub run) ---------------------------------------------------------------------------------------------
+
+
+def region_timezone(tf, poly, n: int = 7) -> str:
+    """The most common land time zone over an n × n grid of points inside the region. One point isn't enough: Geofabrik's
+    borders take in the sea, and the centre of "isole" (Sicily and Sardinia) fell in it ("Etc/GMT-1", trial of 10 Nov)."""
+    from shapely.geometry import Point
+    x0, y0, x1, y1 = poly.bounds
+    seen = {}
+    for i in range(n):
+        for j in range(n):
+            x, y = x0 + (x1 - x0) * (i + 0.5) / n, y0 + (y1 - y0) * (j + 0.5) / n
+            if poly.contains(Point(x, y)):
+                z = tf.timezone_at_land(lng=x, lat=y)
+                if z:
+                    seen[z] = seen.get(z, 0) + 1
+    if not seen:
+        c = poly.representative_point()
+        return tf.timezone_at_land(lng=c.x, lat=c.y) or tf.timezone_at(lng=c.x, lat=c.y)
+    return max(sorted(seen), key=seen.get)
 
 def fetch_json(url: str, dst: Path):
     if not dst.exists():
@@ -244,18 +280,24 @@ def split(pbf: Path, work: Path, leaf_key: str, country: str, geom, size: int, r
         if pick_level({level: candidates[level]}, size) == level:
             break
     level = pick_level(candidates, size)
-    if level is None:
-        raise SystemExit(f"{leaf_key}: no admin level splits it ({size / MB:.0f} MB)")
-    held = sum(b for _, b in candidates[level])
-    SPLITS.append((leaf_key, level, len(candidates[level]), round(100 * held / size)))
+    if level is not None:
+        chosen = [(level, i) for i in range(len(found[level]))]
+    else:
+        chosen = combine({lv: [(a[0], a[2], s) for a, s in found[lv]] for lv in found}, size)
+        if chosen is None:
+            raise SystemExit(f"{leaf_key}: no admin level splits it ({size / MB:.0f} MB)")
+    held = sum(found[lv][i][1] for lv, i in chosen)
+    label = "+".join(str(lv) for lv in sorted({lv for lv, _ in chosen}))
+    SPLITS.append((leaf_key, label, len(chosen), round(100 * held / size)))
     units = []
-    for idx, ((en, local, g, _), s) in enumerate(found[level]):
+    for lv, idx in chosen:
+        (en, local, g, _), s = found[lv][idx]
         key = f"{leaf_key}/{slug(local)}"
         pin = pinned.get(local)
         if s > rules["single_mb"] * MB and not pin:
             sub = work / f"{slug(local)}.osm.pbf"
-            (work / f"{pbf.stem}.areas{level}" / f"{idx}.osm.pbf").replace(sub)
-            units += split(sub, work, key, country, g, s, rules, level)
+            (work / f"{pbf.stem}.areas{lv}" / f"{idx}.osm.pbf").replace(sub)
+            units += split(sub, work, key, country, g, s, rules, lv)
         else:
             units.append(Unit(key, en, country, s, g, pin))
     return units
@@ -307,6 +349,16 @@ def main(work: Path) -> int:
         units += [Unit(leaf, props[leaf]["name"], country, size, geoms[leaf]) for leaf, size in sized
                   if size <= rules["group_mb"] * MB]
 
+    # Country borders (Geofabrik's), with the carve rule: Ireland's loses Northern Ireland to the UK's.
+    borders = {p["iso3166-1:alpha2"][0]: (cid, geoms[cid]) for cid, p in sorted(props.items())
+               if p.get("parent") == "europe" and p.get("iso3166-1:alpha2") and cid in geoms}
+    for iso_c, others in rules.get("carve", {}).items():
+        cid, g = borders[iso_c]
+        borders[iso_c] = (cid, g.buffer(0).difference(unary_union([borders[o][1] for o in others]).buffer(0)))
+        for u in units:
+            if u.country == iso_c:
+                u.country = next((o for o in others if borders[o][1].contains(u.geom.representative_point())), iso_c)
+
     regions = []
     for country in sorted({u.country for u in units}):
         cu = [u for u in units if u.country == country]
@@ -327,7 +379,7 @@ def main(work: Path) -> int:
         sources = sorted(l for l in all_leaves if geoms[l].intersects(cov))
         simple = transform(to_ll, transform(to_m, poly).simplify(200))
         countries_seen.add(r.lead.country)
-        out.append({"id": rid, "name": name, "country": r.lead.country, "timezone": tf.timezone_at(lng=c.x, lat=c.y),
+        out.append({"id": rid, "name": name, "country": r.lead.country, "timezone": region_timezone(tf, poly),
                     "forecast_mb": round(r.size / MB * rules["forecast_factor"]), "members": [u.key for u in r.members],
                     "sources": sources, "polygon": json.loads(json.dumps(mapping(simple)), parse_float=lambda f: round(float(f), 4))})
     catalogue = {"schema": 1, "generated_from": INDEX_URL, "budget_mb": 320,
@@ -335,13 +387,11 @@ def main(work: Path) -> int:
                  "regions": out}
     (REGIONS / "europe.json").write_text(json.dumps(catalogue, ensure_ascii=False, indent=1) + "\n")
 
-    # Country borders for stages/country_admin.py: every European country Geofabrik knows, simplified.
+    # Country borders for stages/country_admin.py: every European country Geofabrik knows (carved), simplified.
     feats = []
-    for cid, p in sorted(props.items()):
-        if p.get("parent") == "europe" and p.get("iso3166-1:alpha2") and cid in geoms:
-            g = geoms[cid].simplify(0.002)
-            feats.append({"type": "Feature", "properties": {"iso": p["iso3166-1:alpha2"][0], "name": p["name"]},
-                          "geometry": json.loads(json.dumps(mapping(g)), parse_float=lambda f: round(float(f), 4))})
+    for iso_c, (cid, g) in sorted(borders.items(), key=lambda t: t[1][0]):
+        feats.append({"type": "Feature", "properties": {"iso": iso_c, "name": props[cid]["name"]},
+                      "geometry": json.loads(json.dumps(mapping(g.simplify(0.002))), parse_float=lambda f: round(float(f), 4))})
     (REGIONS / "countries.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": feats}) + "\n")
 
     over = [r for r in out if r["forecast_mb"] > catalogue["budget_mb"]]
