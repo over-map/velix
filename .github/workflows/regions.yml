@@ -2,7 +2,8 @@ name: Region catalogue
 
 # Generates pipeline/regions/europe.json and countries.geojson (stages/regions.py): every Velix pack in Europe.
 # Run by hand (about quarterly, so ids stay stable) or on a PR that changes the rules; the result is an artifact
-# to commit in that PR. Big Geofabrik leaves (≈ 12 GB) are split on the runner's /mnt disk.
+# to commit in that PR. One job per country (its big Geofabrik leaves are split on the runner's /mnt disk), then one
+# that groups the areas into regions: one job for all of Europe ran past 5 hours (11 Nov 2026).
 on:
   workflow_dispatch:
   pull_request:
@@ -16,25 +17,65 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  catalogue:
+  countries:
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    outputs:
+      list: ${{ steps.list.outputs.list }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Scratch space on /mnt
-        run: sudo mkdir -p /mnt/regions && sudo chmod 777 /mnt/regions && df -h /mnt /
-
       - name: Pipeline unit tests
         run: make -C pipeline test
+      - id: list
+        name: Countries in scope
+        run: |
+          python3 -m pip install -q pyyaml
+          echo "list=$(python3 -c 'import json, yaml; print(json.dumps(yaml.safe_load(open("pipeline/regions/rules.yml"))["countries"]))')" >> "$GITHUB_OUTPUT"
 
-      - name: Generate the catalogue
-        run: docker run --rm -v "$PWD:/work" -v /mnt/regions:/scratch -w /work/pipeline velix-pipeline-tools python stages/regions.py /scratch
+  units:
+    needs: countries
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      max-parallel: 8          # Geofabrik's fair use: a few downloads at a time
+      matrix:
+        country: ${{ fromJSON(needs.countries.outputs.list) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scratch space on /mnt
+        run: sudo mkdir -p /mnt/regions && sudo chmod 777 /mnt/regions && df -h /mnt /
+      - name: Tools image
+        run: make -C pipeline tools
+      - name: Areas of ${{ matrix.country }}
+        run: |
+          docker run --rm -v "$PWD:/work" -v /mnt/regions:/scratch -w /work/pipeline velix-pipeline-tools \
+            python stages/regions.py units /scratch ${{ matrix.country }} /scratch/units-${{ matrix.country }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: units-${{ matrix.country }}
+          path: /mnt/regions/units-${{ matrix.country }}.json
+          retention-days: 3
 
+  catalogue:
+    needs: units
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: units-*
+          merge-multiple: true
+          path: pipeline/out/units
+      - name: Tools image
+        run: make -C pipeline tools
+      - name: Group into regions
+        run: |
+          mkdir -p pipeline/out/regions
+          docker run --rm -v "$PWD:/work" -w /work/pipeline velix-pipeline-tools \
+            sh -c 'python stages/regions.py catalogue out/regions out/units/*.json'
       - name: Summary
         if: always()
-        run: cat /mnt/regions/report.md >> "$GITHUB_STEP_SUMMARY" || true
-
+        run: cat pipeline/out/regions/report.md >> "$GITHUB_STEP_SUMMARY" || true
       - name: Upload the catalogue
         if: always()
         uses: actions/upload-artifact@v4
@@ -43,6 +84,6 @@ jobs:
           path: |
             pipeline/regions/europe.json
             pipeline/regions/countries.geojson
-            /mnt/regions/report.md
+            pipeline/out/regions/report.md
           if-no-files-found: ignore
           retention-days: 14

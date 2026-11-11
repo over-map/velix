@@ -10,8 +10,8 @@ by hand. Rules in regions/rules.yml:
 Each region lists its source leaves: every Geofabrik leaf its border + buffer_km touches, across national borders,
 so the pipeline (stages/extract.sh) merges them and a trip just over the border plans.
 
-Runs on GitHub (.github/workflows/regions.yml; the countries with big leaves are ≈ 23 GB, one at a time), about quarterly so ids stay stable.
-Usage: python stages/regions.py <work dir> (downloads go there; outputs to pipeline/regions/)."""
+Runs on GitHub (.github/workflows/regions.yml: one job per country, then one for the catalogue), about quarterly so ids
+stay stable. Usage: see main(); downloads go to the work dir, outputs to pipeline/regions/."""
 import json
 import os
 import re
@@ -270,11 +270,25 @@ def split(pbf: Path, work: Path, leaf_key: str, country: str, geom, size: int, r
     pinned = rules.get("pinned", {})
     levels = [lv for lv in rules["levels"] if lv > depth]
     candidates, found = {}, {}
+    # Areas are measured on the leaf, not the whole country: one osmium pass over Scotland's 330 MB, not the UK's 2 GB
+    # (each pass reads the whole file; the UK didn't finish in 3 hours on 11 Nov). A deeper split measures its area's
+    # own extract.
+    src = pbf
+    if depth == 0:
+        from shapely.geometry import mapping
+        src = work / f"{slug(leaf_key)}.leaf.osm.pbf"
+        poly = work / f"{slug(leaf_key)}.leaf.geojson"
+        poly.write_text(json.dumps({"type": "Feature", "geometry": mapping(geom.buffer(0.02)), "properties": {}}))
+        subprocess.run(["osmium", "extract", "-p", str(poly), "-s", "simple", "--overwrite", "-o", str(src), str(pbf)],
+                       check=True)
     for level in levels:
+        t = time.time()
         areas = admin_areas(pbf, work, level, geom)
         if len(areas) < 2:
             continue
-        sizes = measure(pbf, work, areas, level)
+        sizes = measure(src, work, areas, level)
+        print(f"[regions] {leaf_key}: level {level}, {len(areas)} areas, {sum(sizes) / MB:.0f} MB in "
+              f"{time.time() - t:.0f} s", flush=True)
         candidates[level] = [(a[0], s) for a, s in zip(areas, sizes)]
         found[level] = list(zip(areas, sizes))
         if pick_level({level: candidates[level]}, size) == level:
@@ -296,19 +310,16 @@ def split(pbf: Path, work: Path, leaf_key: str, country: str, geom, size: int, r
         pin = pinned.get(local)
         if s > rules["single_mb"] * MB and not pin:
             sub = work / f"{slug(local)}.osm.pbf"
-            (work / f"{pbf.stem}.areas{lv}" / f"{idx}.osm.pbf").replace(sub)
+            (work / f"{src.stem}.areas{lv}" / f"{idx}.osm.pbf").replace(sub)
             units += split(sub, work, key, country, g, s, rules, lv)
         else:
             units.append(Unit(key, en, country, s, g, pin))
     return units
 
 
-def main(work: Path) -> int:
-    from shapely.geometry import mapping, shape
-    from shapely.ops import unary_union, transform
-    from pyproj import Transformer
-    from timezonefinder import TimezoneFinder
-
+def load_index(work: Path):
+    """rules, Geofabrik properties and geometries by id, and leaves(id): the leaf extracts under an entry."""
+    from shapely.geometry import shape
     work.mkdir(parents=True, exist_ok=True)
     rules = yaml.safe_load((REGIONS / "rules.yml").read_text())
     index = fetch_json(INDEX_URL, work / "index-v1.json")["features"]
@@ -322,32 +333,61 @@ def main(work: Path) -> int:
     def leaves(i):
         k = [c for c in kids.get(i, []) if c not in excluded]
         return [x for c in k for x in leaves(c)] if k else [i]
+    return rules, props, geoms, leaves
 
-    if only := os.environ.get("VELIX_REGION_COUNTRIES"):      # a trial on a few countries (local checks)
-        rules["countries"] = only.split(",")
-    iso = {c: props[c]["iso3166-1:alpha2"][0] for c in rules["countries"]}
-    join = rules.get("join_country", {})
+
+def country_units(c: str, work: Path, rules: dict, props: dict, geoms: dict, leaves) -> list:
+    """The Units of one Geofabrik country: its leaves that fit, and the admin areas of the big ones."""
+    iso = props[c]["iso3166-1:alpha2"][0]
+    country = rules.get("join_country", {}).get(iso, iso)
+    units, sized = [], []
+    for leaf in leaves(c):
+        sized.append((leaf, head_size(props[leaf]["urls"]["pbf"])))
+        print(f"[regions] {leaf}: {sized[-1][1] / MB:.0f} MB", flush=True)
+    big = [(leaf, size) for leaf, size in sized if size > rules["group_mb"] * MB]
+    if big:
+        # Admin areas come from the whole country's extract: a leaf cuts the boundaries that cross it (Emilia-Romagna
+        # is incomplete in Geofabrik's nord-est), and osmium can't build an area from an incomplete relation.
+        t = time.time()
+        pbf = download(props[c]["urls"]["pbf"], work / f"{c}.osm.pbf")
+        print(f"[regions] {c}: country extract {pbf.stat().st_size / MB:.0f} MB in {time.time() - t:.0f} s", flush=True)
+        for leaf, size in big:
+            t = time.time()
+            units += split(pbf, work, leaf, country, geoms[leaf], size, rules)
+            print(f"[regions] {leaf}: split in {time.time() - t:.0f} s", flush=True)
+        for f in work.glob("*"):        # disk: a country and its areas are up to ≈ 10 GB
+            if f.is_dir():
+                shutil.rmtree(f)
+            elif f.suffix != ".json":
+                f.unlink()
+    units += [Unit(leaf, props[leaf]["name"], country, size, geoms[leaf]) for leaf, size in sized
+              if size <= rules["group_mb"] * MB]
+    return units
+
+
+def save_units(path: Path, units: list):
+    """One country's Units and splits as JSON (a matrix job's output; the catalogue job joins them)."""
+    from shapely.geometry import mapping
+    path.write_text(json.dumps({"units": [{"key": u.key, "name": u.name, "country": u.country, "size": u.size,
+                                           "pinned": u.pinned, "geom": mapping(u.geom)} for u in units],
+                                "splits": SPLITS}, ensure_ascii=False) + "\n")
+
+
+def load_units(paths: list) -> list:
+    from shapely.geometry import shape
     units = []
-    for c in rules["countries"]:
-        country = join.get(iso[c], iso[c])
-        sized = []
-        for leaf in leaves(c):
-            sized.append((leaf, head_size(props[leaf]["urls"]["pbf"])))
-            print(f"[regions] {leaf}: {sized[-1][1] / MB:.0f} MB", flush=True)
-        big = [(leaf, size) for leaf, size in sized if size > rules["group_mb"] * MB]
-        if big:
-            # Admin areas come from the whole country's extract: a leaf cuts the boundaries that cross it (Emilia-Romagna
-            # is incomplete in Geofabrik's nord-est), and osmium can't build an area from an incomplete relation.
-            pbf = download(props[c]["urls"]["pbf"], work / f"{c}.osm.pbf")
-            for leaf, size in big:
-                units += split(pbf, work, leaf, country, geoms[leaf], size, rules)
-            for f in work.glob("*"):        # disk: a country and its areas are up to ≈ 10 GB
-                if f.is_dir():
-                    shutil.rmtree(f)
-                elif f.suffix != ".json":
-                    f.unlink()
-        units += [Unit(leaf, props[leaf]["name"], country, size, geoms[leaf]) for leaf, size in sized
-                  if size <= rules["group_mb"] * MB]
+    for p in sorted(paths):
+        d = json.loads(Path(p).read_text())
+        units += [Unit(u["key"], u["name"], u["country"], u["size"], shape(u["geom"]), u["pinned"]) for u in d["units"]]
+        SPLITS.extend(tuple(x) for x in d["splits"])
+    return units
+
+
+def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, leaves) -> int:
+    from shapely.geometry import mapping
+    from shapely.ops import transform
+    from pyproj import Transformer
+    from timezonefinder import TimezoneFinder
 
     # Country borders (Geofabrik's), with the carve rule: Ireland's loses Northern Ireland to the UK's.
     borders = {p["iso3166-1:alpha2"][0]: (cid, geoms[cid]) for cid, p in sorted(props.items())
@@ -364,6 +404,7 @@ def main(work: Path) -> int:
         cu = [u for u in units if u.country == country]
         regions += group(cu, rules["group_mb"] * MB)
     regions = merge_tiny(regions, rules["tiny_mb"] * MB, rules["group_mb"] * MB)
+    print(f"[regions] {len(units)} units → {len(regions)} regions", flush=True)
 
     # Source leaves: every leaf in Europe (scope or not) that the region's border + buffer touches.
     all_leaves = [l for l in leaves("europe") if l in geoms]
@@ -414,5 +455,26 @@ def main(work: Path) -> int:
     return 1 if over else 0
 
 
+def main(argv: list) -> int:
+    """regions.py units <work> <country> <out.json>: one country's Units (a GitHub matrix job);
+    regions.py catalogue <work> <units.json …>: the catalogue from them;
+    regions.py <work>: both, for every country in scope (or VELIX_REGION_COUNTRIES, for a local trial)."""
+    if argv and argv[0] == "units":
+        work, c, out = Path(argv[1]), argv[2], Path(argv[3])
+        rules, props, geoms, leaves = load_index(work)
+        save_units(out, country_units(c, work, rules, props, geoms, leaves))
+        return 0
+    if argv and argv[0] == "catalogue":
+        work = Path(argv[1])
+        rules, props, geoms, leaves = load_index(work)
+        return catalogue(work, load_units(argv[2:]), rules, props, geoms, leaves)
+    work = Path(argv[0]) if argv else Path("/tmp/velix-regions")
+    rules, props, geoms, leaves = load_index(work)
+    countries = os.environ["VELIX_REGION_COUNTRIES"].split(",") if os.environ.get("VELIX_REGION_COUNTRIES") \
+        else rules["countries"]
+    units = [u for c in countries for u in country_units(c, work, rules, props, geoms, leaves)]
+    return catalogue(work, units, rules, props, geoms, leaves)
+
+
 if __name__ == "__main__":
-    sys.exit(main(Path(sys.argv[1]) if len(sys.argv) > 1 else Path("/tmp/velix-regions")))
+    sys.exit(main(sys.argv[1:]))
