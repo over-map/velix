@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stages"))
 try:
     from shapely.geometry import box
-    from regions import MB, Region, Unit, assign_ids, combine, group, merge_tiny, name_of, pick_level, region_timezone, slug
+    from regions import MB, Region, Unit, assign_ids, clean, combine, group, merge_tiny, name_of, pick_level, region_timezone, slug
 except ImportError:  # pragma: no cover
     box = None
 
@@ -86,6 +86,14 @@ class Names(unittest.TestCase):
     def test_slug(self):
         self.assertEqual(slug("Provence-Alpes-Côte d'Azur"), "provence-alpes-cote-d-azur")
         self.assertEqual(slug("Trentino-Alto Adige/Südtirol"), "trentino-alto-adige-sudtirol")
+        self.assertEqual(slug("Østfold"), "ostfold")
+        self.assertEqual(slug("Województwo łódzkie"), "wojewodztwo-lodzkie")
+        self.assertEqual(slug("Αττική"), "")                  # hence the English name or OSM id in unit keys
+
+    def test_geofabrik_html_names(self):
+        self.assertEqual(clean("Sørlandet<br />(Southern Norway)"), "Southern Norway")
+        self.assertEqual(clean("Województwo pomorskie<br />(Pomeranian Voivodeship)"), "Pomeranian Voivodeship")
+        self.assertEqual(clean("Bayern"), "Bayern")
 
 
 @unittest.skipIf(box is None, "run in the tools image")

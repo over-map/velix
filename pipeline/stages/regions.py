@@ -61,20 +61,41 @@ class Region:
 
 # ---- pure rules (unit-tested) ---------------------------------------------------------------------------------------
 
+LETTERS = str.maketrans({"ø": "o", "Ø": "O", "æ": "ae", "Æ": "Ae", "å": "a", "Å": "A", "ß": "ss", "ł": "l", "Ł": "L",
+                         "đ": "d", "Đ": "D", "þ": "th", "Þ": "Th", "œ": "oe", "Œ": "Oe", "ð": "d"})
+
+
 def slug(name: str) -> str:
-    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
+    """ASCII id; letters that NFKD doesn't decompose are spelled out (Østfold → ostfold, not stfold)."""
+    s = unicodedata.normalize("NFKD", name.translate(LETTERS)).encode("ascii", "ignore").decode().lower()
     return re.sub(r"[^a-z0-9]+", "-", s).strip("-")
 
 
-def touches(a: Unit, b: Unit) -> bool:
-    return a.geom.buffer(0.002).intersects(b.geom)
+def neighbours(units: list) -> dict:
+    """key → keys of the units it touches (within ≈ 200 m), computed once with a spatial index: testing pairs inside
+    the grouping loop re-buffered full-resolution borders and never finished for Slovenia's 221 municipalities (11 Nov)."""
+    from shapely.strtree import STRtree
+    from shapely.prepared import prep
+    grown = [u.geom.buffer(0.002) for u in units]
+    tree = STRtree([u.geom for u in units])
+    out = {u.key: set() for u in units}
+    for i, g in enumerate(grown):
+        pg = prep(g)
+        for j in tree.query(g):
+            j = int(j)
+            if j != i and pg.intersects(units[j].geom):
+                out[units[i].key].add(units[j].key)
+                out[units[j].key].add(units[i].key)
+    return out
 
 
 def group(units: list, limit: int) -> list:
     """Neighbouring units grouped up to `limit` bytes, deterministically: the largest free unit starts a group, which
     takes the free neighbour nearest its centre (compact groups: the largest-first rule made "Bern" reach Ticino) that
-    still fits, until none does. Pinned units stay alone."""
+    still fits, until none does. Pinned units stay alone. The centre is the members' area-weighted centroid."""
     free = sorted(units, key=lambda u: (-u.size, u.key))
+    nb = neighbours(units)
+    cen = {u.key: (u.geom.centroid, u.geom.area) for u in units}
     taken, out = set(), []
     for u in free:
         if u.key in taken:
@@ -82,15 +103,19 @@ def group(units: list, limit: int) -> list:
         taken.add(u.key)
         g = Region([u])
         if not u.pinned:
+            near = set(nb[u.key])
             while True:
-                fits = [v for v in free if v.key not in taken and not v.pinned and g.size + v.size <= limit
-                        and any(touches(v, m) for m in g.members)]
+                fits = [v for v in free if v.key in near and v.key not in taken and not v.pinned
+                        and g.size + v.size <= limit]
                 if not fits:
                     break
-                centre = unary_union([m.geom for m in g.members]).centroid
-                v = min(fits, key=lambda v: (v.geom.centroid.distance(centre), v.key))
+                w = sum(cen[m.key][1] for m in g.members) or 1.0
+                cx = sum(cen[m.key][0].x * cen[m.key][1] for m in g.members) / w
+                cy = sum(cen[m.key][0].y * cen[m.key][1] for m in g.members) / w
+                v = min(fits, key=lambda v: ((cen[v.key][0].x - cx) ** 2 + (cen[v.key][0].y - cy) ** 2, v.key))
                 taken.add(v.key)
                 g.members.append(v)
+                near |= nb[v.key]
         out.append(g)
     return out
 
@@ -99,11 +124,13 @@ def merge_tiny(regions: list, tiny: int, limit: int) -> list:
     """A region under `tiny` bytes joins its smallest neighbour of the same country when the sum stays ≤ `limit`
     (never a pinned one); the smallest go first."""
     regions = list(regions)
+    nb = neighbours([u for r in regions for u in r.members])
     for r in sorted(regions, key=lambda r: (r.size, r.lead.key)):
         if r not in regions or r.size >= tiny or any(u.pinned for u in r.members):
             continue
+        near = set().union(*(nb[u.key] for u in r.members))
         hosts = [h for h in regions if h is not r and h.lead.country == r.lead.country and not any(u.pinned for u in h.members)
-                 and h.size + r.size <= limit and any(touches(a, b) for a in h.members for b in r.members)]
+                 and h.size + r.size <= limit and any(u.key in near for u in h.members)]
         if hosts:
             host = min(hosts, key=lambda h: (h.size, h.lead.key))
             host.members.extend(r.members)
@@ -111,11 +138,17 @@ def merge_tiny(regions: list, tiny: int, limit: int) -> list:
     return regions
 
 
+def clean(name: str) -> str:
+    """Geofabrik writes some names as HTML, local then English: "Sørlandet<br />(Southern Norway)" → Southern Norway."""
+    m = re.match(r"^(.*?)<br\s*/?>\s*\((.*)\)\s*$", name)
+    return m.group(2).strip() if m else re.sub(r"<[^>]+>", " ", name).strip()
+
+
 def name_of(region: Region, names: dict) -> str:
     lead = region.lead
     if lead.pinned:
         return lead.pinned["name"]
-    base = names.get(lead.name, lead.name)
+    base = names.get(lead.name, clean(lead.name))
     split_parts = [u for u in region.members if "/" in u.key]    # admin areas of a split leaf
     full = f"{base} and around" if len(split_parts) > 1 else base
     return names.get(full, full)          # an override can name a whole group (Northern Ireland)
@@ -305,11 +338,13 @@ def split(pbf: Path, work: Path, leaf_key: str, country: str, geom, size: int, r
     SPLITS.append((leaf_key, label, len(chosen), round(100 * held / size)))
     units = []
     for lv, idx in chosen:
-        (en, local, g, _), s = found[lv][idx]
-        key = f"{leaf_key}/{slug(local)}"
+        (en, local, g, osm_id), s = found[lv][idx]
+        # Greek and Cyrillic names slug to nothing: the English name, else the OSM id (all seven Greek areas were
+        # one key on 11 Nov, and six were lost).
+        key = f"{leaf_key}/{slug(local) or slug(en) or str(osm_id).replace('/', '')}"
         pin = pinned.get(local)
         if s > rules["single_mb"] * MB and not pin:
-            sub = work / f"{slug(local)}.osm.pbf"
+            sub = work / f"{slug(key)}.osm.pbf"
             (work / f"{src.stem}.areas{lv}" / f"{idx}.osm.pbf").replace(sub)
             units += split(sub, work, key, country, g, s, rules, lv)
         else:
@@ -399,11 +434,16 @@ def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, le
             if u.country == iso_c:
                 u.country = next((o for o in others if borders[o][1].contains(u.geom.representative_point())), iso_c)
 
+    dup = sorted({u.key for u in units if sum(v.key == u.key for v in units) > 1})
+    if dup:   # a repeated key merges areas silently (Greece, 11 Nov)
+        raise SystemExit(f"units share keys: {dup}")
     regions = []
     for country in sorted({u.country for u in units}):
         cu = [u for u in units if u.country == country]
         regions += group(cu, rules["group_mb"] * MB)
-    regions = merge_tiny(regions, rules["tiny_mb"] * MB, rules["group_mb"] * MB)
+    # A tiny region may fill its host up to single_mb (forecast ≤ 315 MB): Piran (2 MB) and Cochem-Zell (10 MB) were
+    # left alone beside full 260 MB groups.
+    regions = merge_tiny(regions, rules["tiny_mb"] * MB, rules["single_mb"] * MB)
     print(f"[regions] {len(units)} units → {len(regions)} regions", flush=True)
 
     # Source leaves: every leaf in Europe (scope or not) that the region's border + buffer touches.
@@ -416,11 +456,13 @@ def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, le
         zone = 32600 + int((c.x + 180) // 6) + 1 if c.y >= 0 else 32700 + int((c.x + 180) // 6) + 1
         to_m = Transformer.from_crs(4326, zone, always_xy=True).transform
         to_ll = Transformer.from_crs(zone, 4326, always_xy=True).transform
-        cov = transform(to_ll, transform(to_m, poly).buffer(rules["buffer_km"] * 1000, resolution=4))
+        # Simplified (200 m) before the buffer: buffering full-resolution borders took minutes per region.
+        m = transform(to_m, poly).simplify(200)
+        cov = transform(to_ll, m.buffer(rules["buffer_km"] * 1000, resolution=4))
         sources = sorted(l for l in all_leaves if geoms[l].intersects(cov))
-        simple = transform(to_ll, transform(to_m, poly).simplify(200))
+        simple = transform(to_ll, m)
         countries_seen.add(r.lead.country)
-        out.append({"id": rid, "name": name, "country": r.lead.country, "timezone": region_timezone(tf, poly),
+        out.append({"id": rid, "name": name, "country": r.lead.country, "timezone": region_timezone(tf, simple),
                     "forecast_mb": round(r.size / MB * rules["forecast_factor"]), "members": [u.key for u in r.members],
                     "sources": sources, "polygon": json.loads(json.dumps(mapping(simple)), parse_float=lambda f: round(float(f), 4))})
     catalogue = {"schema": 1, "generated_from": INDEX_URL, "budget_mb": 320,

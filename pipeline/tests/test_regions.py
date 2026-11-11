@@ -78,7 +78,7 @@ class Europe(unittest.TestCase):
             self.assertEqual(c["region"]["name"], r["name"] if not (PIPELINE / "config" / f"{r['id']}.yml").exists()
                              else c["region"]["name"])
             self.assertTrue(c["osm"]["sources"] and all(u.startswith("https://download.geofabrik.de/") for u in c["osm"]["sources"]))
-            self.assertTrue(c["region"]["timezone"].startswith(("Europe/", "Atlantic/", "Africa/")), r["id"])
+            self.assertTrue(c["region"]["timezone"].startswith(("Europe/", "Atlantic/", "Arctic/")) or c["region"]["timezone"] == "Asia/Nicosia", r["id"])
             self.assertLessEqual(r["forecast_mb"], 320, r["id"])
 
 

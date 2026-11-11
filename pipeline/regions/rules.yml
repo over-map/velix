@@ -16,7 +16,7 @@ exclude: [bermuda, falklands, alps, dach, britain-and-ireland, great-britain, gu
 # Sizes are OSM extract bytes; a pack is ≈ 1.0–1.1 × its extract (Lombardy 297 MB → 299 MB, Piemonte 202 → 223).
 group_mb: 260      # a leaf above this is split into admin areas, and areas are grouped up to it
 single_mb: 300     # one admin area is kept whole up to this (Lombardy), else split at the next level
-tiny_mb: 40        # a region below this joins a neighbour of the same country when the sum stays ≤ group_mb
+tiny_mb: 40        # a region below this joins a neighbour of the same country when the sum stays ≤ single_mb
 forecast_factor: 1.05
 buffer_km: 10      # coverage past the border: the source leaves are every leaf it touches
 
