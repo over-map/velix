@@ -120,6 +120,15 @@ def group(units: list, limit: int) -> list:
     return out
 
 
+def group_by_leaf(units: list, limit: int) -> list:
+    """group() inside each leaf and country: a leaf that fits stays one region, and a split leaf's areas group among
+    themselves. Grouping across leaves put the city of Paris in "Picardie and around" (12 Nov)."""
+    out = []
+    for country, leaf in sorted({(u.country, u.key.split("/")[0]) for u in units}):
+        out += group([u for u in units if u.country == country and u.key.split("/")[0] == leaf], limit)
+    return out
+
+
 def merge_tiny(regions: list, tiny: int, limit: int) -> list:
     """A region under `tiny` bytes joins its smallest neighbour of the same country when the sum stays ≤ `limit`
     (never a pinned one); the smallest go first."""
@@ -437,10 +446,9 @@ def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, le
     dup = sorted({u.key for u in units if sum(v.key == u.key for v in units) > 1})
     if dup:   # a repeated key merges areas silently (Greece, 11 Nov)
         raise SystemExit(f"units share keys: {dup}")
-    regions = []
-    for country in sorted({u.country for u in units}):
-        cu = [u for u in units if u.country == country]
-        regions += group(cu, rules["group_mb"] * MB)
+    # A leaf that fits is one region; the areas of a split leaf group among themselves (within one country). Grouping
+    # across leaves put the city of Paris in "Picardie and around" and spread Île-de-France over three packs (12 Nov).
+    regions = group_by_leaf(units, rules["group_mb"] * MB)
     # A tiny region may fill its host up to single_mb (forecast ≤ 315 MB): Piran (2 MB) and Cochem-Zell (10 MB) were
     # left alone beside full 260 MB groups.
     regions = merge_tiny(regions, rules["tiny_mb"] * MB, rules["single_mb"] * MB)

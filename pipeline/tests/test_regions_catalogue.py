@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stages"))
 try:
     from shapely.geometry import box
-    from regions import MB, Region, Unit, assign_ids, clean, combine, group, merge_tiny, name_of, pick_level, region_timezone, slug
+    from regions import MB, Region, Unit, assign_ids, clean, combine, group, group_by_leaf, merge_tiny, name_of, pick_level, region_timezone, slug
 except ImportError:  # pragma: no cover
     box = None
 
@@ -34,6 +34,14 @@ class Grouping(unittest.TestCase):
         units[0].pinned = {"id": "lombardy", "name": "Lombardy"}
         g = group(units, 260 * MB)
         self.assertEqual([len(r.members) for r in sorted(g, key=lambda r: -r.size)], [1, 2])
+
+    def test_areas_group_only_inside_their_leaf(self):
+        # Paris's areas and a whole neighbouring leaf: the leaf stays alone even though it touches and would fit.
+        units = strip(3, [100, 60, 50], leaf="ile-de-france")
+        units.append(Unit("picardie", "Picardie", "XX", 40 * MB, box(3, 0, 4, 1)))
+        g = group_by_leaf(units, 260 * MB)
+        self.assertEqual(sorted(sorted(u.key for u in r.members) for r in g),
+                         [["ile-de-france/a0", "ile-de-france/a1", "ile-de-france/a2"], ["picardie"]])
 
     def test_grouping_is_deterministic(self):
         a = [[u.key for u in r.members] for r in group(strip(6, [50] * 6), 260 * MB)]
