@@ -74,6 +74,7 @@ validate: tools
 	$(TOOLS) python stages/validate.py
 
 smoke: tools
+	$(TOOLS) python stages/smoke_trips.py
 	$(VALHALLA) bash stages/smoke_routes.sh
 	$(TOOLS) python stages/smoke.py
 

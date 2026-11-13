@@ -5,7 +5,7 @@ import json
 import sqlite3
 import sys
 
-from common import PIPELINE, load_config, log, out_dir
+from common import load_config, log, out_dir
 
 # Every pack: these basemap layers have data.
 LAYERS = ("transportation", "building", "landcover", "water", "poi", "transportation_name", "place")
@@ -19,10 +19,11 @@ def near(db, table, lat, lon, metres, where="1"):
         (lon + d, lon - d, lat + d, lat - d)).fetchone()[0]
 
 
-def trips(region: str) -> dict[str, tuple[float, float]]:
-    """trip id → (min km, max km) with the City profile, from config/smoke_trips/<region>.txt (id|from|to|min|max)."""
+def trips(out_dir_: "Path") -> dict[str, tuple[float, float]]:
+    """trip id → (min km, max km) with the City profile, from out/<region>/smoke_trips.txt (id|from|to|min|max):
+    config/smoke_trips/<region>.txt, else a generic trip (stages/smoke_trips.py)."""
     out = {}
-    for line in (PIPELINE / "config" / "smoke_trips" / f"{region}.txt").read_text().splitlines():
+    for line in (out_dir_ / "smoke_trips.txt").read_text().splitlines():
         if line.strip():
             trip, _, _, lo, hi = line.split("|")
             out[trip] = (float(lo), float(hi))
@@ -40,7 +41,7 @@ def main() -> int:
         if not ok:
             fails.append(msg)
 
-    for trip, (lo, hi) in trips(cfg["region"]["id"]).items():
+    for trip, (lo, hi) in trips(out).items():
         r = json.loads((out / "smoke" / f"{trip}.json").read_text())
         km = r.get("trip", {}).get("summary", {}).get("length")
         check(km is not None and lo <= km <= hi, f"route {trip}: {km} km (expected {lo}–{hi})")

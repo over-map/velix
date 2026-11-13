@@ -19,13 +19,40 @@ def merge(base: dict, over: dict) -> dict:
     return out
 
 
+def catalogue_entry(region: str) -> dict | None:
+    """The region's entry in the generated catalogue (regions/europe.json, stages/regions.py), with its source leaves'
+    download URLs, or None."""
+    path = PIPELINE / "regions" / "europe.json"
+    if not path.exists():
+        return None
+    cat = json.loads(path.read_text())
+    entry = next((r for r in cat["regions"] if r["id"] == region), None)
+    return dict(entry, source_urls=[cat["leaves"][leaf] for leaf in entry["sources"]]) if entry else None
+
+
 def load_config(region: str | None = None) -> dict:
-    """config/<region>.yml over config/_base.yml (what every region shares)."""
+    """config/_base.yml (what every region shares), then the region's catalogue entry (generated), then
+    config/<region>.yml when one exists (hand-written: Italy's timetables, smoke checks, pinned borders)."""
     region = region or os.environ.get("REGION", "lombardy")
     with open(PIPELINE / "config" / "_base.yml") as f:
-        base = yaml.safe_load(f)
-    with open(PIPELINE / "config" / f"{region}.yml") as f:
-        return merge(base, yaml.safe_load(f))
+        cfg = yaml.safe_load(f)
+    entry = catalogue_entry(region)
+    if entry:
+        cfg = merge(cfg, {"region": {"id": entry["id"], "name": entry["name"], "timezone": entry["timezone"],
+                                     "country": {"iso": entry["country"]}},
+                          "osm": {"sources": entry["source_urls"]}})
+    hand = PIPELINE / "config" / f"{region}.yml"
+    if hand.exists():
+        with open(hand) as f:
+            cfg = merge(cfg, yaml.safe_load(f))
+    elif not entry:
+        raise SystemExit(f"unknown region {region!r}: not in regions/europe.json and no config/{region}.yml")
+    return cfg
+
+
+def utm_epsg(lon: float, lat: float) -> int:
+    """WGS 84 / UTM zone of a point (metres for buffers and lengths): Lisbon 32629, Milan 32632, Helsinki 32635."""
+    return (32600 if lat >= 0 else 32700) + int((lon + 180) // 6) % 60 + 1
 
 
 def out_dir(cfg: dict) -> Path:

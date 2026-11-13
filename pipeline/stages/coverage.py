@@ -9,21 +9,27 @@ from pyproj import Transformer
 from shapely.geometry import mapping, shape
 from shapely.ops import transform
 
-from common import load_config, log, out_dir, write_json
+from common import load_config, log, out_dir, utm_epsg, write_json
 
-UTM = 32632   # WGS 84 / UTM 32N: metres across northern Italy
+
+def utm(geom) -> int:
+    """The UTM zone of the geometry's centre (was fixed at 32N, northern Italy, before M11)."""
+    c = geom.representative_point()
+    return utm_epsg(c.x, c.y)
 
 
 def grow(geom, km: float):
-    to_m = Transformer.from_crs(4326, UTM, always_xy=True).transform
-    to_ll = Transformer.from_crs(UTM, 4326, always_xy=True).transform
+    zone = utm(geom)
+    to_m = Transformer.from_crs(4326, zone, always_xy=True).transform
+    to_ll = Transformer.from_crs(zone, 4326, always_xy=True).transform
     return transform(to_ll, transform(to_m, geom).buffer(km * 1000, resolution=8).simplify(100))
 
 
 def manifest_polygon(geom, tolerance_m: float) -> list:
     """A small GeoJSON MultiPolygon coordinate list for the app's point-in-region test (coordinates to 5 decimals)."""
-    to_m = Transformer.from_crs(4326, UTM, always_xy=True).transform
-    to_ll = Transformer.from_crs(UTM, 4326, always_xy=True).transform
+    zone = utm(geom)
+    to_m = Transformer.from_crs(4326, zone, always_xy=True).transform
+    to_ll = Transformer.from_crs(zone, 4326, always_xy=True).transform
     g = transform(to_ll, transform(to_m, geom).simplify(tolerance_m))
     polys = [g] if g.geom_type == "Polygon" else list(g.geoms)
 

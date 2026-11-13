@@ -8,5 +8,5 @@ while IFS='|' read -r id a b _; do
   [ -z "$id" ] && continue
   REQ="{\"locations\":[{\"lat\":${a%,*},\"lon\":${a#*,}},{\"lat\":${b%,*},\"lon\":${b#*,}}],\"costing\":\"bicycle\",\"costing_options\":$OPTS,\"units\":\"km\"}"
   valhalla_service "$OUT/valhalla.json" route "$REQ" 2>/dev/null > "$OUT/smoke/$id.json" || echo '{"error":"no route"}' > "$OUT/smoke/$id.json"
-done < "/work/pipeline/config/smoke_trips/${REGION:-lombardy}.txt"
+done < "$OUT/smoke_trips.txt"   # stages/smoke_trips.py: the hand-written trips, else a generic one
 ls "$OUT/smoke"

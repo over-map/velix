@@ -1,0 +1,70 @@
+# Rules for the generated region catalogue (stages/regions.py → regions/europe.json). Filippo, 8–9 Nov 2026: packs for
+# the EU, EFTA and the UK, generated, each under the 320 MB budget.
+
+# Countries in scope, by Geofabrik id (their leaf extracts become the packs).
+countries: [austria, belgium, bulgaria, croatia, cyprus, czech-republic, denmark, estonia, finland, france, germany,
+            greece, hungary, ireland-and-northern-ireland, italy, latvia, lithuania, luxembourg, malta, netherlands,
+            poland, portugal, romania, slovakia, slovenia, spain, sweden, iceland, liechtenstein, norway, switzerland,
+            united-kingdom]
+
+# Geofabrik entries that are not regions of these countries: overseas territories, and aggregates that overlap leaves.
+# Berlin and Bremen are also inside Geofabrik's Brandenburg and Niedersachsen extracts ("mit Berlin", "mit Bremen"):
+# they come out of those leaves' split instead.
+exclude: [bermuda, falklands, alps, dach, britain-and-ireland, great-britain, guernsey-jersey, isle-of-man, faroe-islands,
+          guadeloupe, guyane, martinique, mayotte, reunion, ceuta, melilla, berlin, bremen]
+
+# Sizes are OSM extract bytes; a pack is ≈ 1.0–1.1 × its extract (Lombardy 297 MB → 299 MB, Piemonte 202 → 223).
+group_mb: 260      # a leaf above this is split into admin areas, and areas are grouped up to it
+single_mb: 300     # one admin area is kept whole up to this (Lombardy), else split at the next level
+tiny_mb: 40        # a region below this joins a neighbour of the same country when the sum stays ≤ single_mb
+forecast_factor: 1.05
+buffer_km: 10      # coverage past the border: the source leaves are every leaf it touches
+
+# Admin levels tried, in order, to split a big leaf or area (the first that covers ≥ 80 % of it with ≥ 2 areas wins;
+# else the areas of several levels together, where a leaf spans two countries: Ireland's counties and Northern Ireland's).
+levels: [4, 5, 6, 7, 8]
+
+# Microstates merge like a part of their neighbour.
+join_country: {LI: CH}
+
+# Geofabrik's Ireland extract and border take in Northern Ireland, which the UK's border holds too: Ireland's border
+# loses the UK's part, and each area of the Irish split belongs to the country whose border holds it.
+carve: {IE: [GB]}
+
+# Today's Italian packs keep their ids, names and borders (installed packs keep updating). Matched by the admin
+# area's `name`; never grouped or merged.
+pinned:
+  Lombardia: {id: lombardy, name: Lombardy}
+  Piemonte: {id: piemonte, name: Piedmont}
+  Veneto: {id: veneto, name: Veneto}
+  Emilia-Romagna: {id: emilia-romagna, name: Emilia-Romagna}
+  Trentino-Alto Adige/Südtirol: {id: trentino-alto-adige, name: Trentino-South Tyrol}
+
+# English names where Geofabrik or OSM give the local one.
+names:
+  Bayern: Bavaria
+  Niedersachsen (mit Bremen): Lower Saxony
+  Brandenburg (mit Berlin): Brandenburg
+  Nordrhein-Westfalen: North Rhine-Westphalia
+  Rheinland-Pfalz: Rhineland-Palatinate
+  Sachsen: Saxony
+  Sachsen-Anhalt: Saxony-Anhalt
+  Thüringen: Thuringia
+  Hessen: Hesse
+  Mecklenburg-Vorpommern: Mecklenburg-Western Pomerania
+  Ile-de-France: Île-de-France
+  Rhone-Alpes: Rhône-Alpes
+  Midi-Pyrenees: Midi-Pyrénées
+  Franche Comte: Franche-Comté
+  Champagne Ardenne: Champagne-Ardenne
+  "Provence Alpes-Cote-d'Azur": "Provence-Alpes-Côte d'Azur"
+  Cataluña: Catalonia
+  Andalucía: Andalusia
+  Castilla y León: Castile and León
+  Castilla-La Mancha: Castile-La Mancha
+  País Vasco: Basque Country
+  Islas Baleares: Balearic Islands
+  Canarias: Canary Islands
+  Isole: Sicily and Sardinia
+  Seine-et-Marne and around: Paris and around   # Paris, its inner suburbs, Essonne and Seine-et-Marne
+  Newry, Mourne and Down District and around: Northern Ireland   # all eleven NI districts, one region
