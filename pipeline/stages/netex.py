@@ -18,6 +18,8 @@ import datetime as dt
 import gzip
 import io
 import re
+import http.client
+import time
 import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
@@ -32,7 +34,16 @@ NAP = "https://www.cciss.it/nap/mmtis/public"
 def nap_asset_url(dataset: int, asset: str) -> str:
     """The download URL of the dataset's asset whose name contains `asset` (asset ids change when a file is replaced)."""
     req = urllib.request.Request(f"{NAP}/en/catalog/Dataset/{dataset}", headers={"User-Agent": "Velix pipeline"})
-    html = urllib.request.urlopen(req, timeout=60).read().decode("utf-8", "replace")
+    # The NAP cuts responses off mid-way, the dataset page too (Lombardy, CI 12 Nov): retried like the downloads.
+    for attempt in range(1, 9):
+        try:
+            html = urllib.request.urlopen(req, timeout=60).read().decode("utf-8", "replace")
+            break
+        except (OSError, http.client.HTTPException) as e:
+            if attempt == 8:
+                raise
+            print(f"[transit] NAP dataset {dataset} page failed ({e!r}), retrying ({attempt}/7)", flush=True)
+            time.sleep(min(120, 30 * attempt))
     found = [(i, n) for i, n in re.findall(r'catalog/Asset/(\d+)">([^<]+)<', html) if asset.lower() in n.lower()]
     if len(found) != 1:
         raise RuntimeError(f"NAP dataset {dataset}: {len(found)} assets match {asset!r}: {found}")
