@@ -16,6 +16,8 @@
     "bbox": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
     "polygon_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "polygon": {"$ref": "#/$defs/multipolygon", "description": "The region border, simplified (250 m)"},
+    "outline": {"$ref": "#/$defs/multipolygon", "description": "The index's outline: border grown 3 km, simplified 1.5 km, outer rings"},
+    "country": {"type": "string", "pattern": "^[A-Z]{2}$", "description": "ISO 3166-1 alpha-2 of the region's country"},
     "coverage": {
       "type": "object", "additionalProperties": false, "required": ["buffer_km", "bbox", "polygon"],
       "description": "Where the pack's routing, hazards, routes and timetable reach: the border plus buffer_km",
