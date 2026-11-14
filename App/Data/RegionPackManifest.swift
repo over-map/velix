@@ -72,6 +72,8 @@ enum RegionPackError: Error, Equatable, CustomStringConvertible {
     case sizeMismatch(String)
     case missingFile(String)
     case decompression(String)
+    /// No signature, or one that doesn't match the pack key (``PackSignature``).
+    case unsigned(String)
 
     var description: String {
         switch self {
@@ -80,6 +82,7 @@ enum RegionPackError: Error, Equatable, CustomStringConvertible {
         case let .sizeMismatch(f): "Unexpected size for \(f)"
         case let .missingFile(f): "Region pack has no \(f)"
         case let .decompression(f): "Could not unpack \(f)"
+        case let .unsigned(f): "\(f) is not signed by Velix"
         }
     }
 }

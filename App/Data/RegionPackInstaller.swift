@@ -93,31 +93,80 @@ struct InstalledRegionPack: Equatable, Sendable {
     }
 }
 
-/// Installs a region pack: download each asset → check sha256 → unpack xz → check unpacked sha256,
-/// all in `staging/<version>/`; then switch `current` to the new version and remove the old one.
+/// Installs a region pack: download the manifest and its signature → check the signature (``PackSignature``) →
+/// download each asset → check sha256 → unpack xz → check unpacked sha256, all in `staging/<version>/`; then switch
+/// `current` to the new version and remove the old one. Every download tries the mirrors in order.
 /// A failure at any step leaves the installed pack untouched. Finished files stay in staging and an interrupted
 /// download keeps its resume data, so the next attempt picks up where this one stopped.
 struct RegionPackInstaller: Sendable {
     let root: URL
     let downloader: PackDownloading
+    let key: Curve25519.Signing.PublicKey?
 
-    init(root: URL = RegionPack.root(RegionPack.active), downloader: PackDownloading = URLSessionPackDownloader()) {
+    init(root: URL = RegionPack.root(RegionPack.active), downloader: PackDownloading = URLSessionPackDownloader(),
+         key: Curve25519.Signing.PublicKey? = PackSignature.velix) {
         self.root = root
         self.downloader = downloader
+        self.key = key
     }
 
-    /// - Parameter manifest: URL of `manifest.json`; assets are fetched from the same folder (release download URL).
+    /// The release folders to try, in order: the manifest's own, then `<mirror><tag>/` for each mirror.
+    static func folders(manifest: URL, mirrors: [URL]) -> [URL] {
+        let own = manifest.deletingLastPathComponent()
+        let tag = own.lastPathComponent
+        var out = [own]
+        for m in mirrors {
+            let f = m.appending(path: tag, directoryHint: .isDirectory)
+            if !out.contains(where: { $0.absoluteString.trimmingSuffix("/") == f.absoluteString.trimmingSuffix("/") }) {
+                out.append(f)
+            }
+        }
+        return out
+    }
+
+    /// Downloads `name` from the first folder that serves it; rethrows the last folder's error.
+    private func download(_ name: String, from folders: [URL], to destination: URL,
+                          progress: @escaping @Sendable (Int64) -> Void) async throws {
+        var last: Error = URLError(.badURL)
+        for folder in folders {
+            do {
+                try await downloader.download(folder.appending(path: name), to: destination, progress: progress)
+                return
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                if Task.isCancelled { throw error }
+                last = error
+            }
+        }
+        throw last
+    }
+
+    /// - Parameters:
+    ///   - manifest: URL of `manifest.json` (release download URL); its signature is `manifest.json.sig` beside it.
+    ///   - mirrors: other hosts of the same releases (the index's `mirrors`), tried after the manifest's own folder.
     @discardableResult
-    func install(manifest manifestURL: URL, progress: @escaping @Sendable (Double) -> Void = { _ in })
+    func install(manifest manifestURL: URL, mirrors: [URL] = [], progress: @escaping @Sendable (Double) -> Void = { _ in })
         async throws -> InstalledRegionPack
     {
         let fm = FileManager.default
         let stagingRoot = root.appending(path: "staging", directoryHint: .isDirectory)
         try fm.createDirectory(at: stagingRoot, withIntermediateDirectories: true)
-        let manifestFile = stagingRoot.appending(path: "manifest-\(UUID().uuidString).json")
-        defer { try? fm.removeItem(at: manifestFile) }
-        try await downloader.download(manifestURL, to: manifestFile) { _ in }
-        let manifest = try RegionPackManifest.decode(Data(contentsOf: manifestFile))
+        let folders = Self.folders(manifest: manifestURL, mirrors: mirrors)
+        let id = UUID().uuidString
+        let manifestFile = stagingRoot.appending(path: "manifest-\(id).json")
+        let signatureFile = stagingRoot.appending(path: "manifest-\(id).json.sig")
+        defer { try? fm.removeItem(at: manifestFile); try? fm.removeItem(at: signatureFile) }
+        try await download(manifestURL.lastPathComponent, from: folders, to: manifestFile) { _ in }
+        let manifestData = try Data(contentsOf: manifestFile)
+        let signature = try? await {
+            try await download(manifestURL.lastPathComponent + ".sig", from: folders, to: signatureFile) { _ in }
+            return try Data(contentsOf: signatureFile)
+        }()
+        guard let signature, PackSignature.verify(manifestData, signature: signature, key: key) else {
+            throw RegionPackError.unsigned(manifestURL.lastPathComponent)
+        }
+        let manifest = try RegionPackManifest.decode(manifestData)
         // Staging for this version only: leftovers of other versions can't be resumed.
         for old in (try? fm.contentsOfDirectory(at: stagingRoot, includingPropertiesForKeys: nil)) ?? []
         where old.lastPathComponent != manifest.version && !old.lastPathComponent.hasPrefix("manifest-") {
@@ -128,8 +177,10 @@ struct RegionPackInstaller: Sendable {
         let stagedManifest = staging.appending(path: "manifest.json")
         try? fm.removeItem(at: stagedManifest)
         try fm.copyItem(at: manifestFile, to: stagedManifest)
+        let stagedSignature = staging.appending(path: "manifest.json.sig")
+        try? fm.removeItem(at: stagedSignature)
+        try signature.write(to: stagedSignature)
 
-        let base = manifestURL.deletingLastPathComponent()
         let total = Double(max(manifest.downloadBytes, 1))
         var done: Int64 = 0
         for file in manifest.files {
@@ -141,7 +192,7 @@ struct RegionPackInstaller: Sendable {
             }
             let asset = staging.appending(path: file.asset)
             let before = done
-            try await downloader.download(base.appending(path: file.asset), to: asset) { bytes in
+            try await download(file.asset, from: folders, to: asset) { bytes in
                 progress(Double(before + bytes) / total)
             }
             done += file.bytes
@@ -236,4 +287,8 @@ struct RegionPackInstaller: Sendable {
         try filter.finalize()
         return out
     }
+}
+
+private extension String {
+    func trimmingSuffix(_ suffix: String) -> String { hasSuffix(suffix) ? String(dropLast(suffix.count)) : self }
 }

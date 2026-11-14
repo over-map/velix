@@ -1,69 +1,35 @@
-# Velix handover (8 Nov 2026)
+# Velix handover (14 Nov 2026)
 
 This is for a new Claude Code session that knows nothing about the work so far. Read it after `CLAUDE.md`, and keep it current: when an item here is done, strike it or delete it in the same PR.
 
 ## 1. Where the project stands
-- **`main` is at `042d2c3`** (merge of #56, this handover). All PRs up to #56 are merged except #35, which was closed and replaced by #38. The working tree is clean, and no PRs or issues are open.
-- **M0–M9 are done.** M10 "Polish and showcase" has had two of its four parts merged:
+- **`main` is at `927ed9e`** (merge of #62). M11 PR 3 is on the branch `m11-scale`.
+- **M0–M9 are done; M10 has two of its four parts merged; M11 "Europe, public release" is half-way:**
 
 | Milestone | State | Notes |
 |---|---|---|
-| M0 Repo and toolchain | ✅ | XcodeGen, CI on `macos-26` |
-| M1 Tech spike | ✅ go | `docs/spikes/M1_REPORT.md` |
-| M2 Region pack | ✅ | 5 Italian regions published, ≤ 320 MB each, `pack-index` release |
-| M3 Routing quality | ✅ | Golden tests in `docs/TEST_TRIPS.md` |
-| M4 Design system | ✅ | |
-| M5 Map styles | ✅ | Standard, Outdoor, Satellite (light only); day/night |
-| M6 Core flows | ✅ | |
-| M7 Riding | ✅ | Accepted on simulated rides (6 Nov). Hazard alerts while riding set aside (29 Oct) |
-| M8 Bike + transit | ✅ | Italy only (offline timetables in packs) |
-| M9 Routes, history | ✅ | Apple Health and Strava dropped (6 Nov). GPX share only |
-| M10 PR 1 Accessibility | ✅ #49 | |
-| M10 PR 2 Performance | ✅ #54, #55 | Numbers in §4 |
-| M10 PR 3 Weather notice | ❌ removed | Built (#57), then removed on 8 Nov: Filippo doesn't want it |
-| Bike + train station fix | ✅ | §2.2 |
-| **M11 Europe** | **next** | §2.3. Not yet in BUILD_PLAN |
+| M0–M9 | ✅ | Spike report `docs/spikes/M1_REPORT.md`; golden tests `docs/TEST_TRIPS.md`. Apple Health and Strava dropped (6 Nov) |
+| M10 PR 1 Accessibility, PR 2 Performance | ✅ #49, #54, #55 | Numbers in §4 |
+| M10 PR 3 Weather notice | ❌ removed | Filippo doesn't want it (8 Nov) |
+| M11 PR 1 Public-release hygiene | ✅ #61 | Esri out, licences screen, ODbL on releases |
+| M11 PR 2 Regions | ✅ #62 | 219 regions in `pipeline/regions/europe.json`; country-agnostic pipeline; Luxembourg, Lombardy, Paris built under budget |
+| **M11 PR 3 Build at scale + signing** | **in review** | §2.2 |
+| M11 PR 4 Transitous, PR 5 App for Europe, PR 6 Publish and check | next | `docs/BUILD_PLAN.md` M11 |
 | Backlog | after M11 | §2.4 |
-| M10 PR 4 Demo build + script | last | §2.5. Moved after M11 and the backlog (8 Nov). M10 closes when Filippo signs off the demo |
-
-- **On the phone:** `main` at b56be08 (with the weather notice, removed since).
+| M10 PR 4 Demo build + script | last | §2.5. M10 closes when Filippo signs off the demo |
 
 ## 2. What to do next, in order
 
-### 2.1 Signing: renew before Sun 15 Nov 21:56 (Italy)
-The free Personal Team profiles were renewed on 8 Nov (Filippo signed in to Xcode again) and now expire at **2026-11-15 20:56 UTC**. After that the app won't open on the iPhone.
-- Rebuilding doesn't renew them. The steps are in the `velix-phone` skill, "Rules". Xcode needs Filippo's Apple ID in Xcode → Settings → Accounts.
+### 2.1 Phone signing: renew before Mon 16 Nov, 15:32 (Italy)
+The free Personal Team profile expires then and the app stops opening on the iPhone. Rebuilding doesn't renew it; the steps are in the `velix-phone` skill, "Rules".
 
-### 2.2 Bike + train from south Milan: fixed (9 Nov)
-Every railway station within 5 km now counts (metro still the 6 nearest per operator), and runs whose times go backwards are skipped (DECISIONS 9 Nov). **For M11's pipeline:** fix the NeTEx import so out-and-back Trenord runs don't restart at 00:00 (5 runs in the Nov pack, e.g. S2 22624), and check every new region's feed for the same.
+### 2.2 M11 PR 3: after review
+- **Before merge (Filippo):** create the `pack-publish` environment (Settings → Environments, required reviewer: himself), run `tools/packkey/new-key.sh`, and commit `pipeline/keys/pack-signing.pub`; copy the same key into `PackSignature.publicKeyBase64`. Without it every install fails "not signed".
+- **After merge:** dispatch *Region pack* with `regions: all`, `publish: on`; approve the `sign` job. ≈ 14 h with 20 parallel jobs. Check the index (≈ 330 KB), the pruning log, then update Lombardy on the phone from the signed index. That run is PR 3's acceptance.
+- **Order on the phone:** app builds from before PR 3 still read the new index (schema 2 keeps `manifest`) and ignore the `.sig` files. Builds with PR 3 refuse the old unsigned packs, so install a PR 3 build only after the first signed run has published.
 
-### 2.3 M11 "Europe" (after the bike + train fix; plan mode; several PRs)
-Filippo's choices on 8 Nov aren't in the repo yet. **At the start of M11, add M11 to `docs/BUILD_PLAN.md` and these four choices to DECISIONS:**
-1. **Coverage:** packs for the EU, EFTA and the UK, about 250–300 of them.
-   - Region configs are generated automatically.
-   - Dense areas are split to fit **320 MB per pack**.
-   - The whole world comes later.
-   - His words (7 Nov): "make sure users can download every pack in the world (or at least in EU)".
-2. **Hosting:** stays on GitHub Releases. That means:
-   - fixing the index job's 200-release limit;
-   - slimming `packs.json`;
-   - pruning releases older than about 2 months.
-3. **Trains outside Italy:** Transitous online (`api.transitous.org`; free, no key, non-commercial). Italy keeps its offline timetables in the packs. The alternative he allowed was hiding bike + train outside Italy.
-4. **Order:** the pipeline comes first. Europe-wide builds sliced per region, which also fixes routing across region borders.
-
-Gaps found on 8 Nov:
-- regions sized by data;
-- trips that cross regions;
-- Italy-only inputs: the extract, UTM 32N, the single synthetic country;
-- the index past 200 releases;
-- Lombardy/Milan defaults;
-- the hard-coded northern-Italy Photon bbox;
-- train times always in Rome time;
-- tickets that always open Trenitalia;
-- the M1–M5 metro colours;
-- no Greek or Cyrillic glyphs;
-- attribution for each pack;
-- smoke trips that each region needs.
+### 2.3 M11 PR 4–6
+In `docs/BUILD_PLAN.md`. Gaps still open for PR 5: Lombardy/Milan defaults; the northern-Italy Photon bbox; train times in Rome time; tickets that always open Trenitalia; the M1–M5 metro colours; Greek and Cyrillic glyphs; per-pack attribution. For PR 4: the NeTEx out-and-back Trenord runs that restart at 00:00 go away with the NAP timetables.
 
 ### 2.4 Backlog: raised and never decided (ask Filippo when relevant; don't build unasked)
 1. **Picking a start point other than the current location.** Asked 19 Oct and 29 Oct: "I can't set an origin and destination in the app, only the destination". DECISIONS (18 Oct) deferred it. `RouteOptionsModel` plans only from `app.location`. This is the most-requested missing feature.
@@ -144,6 +110,7 @@ Gaps found on 8 Nov:
   - Overpass needs a User-Agent (406/504 otherwise).
   - Use the system `/usr/bin/curl`, because another curl's CA bundle lacks GlobalSign R46.
   - The region-pack workflow takes 1–1.5 h per matrix.
+- **Signing on the Mac:** macOS's `/usr/bin/openssl` is LibreSSL and has no `pkeyutl -rawin`; use Homebrew's OpenSSL 3 (`tools/packkey/new-key.sh` picks it).
 - **Testing the installed pack:** `-use-sideloaded` forces the side-loaded copies, so test installed packs without it.
 
 ## 6. Files that matter most

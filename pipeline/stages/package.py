@@ -8,7 +8,7 @@ import subprocess
 from shapely.geometry import shape
 
 from common import load_config, log, out_dir, sha256, write_json
-from coverage import manifest_polygon
+from coverage import index_outline, manifest_polygon
 
 FILES = [("valhalla_tiles.tar", "routing_tiles"), ("hazards.sqlite", "hazards"),
          ("routes.sqlite", "routes"), ("transit.sqlite", "transit"),
@@ -41,11 +41,14 @@ def main():
     built = next(s["date"][:10] for s in sources if s["id"] == "osm")
     manifest = {
         "schema": 1, "pack": cfg["region"]["id"], "name": cfg["region"]["name"], "version": built[:7].replace("-", "."),
+        "country": cfg["region"]["country"]["iso"],
         "built": built, "valhalla": cfg["valhalla"]["version"],
         "bbox": box(region),
         "polygon_sha256": sha256(out / "region.geojson"),
         # The app's "which region is this point in" (exact border) and "can this pack route here" (border + buffer).
         "polygon": manifest_polygon(region, 250),
+        # The index's small outline (stages/index.py copies it into packs.json).
+        "outline": index_outline(region),
         "coverage": {"buffer_km": cfg["coverage"]["buffer_km"], "bbox": box(coverage), "polygon": manifest_polygon(coverage, 250)},
         "files": files,
         "download_bytes": sum(f["bytes"] for f in files),
