@@ -13,18 +13,23 @@ SOURCES=$(cfg osm.sources); [ -z "$SOURCES" ] && SOURCES=$(cfg osm.url)
 NAME=$(cfg osm.name); REL=$(cfg region.osm_relation); CITY=$(cfg region.city_area_relation)
 OUT="out/$REGION"; mkdir -p "$OUT/sources" cache
 
-FILES=()
-SLICED="slices/$REGION"
-if compgen -G "$SLICED/*.osm.pbf" >/dev/null; then
-  # The Region pack workflow's slice jobs already cut every leaf for this region (stages/slice.py).
-  for F in "$SLICED"/*.osm.pbf; do FILES+=("$F"); done
-  SOURCES=$(python -c "import json,sys;print(' '.join(json.load(open(f[:-8]+'.json'))['url'] for f in sys.argv[1:]))" "${FILES[@]}")
-  TS=$(python -c "import json,sys;print(min(json.load(open(f[:-8]+'.json'))['timestamp'] for f in sys.argv[1:]))" "${FILES[@]}")
-  echo "[extract] ${#FILES[@]} slices from $SLICED"
-else
-  for URL in $SOURCES; do FILES+=("$(bash stages/fetch_leaf.sh "$URL")"); done
-  TS=$(osmium fileinfo -g header.option.osmosis_replication_timestamp "${FILES[0]}")
-fi
+# Each source leaf: its slice when the Region pack workflow's slice jobs cut one for this region (stages/slice.py),
+# else the whole leaf, downloaded here. A slice job that failed (Geofabrik refused one runner for 30 min on 14 Nov)
+# then costs one download instead of a pack without that leaf's roads.
+FILES=(); STAMPS=(); SLICED="slices/$REGION"; N_SLICES=0
+for URL in $SOURCES; do
+  LEAF=$(basename "$URL" -latest.osm.pbf)
+  if [ -f "$SLICED/$LEAF.osm.pbf" ] && [ -f "$SLICED/$LEAF.json" ]; then
+    FILES+=("$SLICED/$LEAF.osm.pbf"); N_SLICES=$((N_SLICES + 1))
+    STAMPS+=("$(python -c "import json,sys;print(json.load(open(sys.argv[1]))['timestamp'])" "$SLICED/$LEAF.json")")
+  else
+    [ -d "$SLICED" ] && echo "[extract] no slice of $LEAF: downloading it"
+    F=$(bash stages/fetch_leaf.sh "$URL"); FILES+=("$F")
+    STAMPS+=("$(osmium fileinfo -g header.option.osmosis_replication_timestamp "$F")")
+  fi
+done
+TS=$(printf '%s\n' "${STAMPS[@]}" | sort | head -1)   # the oldest source (ISO times sort as text)
+echo "[extract] ${#FILES[@]} sources, $N_SLICES from slices"
 if [ ${#FILES[@]} -gt 1 ]; then
   # Neighbouring leaves overlap at their borders: merge keeps one copy of each object.
   osmium merge "${FILES[@]}" -o "$OUT/source.osm.pbf" --overwrite
