@@ -9,8 +9,11 @@ private struct FolderDownloader: PackDownloading {
     let folder: URL
     var failing: Set<String> = []
     var log: DownloadLog?
+    /// Hosts that are down (mirror fallback).
+    var deadHosts: Set<String> = []
 
     func download(_ url: URL, to destination: URL, progress: @escaping @Sendable (Int64) -> Void) async throws {
+        if let host = url.host(), deadHosts.contains(host) { throw URLError(.cannotConnectToHost) }
         log?.add(url.lastPathComponent)
         if failing.contains(url.lastPathComponent) { throw URLError(.networkConnectionLost) }
         let source = folder.appending(path: url.lastPathComponent)
@@ -26,8 +29,12 @@ final class DownloadLog: @unchecked Sendable {
     var all: [String] { lock.withLock { names } }
 }
 
-/// Builds a release folder: manifest.json + one .xz per file, like pipeline/stages/package.py.
-private func makeRelease(version: String, files: [String: Data], in folder: URL, corrupt: String? = nil) throws {
+/// Signs test releases, as pipeline/stages/sign.sh does with the real key.
+let testSigningKey = Curve25519.Signing.PrivateKey()
+
+/// Builds a release folder: manifest.json (+ .sig) + one .xz per file, like pipeline/stages/package.py and sign.sh.
+private func makeRelease(version: String, files: [String: Data], in folder: URL, corrupt: String? = nil,
+                         signedBy key: Curve25519.Signing.PrivateKey? = testSigningKey) throws {
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     let roles = ["valhalla_tiles.tar": "routing_tiles", "hazards.sqlite": "hazards", "routes.sqlite": "routes",
                  "transit.sqlite": "transit", "basemap.pmtiles": "basemap", "overlays.pmtiles": "overlays"]
@@ -49,8 +56,9 @@ private func makeRelease(version: String, files: [String: Data], in folder: URL,
                      "licence": "ODbL-1.0", "attribution": "© OpenStreetMap contributors"]],
         "counts": [:] as [String: Any],
     ]
-    try JSONSerialization.data(withJSONObject: manifest, options: .sortedKeys)
-        .write(to: folder.appending(path: "manifest.json"))
+    let data = try JSONSerialization.data(withJSONObject: manifest, options: .sortedKeys)
+    try data.write(to: folder.appending(path: "manifest.json"))
+    if let key { try key.signature(for: data).write(to: folder.appending(path: "manifest.json.sig")) }
 }
 
 private func samplePack(_ tag: String) -> [String: Data] {
@@ -67,9 +75,11 @@ private func samplePack(_ tag: String) -> [String: Data] {
 struct RegionPackInstallerTests {
     let tmp = FileManager.default.temporaryDirectory.appending(path: "velix-pack-tests-\(UUID().uuidString)")
 
-    private func installer(release: URL, failing: Set<String> = [], log: DownloadLog? = nil) -> RegionPackInstaller {
+    private func installer(release: URL, failing: Set<String> = [], log: DownloadLog? = nil,
+                           deadHosts: Set<String> = []) -> RegionPackInstaller {
         RegionPackInstaller(root: tmp.appending(path: "RegionPack"),
-                            downloader: FolderDownloader(folder: release, failing: failing, log: log))
+                            downloader: FolderDownloader(folder: release, failing: failing, log: log, deadHosts: deadHosts),
+                            key: testSigningKey.publicKey)
     }
 
     /// The live URLSession downloader end to end (file URL): byte progress, file in place, and no trap when the
@@ -182,15 +192,101 @@ private extension SHA256.Digest {
     var hexString: String { map { String(format: "%02x", $0) }.joined() }
 }
 
+struct RegionPackSigningTests {
+    let tmp = FileManager.default.temporaryDirectory.appending(path: "velix-sign-tests-\(UUID().uuidString)")
+
+    private func installer(release: URL, deadHosts: Set<String> = []) -> RegionPackInstaller {
+        RegionPackInstaller(root: tmp.appending(path: "RegionPack"),
+                            downloader: FolderDownloader(folder: release, deadHosts: deadHosts), key: testSigningKey.publicKey)
+    }
+
+    @Test func signaturesCheckAgainstTheKeyOnly() throws {
+        let data = Data("packs".utf8)
+        let sig = try testSigningKey.signature(for: data)
+        #expect(PackSignature.verify(data, signature: sig, key: testSigningKey.publicKey))
+        var flipped = data; flipped[0] ^= 1
+        #expect(!PackSignature.verify(flipped, signature: sig, key: testSigningKey.publicKey))
+        #expect(!PackSignature.verify(data, signature: sig, key: Curve25519.Signing.PrivateKey().publicKey))
+        #expect(!PackSignature.verify(data, signature: Data(), key: testSigningKey.publicKey))
+        #expect(!PackSignature.verify(data, signature: sig, key: nil))
+    }
+
+    /// What pipeline/stages/sign.sh writes (OpenSSL 3, `pkeyutl -sign -rawin`), CryptoKit accepts.
+    @Test func acceptsWhatThePipelineSigns() throws {
+        let bundle = Bundle(for: BundleToken.self)
+        let index = try Data(contentsOf: #require(bundle.url(forResource: "signed-index", withExtension: "json")))
+        let sig = try Data(contentsOf: #require(bundle.url(forResource: "signed-index.json", withExtension: "sig")))
+        let pub = try String(contentsOf: #require(bundle.url(forResource: "signed-index-key", withExtension: "txt")),
+                             encoding: .utf8)
+        let key = try #require(PackSignature.key(base64: pub))
+        #expect(PackSignature.verify(index, signature: sig, key: key))
+        #expect(try RegionCatalog.decode(index).assetMirrors == [RegionCatalog.github])
+    }
+
+    @Test func refusesAManifestWithoutAValidSignature() async throws {
+        let unsigned = tmp.appending(path: "unsigned")
+        try makeRelease(version: "2026.12", files: samplePack("a"), in: unsigned, signedBy: nil)
+        await #expect(throws: RegionPackError.unsigned("manifest.json")) {
+            try await installer(release: unsigned).install(manifest: unsigned.appending(path: "manifest.json"))
+        }
+        let forged = tmp.appending(path: "forged")
+        try makeRelease(version: "2026.12", files: samplePack("a"), in: forged, signedBy: Curve25519.Signing.PrivateKey())
+        await #expect(throws: RegionPackError.unsigned("manifest.json")) {
+            try await installer(release: forged).install(manifest: forged.appending(path: "manifest.json"))
+        }
+        #expect(RegionPackInstaller.current(root: tmp.appending(path: "RegionPack")) == nil)
+    }
+
+    @Test func downloadsFromTheNextMirrorWhenAHostIsDown() async throws {
+        let release = tmp.appending(path: "release")
+        try makeRelease(version: "2026.12", files: samplePack("m"), in: release)
+        let manifest = URL(string: "https://dead.example/releases/download/pack-lombardy-2026.12/manifest.json")!
+        let installed = try await installer(release: release, deadHosts: ["dead.example"])
+            .install(manifest: manifest, mirrors: [URL(string: "https://mirror.example/packs/")!])
+        #expect(installed.manifest.version == "2026.12")
+        #expect(RegionPackInstaller.folders(manifest: manifest, mirrors: [URL(string: "https://dead.example/releases/download/")!])
+            .count == 1)
+    }
+}
+
 struct RegionPackCatalogTests {
-    @Test func picksNewestPublishedPackForTheRegion() throws {
-        let json = #"""
-        [{"tag_name": "v0.2.0", "draft": false, "prerelease": false},
-         {"tag_name": "pack-lombardy-2026.11", "draft": true, "prerelease": false},
-         {"tag_name": "pack-lombardy-2026.10.2", "draft": false, "prerelease": false},
-         {"tag_name": "pack-lombardy-2026.10", "draft": false, "prerelease": false}]
-        """#
-        #expect(try RegionPackCatalog.latestTag(region: "lombardy", in: Data(json.utf8)) == "pack-lombardy-2026.10.2")
-        #expect(try RegionPackCatalog.latestTag(region: "piedmont", in: Data(json.utf8)) == nil)
+    private func index(schema: Int, extra: String = "") -> Data {
+        Data(#"""
+        {"schema":\#(schema),\#(extra)"regions":[{"id":"lombardy","name":"Lombardy","country":"IT","tag":"pack-lombardy-2026.12",
+         "version":"2026.12","built":"2026-12-01","bbox":[8.5,44.7,11.4,46.6],"polygon":[[[[8.5,44.7],[11.4,44.7],[11.4,46.6],[8.5,44.7]]]],
+         "download_bytes":5,"unpacked_bytes":9,"manifest":"https://github.com/over-map/velix/releases/download/pack-lombardy-2026.12/manifest.json"}]}
+        """#.utf8)
+    }
+
+    private func serve(_ files: [String: Data]) -> RegionPackCatalog.Loader {
+        { url in
+            guard let d = files[url.lastPathComponent] else { throw URLError(.fileDoesNotExist) }
+            return d
+        }
+    }
+
+    @Test func readsASignedIndexOfEitherSchema() async throws {
+        let v2 = index(schema: 2, extra: #""mirrors":["https://a.example/","https://b.example/"],"#)
+        let catalog = try await RegionPackCatalog.fetch(key: testSigningKey.publicKey, load: serve(
+            ["packs.json": v2, "packs.json.sig": try testSigningKey.signature(for: v2)]))
+        #expect(catalog.region("lombardy")?.country == "IT")
+        #expect(catalog.assetMirrors.map(\.host) == ["a.example", "b.example"])
+        let v1 = index(schema: 1)
+        let old = try await RegionPackCatalog.fetch(key: testSigningKey.publicKey, load: serve(
+            ["packs.json": v1, "packs.json.sig": try testSigningKey.signature(for: v1)]))
+        #expect(old.assetMirrors == [RegionCatalog.github])
+        #expect(throws: RegionPackError.unsupportedSchema(3)) { try RegionCatalog.decode(index(schema: 3)) }
+    }
+
+    @Test func refusesAnUnsignedOrTamperedIndex() async throws {
+        let v2 = index(schema: 2)
+        await #expect(throws: RegionPackError.unsigned("packs.json")) {
+            try await RegionPackCatalog.fetch(key: testSigningKey.publicKey, load: serve(["packs.json": v2]))
+        }
+        var tampered = v2; tampered[tampered.count - 3] ^= 1
+        await #expect(throws: RegionPackError.unsigned("packs.json")) {
+            try await RegionPackCatalog.fetch(key: testSigningKey.publicKey, load: serve(
+                ["packs.json": tampered, "packs.json.sig": try testSigningKey.signature(for: v2)]))
+        }
     }
 }
