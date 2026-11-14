@@ -4,14 +4,19 @@
 #     (read from stdin, never printed) and is then deleted, unless you name a backup file.
 #   - The public key is written to pipeline/keys/pack-signing.pub; commit it. The app reads the same key
 #     (App/Data/PackSignature.swift), so a new key needs an app update before the next signed publish.
-# Needs: OpenSSL 3 (Homebrew's; macOS's LibreSSL can't sign raw Ed25519), gh logged in as over-map, and the
+# Needs: OpenSSL 3 or newer (Homebrew's; macOS's LibreSSL can't sign raw Ed25519), gh logged in as over-map, and the
 # `pack-publish` environment (Settings → Environments, required reviewer: you).
 # Usage: tools/packkey/new-key.sh [backup.pem]
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 REPO=over-map/velix
-OPENSSL=$(command -v /opt/homebrew/bin/openssl || command -v openssl)
-"$OPENSSL" version | grep -q '^OpenSSL 3' || { echo "needs OpenSSL 3 (brew install openssl@3)" >&2; exit 1; }
+# The first OpenSSL (3 or newer) that signs raw Ed25519 like CI does; macOS's LibreSSL can't.
+OPENSSL=""
+for O in /opt/homebrew/bin/openssl /usr/local/bin/openssl $(which -a openssl 2>/dev/null); do
+  [ -x "$O" ] && "$O" version 2>/dev/null | grep -Eq '^OpenSSL ([3-9]|[1-9][0-9])\.' \
+    && "$O" pkeyutl -help 2>&1 | grep -q -- '-rawin' && { OPENSSL="$O"; break; }
+done
+[ -n "$OPENSSL" ] || { echo "needs OpenSSL 3 or newer (brew install openssl)" >&2; exit 1; }
 gh auth status 2>&1 | grep -A1 "account over-map" | grep -q "Active account: true" \
   || { echo "gh: switch to over-map first (gh auth switch -u over-map)" >&2; exit 1; }
 gh api "repos/$REPO/environments/pack-publish" >/dev/null \

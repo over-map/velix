@@ -110,7 +110,7 @@ In `docs/BUILD_PLAN.md`. Gaps still open for PR 5: Lombardy/Milan defaults; the 
   - Overpass needs a User-Agent (406/504 otherwise).
   - Use the system `/usr/bin/curl`, because another curl's CA bundle lacks GlobalSign R46.
   - The region-pack workflow takes 1–1.5 h per matrix.
-- **Signing on the Mac:** macOS's `/usr/bin/openssl` is LibreSSL and has no `pkeyutl -rawin`; use Homebrew's OpenSSL 3 (`tools/packkey/new-key.sh` picks it).
+- **Signing on the Mac:** macOS's `/usr/bin/openssl` is LibreSSL and has no `pkeyutl -rawin`; use Homebrew's OpenSSL, 3 or newer (`tools/packkey/new-key.sh` picks it).
 - **Testing the installed pack:** `-use-sideloaded` forces the side-loaded copies, so test installed packs without it.
 
 ## 6. Files that matter most
