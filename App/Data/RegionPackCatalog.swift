@@ -1,8 +1,9 @@
+import CryptoKit
 import Foundation
 
-/// The regions Velix offers (Filippo, 2 Nov: Lombardy and its neighbours), from `packs.json` on the fixed Release
-/// `pack-index` (pipeline/stages/index.py): where each region is and its newest pack. Until that index exists, the
-/// newest `pack-lombardy-*` among the repo's latest Releases (public API, no token).
+/// The regions Velix offers: `packs.json` on the fixed Release `pack-index` (pipeline/stages/index.py), signed
+/// (`packs.json.sig`, ``PackSignature``): where each region is and its newest pack. Schema 2 (M11 PR 3) adds the mirror
+/// list and each region's country, and keeps only a small outline per region (the exact border is in its manifest).
 struct RegionCatalog: Codable, Equatable, Sendable {
     struct Region: Codable, Equatable, Sendable, Identifiable {
         let id: String
@@ -13,8 +14,10 @@ struct RegionCatalog: Codable, Equatable, Sendable {
         let polygon: RegionShape?
         let downloadBytes: Int64
         let manifest: URL
+        /// ISO 3166-1 alpha-2 (schema 2).
+        var country: String?
 
-        /// Inside the region's border (its bbox when the index has no polygon).
+        /// Inside the region's outline (its bbox when the index has no polygon).
         func contains(_ p: LatLon) -> Bool {
             if let polygon { return polygon.contains(p) }
             return bbox.count == 4 && p.lon >= bbox[0] && p.lat >= bbox[1] && p.lon <= bbox[2] && p.lat <= bbox[3]
@@ -23,6 +26,14 @@ struct RegionCatalog: Codable, Equatable, Sendable {
 
     let schema: Int
     let regions: [Region]
+    /// Where release assets are, tried in order: `<mirror><tag>/<asset>` (schema 2; schema 1: GitHub only).
+    var mirrors: [URL]?
+
+    static let supportedSchemas = 1 ... 2
+    static let github = URL(string: "https://github.com/over-map/velix/releases/download/")!
+
+    /// The mirrors to try, GitHub when the index names none.
+    var assetMirrors: [URL] { (mirrors?.isEmpty ?? true) ? [Self.github] : mirrors! }
 
     func region(_ id: String) -> Region? { regions.first { $0.id == id } }
     func region(containing p: LatLon) -> Region? { regions.first { $0.contains(p) } }
@@ -37,48 +48,34 @@ struct RegionCatalog: Codable, Equatable, Sendable {
     static func decode(_ data: Data) throws -> RegionCatalog {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
+        struct Probe: Decodable { let schema: Int }
+        let schema = try decoder.decode(Probe.self, from: data).schema
+        guard supportedSchemas.contains(schema) else { throw RegionPackError.unsupportedSchema(schema) }
         return try decoder.decode(RegionCatalog.self, from: data)
     }
 }
 
 enum RegionPackCatalog {
-    static let indexURL = URL(string: "https://github.com/over-map/velix/releases/download/pack-index/packs.json")!
-    static let releasesURL = URL(string: "https://api.github.com/repos/over-map/velix/releases?per_page=30")!
+    static let indexURL = RegionCatalog.github.appending(path: "pack-index/packs.json")
 
-    struct Release: Decodable {
-        let tagName: String
-        let draft: Bool
-        let prerelease: Bool
+    /// Fetches a URL's bytes (tests serve fixtures).
+    typealias Loader = @Sendable (URL) async throws -> Data
+
+    static let liveLoader: Loader = { url in
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+        return data
     }
 
-    /// The catalog: the index, else Lombardy alone from the latest Releases.
-    static func fetch() async throws -> RegionCatalog {
-        if let (data, response) = try? await URLSession.shared.data(from: indexURL),
-           (response as? HTTPURLResponse)?.statusCode == 200, let index = try? RegionCatalog.decode(data) {
-            return index
+    /// The signed index. Throws ``RegionPackError/unsigned(_:)`` when `packs.json.sig` is missing or doesn't match:
+    /// an index anyone could have written never reaches the download list.
+    static func fetch(from url: URL = indexURL, key: Curve25519.Signing.PublicKey? = PackSignature.velix,
+                      load: Loader = liveLoader) async throws -> RegionCatalog {
+        let data = try await load(url)
+        let signature = try? await load(url.appendingPathExtension("sig"))
+        guard let signature, PackSignature.verify(data, signature: signature, key: key) else {
+            throw RegionPackError.unsigned(url.lastPathComponent)
         }
-        guard let url = try await latestManifestURL(region: "lombardy"),
-              let m = try? RegionPackManifest.decode(await URLSession.shared.data(from: url).0) else {
-            return RegionCatalog(schema: 1, regions: [])
-        }
-        return RegionCatalog(schema: 1, regions: [.init(id: m.pack, name: m.name, tag: url.deletingLastPathComponent().lastPathComponent,
-                                                         version: m.version, bbox: m.bbox, polygon: m.polygon,
-                                                         downloadBytes: m.downloadBytes, manifest: url)])
-    }
-
-    static func latestTag(region: String, in releasesJSON: Data) throws -> String? {
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let prefix = "pack-\(region)-"
-        // GitHub lists releases newest first; the first published match wins.
-        return try decoder.decode([Release].self, from: releasesJSON)
-            .first { !$0.draft && !$0.prerelease && $0.tagName.hasPrefix(prefix) }?.tagName
-    }
-
-    static func latestManifestURL(region: String = "lombardy") async throws -> URL? {
-        var request = URLRequest(url: releasesURL)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        let (data, _) = try await URLSession.shared.data(for: request)
-        return try latestTag(region: region, in: data).map(RegionPack.releaseManifestURL(tag:))
+        return try RegionCatalog.decode(data)
     }
 }

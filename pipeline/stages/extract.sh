@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage 1: download the Geofabrik extracts the region needs (md5-checked) and clip them to the region plus its border
+# Stage 1: take the Geofabrik extracts the region needs (the run's slices, else downloaded, md5-checked) and clip them to the region plus its border
 # buffer. Sources: the catalogue's leaves (regions/europe.json: every leaf the border + buffer touches, across national
 # borders, merged here), else the config's `osm.url`.
 # Outputs: out/<region>/region.osm.pbf (coverage: routing, hazards, routes, timetable), map.osm.pbf (the exact border:
@@ -13,20 +13,23 @@ SOURCES=$(cfg osm.sources); [ -z "$SOURCES" ] && SOURCES=$(cfg osm.url)
 NAME=$(cfg osm.name); REL=$(cfg region.osm_relation); CITY=$(cfg region.city_area_relation)
 OUT="out/$REGION"; mkdir -p "$OUT/sources" cache
 
-FILES=()
+# Each source leaf: its slice when the Region pack workflow's slice jobs cut one for this region (stages/slice.py),
+# else the whole leaf, downloaded here. A slice job that failed (Geofabrik refused one runner for 30 min on 14 Nov)
+# then costs one download instead of a pack without that leaf's roads.
+FILES=(); STAMPS=(); SLICED="slices/$REGION"; N_SLICES=0
 for URL in $SOURCES; do
-  SRC="cache/$(basename "$URL")"
-  curl -fsSL -o "$SRC.md5.new" "$URL.md5"
-  if [ ! -f "$SRC" ] || [ ! -f "$SRC.md5" ] || ! cmp -s "$SRC.md5" "$SRC.md5.new"; then
-    echo "[extract] downloading $URL"
-    # Resumes: Geofabrik sometimes drops a long transfer (curl 18).
-    for i in $(seq 1 20); do curl -fsSL -C - -o "$SRC.part" "$URL" && break; echo "[extract] resuming ($i)"; sleep $((i * 5)); done
-    mv "$SRC.part" "$SRC"
+  LEAF=$(basename "$URL" -latest.osm.pbf)
+  if [ -f "$SLICED/$LEAF.osm.pbf" ] && [ -f "$SLICED/$LEAF.json" ]; then
+    FILES+=("$SLICED/$LEAF.osm.pbf"); N_SLICES=$((N_SLICES + 1))
+    STAMPS+=("$(python -c "import json,sys;print(json.load(open(sys.argv[1]))['timestamp'])" "$SLICED/$LEAF.json")")
+  else
+    [ -d "$SLICED" ] && echo "[extract] no slice of $LEAF: downloading it"
+    F=$(bash stages/fetch_leaf.sh "$URL"); FILES+=("$F")
+    STAMPS+=("$(osmium fileinfo -g header.option.osmosis_replication_timestamp "$F")")
   fi
-  mv "$SRC.md5.new" "$SRC.md5"
-  (cd cache && md5sum -c "$(basename "$SRC").md5")
-  FILES+=("$SRC")
 done
+TS=$(printf '%s\n' "${STAMPS[@]}" | sort | head -1)   # the oldest source (ISO times sort as text)
+echo "[extract] ${#FILES[@]} sources, $N_SLICES from slices"
 if [ ${#FILES[@]} -gt 1 ]; then
   # Neighbouring leaves overlap at their borders: merge keeps one copy of each object.
   osmium merge "${FILES[@]}" -o "$OUT/source.osm.pbf" --overwrite
@@ -56,7 +59,6 @@ fi
 
 python stages/country_admin.py "$SRC"
 
-TS=$(osmium fileinfo -g header.option.osmosis_replication_timestamp "${FILES[0]}")
 python - "$OUT/sources/osm.json" "$TS" "$NAME" $SOURCES <<'PY'
 import json, sys
 out, ts, name, *urls = sys.argv[1:]

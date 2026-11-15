@@ -49,11 +49,6 @@ enum RegionPack {
         URL.documentsDirectory.appending(path: "valhalla_tiles.tar")
     }
 
-    /// Release download folder of a published pack (GitHub Release assets).
-    static func releaseManifestURL(tag: String) -> URL {
-        URL(string: "https://github.com/over-map/velix/releases/download/\(tag)/manifest.json")!
-    }
-
     /// Debug: `-use-sideloaded` prefers files side-loaded into Documents over the installed pack (testing a new build).
     static var preferSideloaded: Bool { ProcessInfo.processInfo.arguments.contains("-use-sideloaded") }
 

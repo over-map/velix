@@ -7,14 +7,14 @@ TOOLS_IMAGE := velix-pipeline-tools
 # Shared settings live in config/_base.yml (read with a regex: the host may not have PyYAML).
 base = $(shell python3 -c "import re;print(re.search(r'\n$(1):\n(?:  .*\n)*?  $(2): (\S+)', open('config/_base.yml').read()).group(1))")
 VALHALLA_IMAGE := $(call base,valhalla,image)
-DOCKER_RUN := docker run --rm -e REGION=$(REGION) -v "$(ROOT):/work" -w /work/pipeline
+DOCKER_RUN := docker run --rm -e REGION=$(REGION) -e REGIONS -v "$(ROOT):/work" -w /work/pipeline
 TOOLS := $(DOCKER_RUN) $(TOOLS_IMAGE)
 VALHALLA := $(DOCKER_RUN) $(VALHALLA_IMAGE)
 PLANETILER_IMAGE := $(call base,basemap,image)
 BASEMAP_ZOOM := $(call base,basemap,maxzoom)
 REGION_BOUNDS = $(shell python3 stages/bounds.py $(OUT)/region.geojson)
 
-.PHONY: test pack tools extract elevation prepare tiles hazards routes transit basemap overlays package validate smoke clean
+.PHONY: test pack tools slice extract elevation prepare tiles hazards routes transit basemap overlays package validate smoke clean
 
 pack: extract elevation prepare tiles hazards routes transit basemap overlays package validate smoke
 
@@ -23,6 +23,11 @@ test: tools
 
 tools:
 	docker build -q -t $(TOOLS_IMAGE) -f Dockerfile.tools .
+
+# Download Geofabrik leaves once and cut them for the run's regions (REGIONS="id …", default all): the Region pack
+# workflow's slice jobs. extract then merges slices/<region>/*.osm.pbf instead of downloading. LEAVES="alsace lorraine"
+slice: tools
+	$(TOOLS) python stages/slice.py $(SLICE_FLAGS) $(LEAVES)
 
 extract: tools
 	$(TOOLS) bash stages/extract.sh

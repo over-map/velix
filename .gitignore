@@ -24,6 +24,7 @@ LiveActivity/Info.plist
 # Region pack pipeline outputs
 pipeline/out/
 pipeline/cache/
+pipeline/slices/
 *.osm.pbf
 __pycache__/
 

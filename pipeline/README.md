@@ -33,7 +33,7 @@ The budget is **320 MB to download** per region (Filippo: 300 on 16 Oct 2026, 32
 
 | Stage | Image | What it does |
 |---|---|---|
-| `extract.sh` | tools | The region's Geofabrik leaves (md5-checked, merged) → region polygon (`region.osm_relation`, else the catalogue's) → coverage (`coverage.py`: border + buffer, in the region's UTM zone) → `region.osm.pbf`. Also `city.geojson` and `country.osm.pbf` (`country_admin.py`: each country's share of the coverage, from `regions/countries.geojson`, with its OSM name and ISO code) |
+| `extract.sh` | tools | The region's Geofabrik leaves (the run's slices, else downloaded md5-checked; merged) → region polygon (`region.osm_relation`, else the catalogue's) → coverage (`coverage.py`: border + buffer, in the region's UTM zone) → `region.osm.pbf`. Also `city.geojson` and `country.osm.pbf` (`country_admin.py`: each country's share of the coverage, from `regions/countries.geojson`, with its OSM name and ISO code) |
 | `elevation.py` | tools | GEDTM30 terrain model (COG over HTTP, CC BY 4.0) → 1″ SRTM `.hgt`, used only at build time |
 | `prepare_routing.py` | tools | Routing copy of the extract: cobbled ways retagged `surface=dirt` so Valhalla's bicycle costing can avoid them |
 | `tiles.sh` | Valhalla 3.9.0 | admins, timezones, tiles with elevation, tar extract |
@@ -50,7 +50,20 @@ The pack is a pure function of its inputs: there are no wall-clock timestamps; t
 
 ## Publishing
 
-`.github/workflows/region-pack.yml` runs monthly (1st, 03:00 UTC), on manual dispatch, and on PRs that touch `pipeline/`. It builds every region in a matrix (golden route tests on Lombardy). On `main` it publishes one Release per region, `pack-<region>-YYYY.MM` (`.N` if that tag exists), with the release notes from `stages/release_notes.py`, then rewrites `packs.json` on the Release `pack-index` (`stages/index.py`): the newest pack of every region, which the app reads as its catalog. A region whose build fails keeps its previous pack in the index. Pack binaries never go in git.
+`.github/workflows/region-pack.yml` runs monthly (1st, 03:00 UTC), on manual dispatch (`regions`: `all`, `sample` or ids separated by commas; `publish`), and on PRs that touch `pipeline/` (a sample of three: Lombardy, Luxembourg, Paris and around; never signed or published). Jobs (M11 PR 3):
+
+| Job | Runs | What |
+|---|---|---|
+| `plan` | 1 | `stages/plan_run.py`: the regions and the Geofabrik leaves they need, grouped by country folder |
+| `test` | 1 | pipeline unit tests |
+| `slice` | one per country (≤ 43) | `make slice`: each leaf downloaded **once** (`stages/fetch_leaf.sh`), cut for every region of the run that needs it (`stages/slice.py`: border + buffer + 5 km), one artifact per region (`slice__<region>__<group>`, kept a day) |
+| `build` | one per region (≤ 256) | the region's slices → `slices/<region>/`, which `extract.sh` merges instead of downloading; then `make pack` |
+| `golden` | 1 | golden route tests on Lombardy, when the run builds it |
+| `sign` | 1 | **environment `pack-publish`**: Filippo approves each run; the only job with `PACK_SIGNING_KEY`. Release tags (`stages/releases.py tags`, from the paginated release list), the new `packs.json` (`stages/index.py`, schema 2: regions not rebuilt keep their previous entry) and Ed25519 signatures of every manifest and the index (`stages/sign.sh`, checked against `keys/pack-signing.pub`) |
+| `publish` | one per region | one Release per region, `pack-<region>-YYYY.MM` (`.N` if that tag exists), with `manifest.json.sig` and the notes from `stages/release_notes.py`; a re-run finishes the uploads |
+| `index` | 1 | uploads `packs.json` + `packs.json.sig` to the Release `pack-index` once every release it points to exists (else last month's index stays), then deletes `pack-*` releases older than two months that it doesn't point to |
+
+A region whose build fails keeps its previous pack in the index. The app installs only signed manifests and reads only a signed index (`keys/README.md`). Assets are fetched from the index's `mirrors` in order (GitHub today). Locally, `make slice LEAVES="luxembourg saarland" REGIONS=luxembourg` writes the same slices; without them `extract.sh` downloads the leaves itself. Pack binaries never go in git.
 
 ## Curated data
 

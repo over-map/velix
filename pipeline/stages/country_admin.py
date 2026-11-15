@@ -78,6 +78,9 @@ def main(src: str | None):
     borders = PIPELINE / "regions" / "countries.geojson"
     if borders.exists():
         names = CountryNames()
+        # Country names the slice stage read from the whole leaves (a slice can lose the country relations).
+        for meta in sorted((PIPELINE / "slices" / cfg["region"]["id"]).glob("*.json")):
+            names.names.update({iso: tuple(n) for iso, n in json.loads(meta.read_text())["countries"].items()})
         if src:
             names.apply_file(src)
         pieces = [(iso, *names.names.get(iso, (en, en)), g)

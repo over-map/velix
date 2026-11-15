@@ -1,6 +1,6 @@
 # Prompt for a fresh Claude Code session
 
-Open a terminal, `cd /Users/imbe/Developer/personal/velix`, run `claude` (or open that folder in the Claude desktop app's Code tab), and paste the prompt below. Keep it updated alongside `docs/HANDOVER.md`.
+Open a terminal in the repo folder (its path on this Mac is in `CLAUDE.local.md`), run `claude` (or open that folder in the Claude desktop app's Code tab), and paste the prompt below. Keep it updated alongside `docs/HANDOVER.md`.
 
 ```text
 You're taking over Velix, my personal open-source iPhone bike-navigation app (SwiftUI, MapLibre, on-device Valhalla). A previous Claude Code session built M0–M10 PR 2 with me. You have no memory of it, so the repo is your memory.

@@ -21,7 +21,7 @@ Machine-specific values (device name, UDID, team id, profile expiry) live in `CL
 
 ## Build, check, install, launch
 ```bash
-cd /Users/imbe/Developer/personal/velix
+cd "$(git rev-parse --show-toplevel)"   # the repo root (its path on this Mac: CLAUDE.local.md)
 xcodebuild -scheme Velix -configuration Debug -destination 'generic/platform=iOS' \
   -derivedDataPath build/DerivedData -skipMacroValidation -onlyUsePackageVersionsFromResolvedFile \
   -allowProvisioningUpdates DEVELOPMENT_TEAM=<team id from CLAUDE.local.md> build 2>&1 | grep -E 'error:|BUILD (SUCCEEDED|FAILED)'

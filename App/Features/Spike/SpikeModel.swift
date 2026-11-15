@@ -92,13 +92,15 @@ final class SpikeModel {
         isBusy = true
         defer { isBusy = false }
         do {
-            guard let manifest = try await RegionPackCatalog.latestManifestURL() else {
+            let catalog = try await RegionPackCatalog.fetch()
+            guard let region = catalog.region("lombardy") else {
                 status = "No published region pack yet"
                 return
             }
+            let manifest = region.manifest
             status = "Downloading \(manifest.deletingLastPathComponent().lastPathComponent)…"
             let start = Date()
-            let installed = try await RegionPackInstaller().install(manifest: manifest) { [weak self] p in
+            let installed = try await RegionPackInstaller().install(manifest: manifest, mirrors: catalog.assetMirrors) { [weak self] p in
                 Task { @MainActor in self?.status = String(format: "Installing pack… %.0f %%", p * 100) }
             }
             let seconds = Date().timeIntervalSince(start)

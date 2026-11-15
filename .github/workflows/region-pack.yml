@@ -1,32 +1,111 @@
 name: Region pack
 
+# Every region of the catalogue (pipeline/regions/europe.json), monthly (M11 PR 3):
+#   plan → test → slice (each Geofabrik leaf downloaded once, cut per region) → build (one job per region)
+#   → golden (Lombardy) → sign (environment `pack-publish`: Filippo approves, the only job with the key)
+#   → publish (one release per region) → index (packs.json + signature on `pack-index`, then old releases pruned).
+# Pull requests build a sample of three regions and never sign or publish.
+
 on:
   schedule:
     - cron: "0 3 1 * *"        # 1st of each month, 03:00 UTC
   workflow_dispatch:
     inputs:
+      regions:
+        description: "Regions: all, sample, or ids separated by commas"
+        type: string
+        default: all
       publish:
-        description: "Publish a GitHub Release (main only)"
+        description: "Sign and publish (main only; needs approval in the pack-publish environment)"
         type: boolean
         default: false
   pull_request:
     paths: ["pipeline/**", ".github/workflows/region-pack.yml"]
 
 permissions:
-  contents: write              # create the Release; nothing else
+  contents: write              # create the Releases; nothing else
 
 concurrency:
   group: region-pack-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    outputs:
+      regions: ${{ steps.plan.outputs.regions }}
+      groups: ${{ steps.plan.outputs.groups }}
+      publish: ${{ steps.publish.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regions and leaves
+        id: plan
+        env:
+          CHOICE: ${{ github.event_name == 'pull_request' && 'sample' || inputs.regions || 'all' }}
+        run: python3 pipeline/stages/plan_run.py "$CHOICE" >> "$GITHUB_OUTPUT"
+      - name: Publish?
+        id: publish
+        run: echo "publish=${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish == true) }}" >> "$GITHUB_OUTPUT"
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pipeline unit tests
+        run: make -C pipeline test
+
+  # One job per country folder of Geofabrik: download each leaf once, cut it for every region of the run that needs
+  # it, then upload one artifact per region (slice__<region>__<group>), which only that region's build downloads.
+  slice:
+    needs: [plan, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.groups) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space (a country's slices reach several GB)
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL && df -h /
+
+      - name: Download and slice ${{ matrix.group }}
+        env:
+          REGIONS: ${{ join(fromJSON(needs.plan.outputs.regions), ' ') }}
+        run: make -C pipeline slice LEAVES="${{ join(matrix.leaves, ' ') }}" SLICE_FLAGS=--delete
+
+      # upload-artifact uploads one artifact per step; the toolkit's client uploads one per region from a loop.
+      - name: Artifact client
+        run: npm install --no-save --prefix "$RUNNER_TEMP/artifact" @actions/artifact@2.1.11
+
+      - name: Upload one artifact per region
+        uses: actions/github-script@v7
+        env:
+          GROUP: ${{ matrix.group }}
+        with:
+          script: |
+            const fs = require("fs"), path = require("path");
+            const { DefaultArtifactClient } = require(`${process.env.RUNNER_TEMP}/artifact/node_modules/@actions/artifact`);
+            const client = new DefaultArtifactClient(), root = "pipeline/slices";
+            if (!fs.existsSync(root)) return;
+            for (const region of fs.readdirSync(root).sort()) {
+              const dir = path.join(root, region);
+              const files = fs.readdirSync(dir).map(f => path.join(dir, f));
+              if (!files.length) continue;
+              await client.uploadArtifact(`slice__${region}__${process.env.GROUP}`, files, dir, { retentionDays: 1 });
+              core.info(`slice__${region}__${process.env.GROUP}: ${files.length} files`);
+            }
+
+  build:
+    needs: [plan, slice]
+    if: always() && needs.plan.result == 'success' && needs.slice.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
     strategy:
       fail-fast: false        # one region failing keeps the others (the index keeps its last good pack)
       matrix:
-        region: [lombardy, piemonte, veneto, emilia-romagna, trentino-alto-adige]
+        region: ${{ fromJSON(needs.plan.outputs.regions) }}
     env:
       REGION: ${{ matrix.region }}
     steps:
@@ -36,28 +115,33 @@ jobs:
         id: month
         run: echo "key=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
 
-      # The Italy extract (≈ 2 GB) is shared by every region: one cache entry instead of one per region.
-      - name: Cache the OSM extract
+      - name: Slices
+        uses: actions/download-artifact@v4
+        with:
+          pattern: slice__${{ matrix.region }}__*
+          merge-multiple: true
+          path: pipeline/slices/${{ matrix.region }}
+
+      # Water polygons, Natural Earth, lake centerlines: the same for every region, one cache entry.
+      - name: Cache planetiler sources
         uses: actions/cache@v4
         with:
-          path: pipeline/cache/italy-latest.osm.pbf*
-          key: osm-italy-${{ steps.month.outputs.key }}
-          restore-keys: osm-italy-
+          path: pipeline/cache/planetiler
+          key: planetiler-sources-${{ steps.month.outputs.key }}
+          restore-keys: planetiler-sources-
 
-      - name: Cache downloads (DEM, GTFS, planetiler inputs)
+      # Italy's NAP timetables (until M11 PR 4): the NAP cuts downloads off, so its regions keep their own cache.
+      # Other regions keep none: 219 entries would overflow the repo's 10 GB and evict each other.
+      - name: Cache timetables (hand-written regions)
+        if: hashFiles(format('pipeline/config/{0}.yml', matrix.region)) != ''
         uses: actions/cache@v4
         with:
-          path: |
-            pipeline/cache
-            !pipeline/cache/italy-latest.osm.pbf*
-          key: pack-cache-${{ env.REGION }}-${{ steps.month.outputs.key }}
-          restore-keys: pack-cache-${{ env.REGION }}-
-
-      - name: Pipeline unit tests
-        run: make -C pipeline test
+          path: pipeline/cache/gtfs
+          key: transit-${{ env.REGION }}-${{ steps.month.outputs.key }}
+          restore-keys: transit-${{ env.REGION }}-
 
       - name: Build pack
-        run: make -C pipeline pack REGION=$REGION
+        run: make -C pipeline pack REGION="$REGION"
 
       - name: Summary
         run: |
@@ -79,10 +163,18 @@ jobs:
           path: pipeline/out/${{ env.REGION }}/pack/
           retention-days: 7
 
+      # The sign job reads only the manifests (all packs together are ≈ 30 GB).
+      - name: Upload manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-${{ env.REGION }}
+          path: pipeline/out/${{ env.REGION }}/pack/manifest.json
+          retention-days: 7
+
   # Golden route tests: Lombardy (the trips are in Milan); other regions have the pipeline's smoke stage.
   golden:
-    needs: build
-    if: always()              # runs when Lombardy built, even if another region failed (no artifact → fails)
+    needs: [plan, build]
+    if: always() && contains(fromJSON(needs.plan.outputs.regions), 'lombardy')
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -131,64 +223,143 @@ jobs:
           path: build/golden/
           if-no-files-found: ignore
 
+  # The only job that holds the signing key: environment `pack-publish` (required reviewer: Filippo). Signs every
+  # built manifest and the new index; publish and index then upload exactly these bytes.
+  sign:
+    needs: [plan, build, golden]
+    if: >
+      always() && needs.plan.outputs.publish == 'true' && needs.build.result != 'cancelled'
+      && (needs.golden.result == 'success' || needs.golden.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: pack-publish
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Manifests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: manifest-*
+          path: manifests
+
+      - name: Tags and index
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p signed
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" > releases.json
+          python3 pipeline/stages/releases.py tags releases.json manifests/*/manifest.json > signed/tags.txt
+          cat signed/tags.txt
+          gh release download pack-index -p packs.json -O previous.json --clobber || echo "no index yet"
+          ARGS=()
+          while read -r REGION TAG; do
+            cp "manifests/manifest-$REGION/manifest.json" "signed/manifest-$REGION.json"
+            ARGS+=("$TAG" "signed/manifest-$REGION.json")
+          done < signed/tags.txt
+          python3 pipeline/stages/index.py signed/packs.json --previous previous.json "${ARGS[@]}"
+
+      - name: Sign
+        env:
+          PACK_SIGNING_KEY: ${{ secrets.PACK_SIGNING_KEY }}
+        run: bash pipeline/stages/sign.sh signed/manifest-*.json signed/packs.json
+
+      - name: Upload signatures
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed
+          path: signed/
+          retention-days: 30
+
   publish:
-    needs: [build, golden]
-    if: always() && needs.golden.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish)
+    needs: [plan, sign]
+    if: always() && needs.sign.result == 'success'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        region: [lombardy, piemonte, veneto, emilia-romagna, trentino-alto-adige]
+        region: ${{ fromJSON(needs.plan.outputs.regions) }}
     env:
       REGION: ${{ matrix.region }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Signatures
+        uses: actions/download-artifact@v4
+        with:
+          name: signed
+          path: signed
+
+      - name: Tag
+        id: tag
+        run: echo "tag=$(awk -v r="$REGION" '$1 == r {print $2}' signed/tags.txt)" >> "$GITHUB_OUTPUT"
+
       - name: Download pack artifact
-        id: artifact
-        continue-on-error: true   # that region's build failed: its last release stays in the index
+        if: steps.tag.outputs.tag != ''   # empty: the region's build failed; its last release stays in the index
         uses: actions/download-artifact@v4
         with:
           name: pack-${{ matrix.region }}
           path: pipeline/out/${{ matrix.region }}/pack
 
       - name: Publish release
-        if: steps.artifact.outcome == 'success'
+        if: steps.tag.outputs.tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
           PACK=pipeline/out/$REGION/pack
+          cmp "$PACK/manifest.json" "signed/manifest-$REGION.json"      # the bytes that were signed
+          cp "signed/manifest-$REGION.json.sig" "$PACK/manifest.json.sig"
           NAME=$(python3 -c "import json;print(json.load(open('$PACK/manifest.json'))['name'])")
           VERSION=$(python3 -c "import json;print(json.load(open('$PACK/manifest.json'))['version'])")
-          TAG="pack-$REGION-$VERSION"; N=1; TITLE="$NAME region pack $VERSION"
-          while gh release view "$TAG" >/dev/null 2>&1; do
-            N=$((N+1)); TAG="pack-$REGION-$VERSION.$N"; TITLE="$NAME region pack $VERSION (build $N)"
-          done
+          N=${TAG#"pack-$REGION-$VERSION"}; TITLE="$NAME region pack $VERSION${N:+ (build ${N#.})}"
           python3 pipeline/stages/release_notes.py "$PACK/manifest.json" > notes.md
-          gh release create "$TAG" --title "$TITLE" --notes-file notes.md --latest=false "$PACK"/*
+          if gh release view "$TAG" >/dev/null 2>&1; then   # a re-run: finish the uploads
+            gh release upload "$TAG" "$PACK"/* --clobber
+          else
+            gh release create "$TAG" --title "$TITLE" --notes-file notes.md --latest=false "$PACK"/*
+          fi
 
-  # packs.json on the fixed Release `pack-index`: the newest published pack of every region (the app's catalog).
+  # packs.json on the fixed Release `pack-index` (the app's catalog), only once every release it points to exists:
+  # a failed publish keeps last month's index (re-run the failed jobs). Then prune releases older than two months.
   index:
-    needs: publish
-    if: always() && needs.publish.result != 'skipped'
+    needs: [sign, publish]
+    if: always() && needs.sign.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Signatures
+        uses: actions/download-artifact@v4
+        with:
+          name: signed
+          path: signed
+
+      - name: Every release in the index exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" > releases.json
+          python3 - <<'PY'
+          import json, sys
+          sys.path.insert(0, "pipeline/stages")
+          from releases import load_pages
+          have = {r["tag_name"] for r in load_pages(open("releases.json").read())}
+          missing = [r["tag"] for r in json.load(open("signed/packs.json"))["regions"] if r["tag"] not in have]
+          if missing:
+              sys.exit(f"not published yet: {', '.join(missing)}; re-run the failed publish jobs, then this one")
+          PY
 
       - name: Publish the region index
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          ARGS=()
-          for cfg in pipeline/config/*.yml; do
-            REGION=$(basename "$cfg" .yml); case "$REGION" in _*|bikes_allowed_rules) continue;; esac
-            TAG=$(gh release list --limit 200 --json tagName,isDraft,isPrerelease,createdAt \
-              -q "[.[] | select(.isDraft|not) | select(.isPrerelease|not) | select(.tagName | startswith(\"pack-$REGION-\"))] | sort_by(.createdAt) | last | .tagName // empty")
-            [ -z "$TAG" ] && continue
-            gh release download "$TAG" -p manifest.json -O "manifest-$REGION.json" --clobber
-            ARGS+=("$TAG" "manifest-$REGION.json")
-          done
-          python3 pipeline/stages/index.py packs.json "${ARGS[@]}"
           gh release view pack-index >/dev/null 2>&1 || gh release create pack-index --title "Region pack index" \
-            --notes "packs.json: the newest pack of every region (the app's catalog). Updated by the Region pack workflow." --latest=false
-          gh release upload pack-index packs.json --clobber
+            --notes "packs.json (+ packs.json.sig): the newest pack of every region, signed (the app's catalog). Updated by the Region pack workflow." --latest=false
+          gh release upload pack-index signed/packs.json signed/packs.json.sig --clobber
+
+      - name: Prune releases older than two months
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 pipeline/stages/releases.py prune releases.json signed/packs.json > prune.txt
+          echo "pruning $(wc -l < prune.txt | tr -d ' ') releases"
+          while read -r TAG; do [ -n "$TAG" ] && gh release delete "$TAG" --yes --cleanup-tag; done < prune.txt
