@@ -200,6 +200,14 @@ struct RegionPackSigningTests {
                             downloader: FolderDownloader(folder: release, deadHosts: deadHosts), key: testSigningKey.publicKey)
     }
 
+    /// The app's key is the one the pipeline signs with (pipeline/keys/pack-signing.pub, tools/packkey/new-key.sh).
+    @Test func appKeyMatchesThePipelineKey() throws {
+        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let pub = try String(contentsOf: repo.appending(path: "pipeline/keys/pack-signing.pub"), encoding: .utf8)
+        #expect(pub.trimmingCharacters(in: .whitespacesAndNewlines) == PackSignature.publicKeyBase64)
+        #expect(PackSignature.velix != nil)
+    }
+
     @Test func signaturesCheckAgainstTheKeyOnly() throws {
         let data = Data("packs".utf8)
         let sig = try testSigningKey.signature(for: data)

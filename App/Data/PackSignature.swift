@@ -8,7 +8,7 @@ import Foundation
 enum PackSignature {
     /// pipeline/keys/pack-signing.pub (raw 32 bytes, base64), made by tools/packkey/new-key.sh. A new key needs an
     /// app update before the next signed publish (DECISIONS 2026-11-14).
-    static let publicKeyBase64 = ""
+    static let publicKeyBase64 = "j4uPu/V7Fm9Ee7iapwYet/rTuG2+P3zyuWHExvbaqCI="
 
     /// The key packs are checked against; nil until the key exists (then nothing verifies).
     static let velix: Curve25519.Signing.PublicKey? = key(base64: publicKeyBase64)

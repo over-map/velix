@@ -24,7 +24,7 @@ This is for a new Claude Code session that knows nothing about the work so far. 
 The free Personal Team profile expires then and the app stops opening on the iPhone. Rebuilding doesn't renew it; the steps are in the `velix-phone` skill, "Rules".
 
 ### 2.2 M11 PR 3: after review
-- **Before merge (Filippo):** create the `pack-publish` environment (Settings → Environments, required reviewer: himself), run `tools/packkey/new-key.sh`, and commit `pipeline/keys/pack-signing.pub`; copy the same key into `PackSignature.publicKeyBase64`. Without it every install fails "not signed".
+- **Signing set up (15 Nov):** environment `pack-publish` (required reviewer: over-map, `main` only), secret `PACK_SIGNING_KEY`, public key in `pipeline/keys/pack-signing.pub` and `PackSignature.publicKeyBase64` (a unit test keeps them equal). No copy of the private key exists outside the secret: losing it means `tools/packkey/new-key.sh` again plus an app update.
 - **After merge:** dispatch *Region pack* with `regions: all`, `publish: on`; approve the `sign` job. ≈ 14 h with 20 parallel jobs. Check the index (≈ 330 KB), the pruning log, then update Lombardy on the phone from the signed index. That run is PR 3's acceptance.
 - **Order on the phone:** app builds from before PR 3 still read the new index (schema 2 keeps `manifest`) and ignore the `.sig` files. Builds with PR 3 refuse the old unsigned packs, so install a PR 3 build only after the first signed run has published.
 
