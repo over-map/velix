@@ -428,10 +428,13 @@ def load_units(paths: list) -> list:
 
 
 def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, leaves) -> int:
-    from shapely.geometry import mapping
+    from shapely.geometry import mapping, shape
     from shapely.ops import transform
     from pyproj import Transformer
     from timezonefinder import TimezoneFinder
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from common import valid_polygon
 
     # Country borders (Geofabrik's), with the carve rule: Ireland's loses Northern Ireland to the UK's.
     borders = {p["iso3166-1:alpha2"][0]: (cid, geoms[cid]) for cid, p in sorted(props.items())
@@ -457,6 +460,12 @@ def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, le
     # Source leaves: every leaf in Europe (scope or not) that the region's border + buffer touches.
     all_leaves = [l for l in leaves("europe") if l in geoms]
     tf = TimezoneFinder()
+    def rounded_valid(g) -> dict:
+        """GeoJSON at 4 decimals, repaired: rounding the simplified outline crossed edges in 30 regions (17 Nov)."""
+        r = json.loads(json.dumps(mapping(g)), parse_float=lambda f: round(float(f), 4))
+        return r if shape(r).is_valid else json.loads(json.dumps(mapping(valid_polygon(shape(r)))),
+                                                      parse_float=lambda f: round(float(f), 4))
+
     out, countries_seen = [], set()
     for rid, name, r in sorted(assign_ids(regions, rules.get("names", {})), key=lambda t: t[0]):
         poly = unary_union([u.geom for u in r.members]).buffer(0)
@@ -472,7 +481,7 @@ def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, le
         countries_seen.add(r.lead.country)
         out.append({"id": rid, "name": name, "country": r.lead.country, "timezone": region_timezone(tf, simple),
                     "forecast_mb": round(r.size / MB * rules["forecast_factor"]), "members": [u.key for u in r.members],
-                    "sources": sources, "polygon": json.loads(json.dumps(mapping(simple)), parse_float=lambda f: round(float(f), 4))})
+                    "sources": sources, "polygon": rounded_valid(simple)})
     catalogue = {"schema": 1, "generated_from": INDEX_URL, "budget_mb": 320,
                  "leaves": {l: props[l]["urls"]["pbf"] for l in sorted({s for r in out for s in r["sources"]})},
                  "regions": out}
