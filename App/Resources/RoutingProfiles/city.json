@@ -11,7 +11,8 @@
       "avoid_bad_surfaces": 0.7,
       "use_living_streets": 0.7,
       "gate_cost": 2,
-      "gate_penalty": 0
+      "gate_penalty": 0,
+      "use_ferry": 0.0
     }
   },
   "fastest": {
@@ -24,7 +25,8 @@
       "avoid_bad_surfaces": 0.0,
       "use_living_streets": 0.5,
       "gate_cost": 2,
-      "gate_penalty": 0
+      "gate_penalty": 0,
+      "use_ferry": 0.0
     }
   }
 }
