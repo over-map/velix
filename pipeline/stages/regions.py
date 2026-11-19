@@ -229,9 +229,18 @@ def region_timezone(tf, poly, n: int = 7) -> str:
     return max(sorted(seen), key=seen.get)
 
 def fetch_json(url: str, dst: Path):
-    if not dst.exists():
-        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=300) as r:
-            dst.write_bytes(r.read())
+    """Retried ≈ 10 min: on 19 Nov three runners had no route to Geofabrik for a while (Errno 101)."""
+    for attempt in range(8):
+        if dst.exists():
+            break
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=300) as r:
+                dst.write_bytes(r.read())
+        except OSError as e:
+            if attempt == 7:
+                raise SystemExit(f"{url}: {e}")
+            print(f"[regions] {url}: {e}, retrying ({attempt + 1})", flush=True)
+            time.sleep(15 * (attempt + 1))
     return json.loads(dst.read_text())
 
 
