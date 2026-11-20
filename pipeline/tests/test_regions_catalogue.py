@@ -147,3 +147,10 @@ class CountryCodes(unittest.TestCase):
             self.assertIn(c, iso, c)
         for c, code in iso.items():     # a bare NO in YAML is False (Norway)
             self.assertTrue(isinstance(code, str) and re.fullmatch("[A-Z]{2}", code), f"{c}: {code!r}")
+
+    def test_index_code_read_as_list_string_or_missing(self):
+        from regions import iso_of
+        rules = {"geofabrik_iso": {"ireland-and-northern-ireland": "IE"}}
+        cid = "ireland-and-northern-ireland"
+        for props in ({cid: {"iso3166-1:alpha2": ["IE"]}}, {cid: {"iso3166-1:alpha2": "IE"}}, {cid: {}}, {}):
+            self.assertEqual(iso_of(cid, props, rules), "IE", props)

@@ -390,8 +390,11 @@ def load_index(work: Path):
 
 
 def iso_of(cid: str, props: dict, rules: dict) -> str | None:
-    """A Geofabrik country's ISO code: the index's field, else rules.yml `geofabrik_iso` (the index dropped it, Nov 2026)."""
+    """A Geofabrik country's ISO code: the index's field, else rules.yml `geofabrik_iso`. The field was a list, went
+    missing (18 Nov 2026), then came back as a plain string (20 Nov: "IE"[0] gave "I"); all three are read."""
     codes = props.get(cid, {}).get("iso3166-1:alpha2")
+    if isinstance(codes, str):
+        return codes
     return codes[0] if codes else rules.get("geofabrik_iso", {}).get(cid)
 
 
