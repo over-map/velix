@@ -389,9 +389,15 @@ def load_index(work: Path):
     return rules, props, geoms, leaves
 
 
+def iso_of(cid: str, props: dict, rules: dict) -> str | None:
+    """A Geofabrik country's ISO code: the index's field, else rules.yml `geofabrik_iso` (the index dropped it, Nov 2026)."""
+    codes = props.get(cid, {}).get("iso3166-1:alpha2")
+    return codes[0] if codes else rules.get("geofabrik_iso", {}).get(cid)
+
+
 def country_units(c: str, work: Path, rules: dict, props: dict, geoms: dict, leaves) -> list:
     """The Units of one Geofabrik country: its leaves that fit, and the admin areas of the big ones."""
-    iso = props[c]["iso3166-1:alpha2"][0]
+    iso = iso_of(c, props, rules)
     country = rules.get("join_country", {}).get(iso, iso)
     units, sized = [], []
     for leaf in leaves(c):
@@ -446,8 +452,8 @@ def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, le
     from common import valid_polygon
 
     # Country borders (Geofabrik's), with the carve rule: Ireland's loses Northern Ireland to the UK's.
-    borders = {p["iso3166-1:alpha2"][0]: (cid, geoms[cid]) for cid, p in sorted(props.items())
-               if p.get("parent") == "europe" and p.get("iso3166-1:alpha2") and cid in geoms}
+    borders = {iso_of(cid, props, rules): (cid, geoms[cid]) for cid, p in sorted(props.items())
+               if p.get("parent") == "europe" and iso_of(cid, props, rules) and cid in geoms}
     for iso_c, others in rules.get("carve", {}).items():
         cid, g = borders[iso_c]
         borders[iso_c] = (cid, g.buffer(0).difference(unary_union([borders[o][1] for o in others]).buffer(0)))

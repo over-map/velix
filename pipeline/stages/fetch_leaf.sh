@@ -15,11 +15,17 @@ URL="$1"; SRC="cache/$(basename "$URL")"; mkdir -p cache
 retry() { local what="$1"; shift; for i in $(seq 1 8); do "$@" && return 0; sleep $((i * 15)); done
           echo "[fetch] $what: Geofabrik unreachable" >&2; return 1; }
 resolve() { FINAL=$(curl -fsSIL --connect-timeout 30 -o /dev/null -w '%{url_effective}' "$URL"); }
-retry "$URL" resolve
-retry "$FINAL.md5" curl -fsSL --connect-timeout 30 -o "$SRC.md5.new" "$FINAL.md5"
-WANT=$(cut -d' ' -f1 "$SRC.md5.new"); rm -f "$SRC.md5.new"
-[[ "$WANT" =~ ^[0-9a-f]{32}$ ]] || { echo "[fetch] $FINAL.md5: not an md5" >&2; exit 1; }
-if [ ! -f "$SRC" ] || [ "$(cat "$SRC.md5" 2>/dev/null)" != "$WANT" ]; then
+# Geofabrik's servers disagreed for a while after its Nov 2026 move (two .md5 answers for one file a minute apart): on a
+# mismatch, start over (address, checksum, file) up to 4 times before failing.
+for round in 1 2 3 4; do
+  retry "$URL" resolve
+  retry "$FINAL.md5" curl -fsSL --connect-timeout 30 -o "$SRC.md5.new" "$FINAL.md5"
+  WANT=$(cut -d' ' -f1 "$SRC.md5.new"); rm -f "$SRC.md5.new"
+  [[ "$WANT" =~ ^[0-9a-f]{32}$ ]] || { echo "[fetch] $FINAL.md5: not an md5" >&2; exit 1; }
+  if [ -f "$SRC" ] && [ "$(cat "$SRC.md5" 2>/dev/null)" = "$WANT" ]; then
+    [ "$(md5sum "$SRC" | cut -d' ' -f1)" = "$WANT" ] && { echo "$SRC"; exit 0; }
+    rm -f "$SRC" "$SRC.md5"; echo "[fetch] $SRC: cached copy corrupt, downloading again" >&2
+  fi
   echo "[fetch] downloading $FINAL" >&2
   # The partial file is named after the dated file, so a resume never mixes two days' extracts.
   PART="cache/$(basename "$FINAL").part"
@@ -29,11 +35,9 @@ if [ ! -f "$SRC" ] || [ "$(cat "$SRC.md5" 2>/dev/null)" != "$WANT" ]; then
     echo "[fetch] resuming ($i)" >&2; sleep $((i * 5))
   done
   [ -n "$OK" ] || { echo "[fetch] $FINAL: download failed" >&2; exit 1; }
-  HAVE=$(md5sum "$PART" | cut -d' ' -f1)
-  [ "$HAVE" = "$WANT" ] || { rm -f "$PART"; echo "[fetch] $FINAL: md5 mismatch" >&2; exit 1; }
-  mv "$PART" "$SRC"
-  echo "$WANT" > "$SRC.md5"
-else
-  [ "$(md5sum "$SRC" | cut -d' ' -f1)" = "$WANT" ] || { rm -f "$SRC" "$SRC.md5"; echo "[fetch] $SRC: cached copy corrupt" >&2; exit 1; }
-fi
-echo "$SRC"
+  if [ "$(md5sum "$PART" | cut -d' ' -f1)" = "$WANT" ]; then
+    mv "$PART" "$SRC"; echo "$WANT" > "$SRC.md5"; echo "$SRC"; exit 0
+  fi
+  rm -f "$PART"; echo "[fetch] $FINAL: md5 mismatch (round $round), starting over" >&2; sleep $((round * 30))
+done
+echo "[fetch] $URL: md5 never matched" >&2; exit 1
