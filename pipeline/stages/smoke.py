@@ -60,7 +60,8 @@ def main() -> int:
     bm = json.loads((out / "basemap.counts.json").read_text())
     check(bm["tiles"] >= sm.get("basemap_tiles", 1), f"basemap tiles: {bm['tiles']} (≥ {sm.get('basemap_tiles', 1)})")
     for layer in LAYERS:
-        check(bm["layer_mb"].get(layer, 0) > 0.5, f"basemap layer {layer}: {bm['layer_mb'].get(layer, 0)} MB")
+        # Present, not big: Malta, Orkney and Hamburg hold under 0.5 MB of water or places (the old > 0.5 MB failed them).
+        check(bm["layer_mb"].get(layer, 0) > 0, f"basemap layer {layer}: {bm['layer_mb'].get(layer, 0)} MB")
     ov = json.loads((out / "overlays.counts.json").read_text())
     check(ov["velix_cycling"] >= sm.get("cycle_ways", 1), f"cycle infrastructure ways: {ov['velix_cycling']} (≥ {sm.get('cycle_ways', 1)})")
     check(ov["velix_stations"] >= sm.get("stations", 0), f"stations: {ov['velix_stations']} (≥ {sm.get('stations', 0)})")

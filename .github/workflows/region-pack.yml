@@ -62,6 +62,7 @@ jobs:
     timeout-minutes: 240
     strategy:
       fail-fast: false
+      max-parallel: 8         # Geofabrik's fair use: 43 jobs at once got some runners refused (17 Nov)
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.groups) }}
     steps:
@@ -312,7 +313,12 @@ jobs:
           VERSION=$(python3 -c "import json;print(json.load(open('$PACK/manifest.json'))['version'])")
           N=${TAG#"pack-$REGION-$VERSION"}; TITLE="$NAME region pack $VERSION${N:+ (build ${N#.})}"
           python3 pipeline/stages/release_notes.py "$PACK/manifest.json" > notes.md
-          if gh release view "$TAG" >/dev/null 2>&1; then   # a re-run: finish the uploads
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # A re-run (stages/releases.py kept the tag because the release holds these manifest bytes): skip it when
+            # every asset is already there, else finish the uploads.
+            HAVE=$(gh release view "$TAG" --json assets -q '[.assets[].name] | sort | join(" ")')
+            WANT=$(find "$PACK" -maxdepth 1 -type f -exec basename {} \; | sort | tr '\n' ' ' | sed 's/ $//')
+            if [ "$HAVE" = "$WANT" ]; then echo "$TAG is complete: nothing to upload"; exit 0; fi
             gh release upload "$TAG" "$PACK"/* --clobber
           else
             gh release create "$TAG" --title "$TITLE" --notes-file notes.md --latest=false "$PACK"/*

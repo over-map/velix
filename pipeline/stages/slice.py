@@ -9,16 +9,29 @@ extract.sh then merges the slices instead of downloading.
 Usage: REGIONS="id id…" python stages/slice.py [--delete] <leaf>…   (REGIONS: the run's regions; default all)"""
 import json
 import os
+import resource
 import subprocess
 import sys
 
 from shapely.geometry import mapping, shape
 
-from common import PIPELINE, load_config, log, write_json
+from common import PIPELINE, catalogue_polygon, load_config, log, write_json
 from country_admin import CountryNames
 from coverage import grow
 
 MARGIN_KM = 5
+GB_PER_REGION = 5         # osmium `smart`: ≈ 4.1 GB per output, measured on Slovenia (ID tables span OSM's whole ID range)
+
+
+def batch_size() -> int:
+    """Regions per osmium pass: what the machine's free memory holds (GitHub's 16 GB runners: 2), SLICE_BATCH to force."""
+    if os.environ.get("SLICE_BATCH"):
+        return max(1, int(os.environ["SLICE_BATCH"]))
+    try:
+        avail_kb = next(int(line.split()[1]) for line in open("/proc/meminfo") if line.startswith("MemAvailable:"))
+    except (OSError, StopIteration):
+        return 1
+    return max(1, int((avail_kb / 1e6 - 1) // GB_PER_REGION))
 SLICES = PIPELINE / "slices"
 
 
@@ -33,7 +46,7 @@ def extract_config(leaf: str, regions: list[dict], workdir) -> dict:
         km = load_config(r["id"])["coverage"]["buffer_km"] + MARGIN_KM
         poly = workdir / f"{r['id']}.geojson"
         write_json(poly, {"type": "FeatureCollection", "features": [
-            {"type": "Feature", "properties": {}, "geometry": mapping(grow(shape(r["polygon"]), km))}]})
+            {"type": "Feature", "properties": {}, "geometry": mapping(grow(catalogue_polygon(r), km))}]})
         extracts.append({"output": f"{r['id']}/{leaf}.osm.pbf", "polygon": {"file_name": str(poly), "file_type": "geojson"}})
     return {"directory": str(SLICES), "extracts": extracts}
 
@@ -58,10 +71,17 @@ def main(leaves: list[str], delete: bool):
                                         stdout=subprocess.PIPE, text=True, check=True).stdout.strip()
         for r in regions:
             (SLICES / r["id"]).mkdir(parents=True, exist_ok=True)
-        cfg = work / f"{leaf}.json"
-        write_json(cfg, extract_config(leaf, regions, work))
-        subprocess.run(["osmium", "extract", "--config", str(cfg), "--strategy", "smart", "--overwrite", str(src)],
-                       check=True)
+        # osmium's `smart` strategy keeps ID tables for every output at once: 7 or more regions in one pass ran
+        # the 16 GB runners out of memory (SIGKILL, 15 Nov). A few regions per pass; the leaf is re-read per batch.
+        size = batch_size()
+        for i in range(0, len(regions), size):
+            batch = regions[i:i + size]
+            cfg = work / f"{leaf}-{i // size}.json"
+            write_json(cfg, extract_config(leaf, batch, work))
+            subprocess.run(["osmium", "extract", "--config", str(cfg), "--strategy", "smart", "--overwrite", str(src)],
+                           check=True)
+            peak = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1e6   # KB on Linux → GB
+            log(f"{leaf}: batch {i // size + 1} ({len(batch)} regions), osmium peak so far {peak:.1f} GB")
         names = CountryNames()
         names.apply_file(str(src))
         meta = {"leaf": leaf, "url": url, "timestamp": header_timestamp(src), "countries": names.names}

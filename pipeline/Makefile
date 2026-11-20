@@ -7,7 +7,7 @@ TOOLS_IMAGE := velix-pipeline-tools
 # Shared settings live in config/_base.yml (read with a regex: the host may not have PyYAML).
 base = $(shell python3 -c "import re;print(re.search(r'\n$(1):\n(?:  .*\n)*?  $(2): (\S+)', open('config/_base.yml').read()).group(1))")
 VALHALLA_IMAGE := $(call base,valhalla,image)
-DOCKER_RUN := docker run --rm -e REGION=$(REGION) -e REGIONS -v "$(ROOT):/work" -w /work/pipeline
+DOCKER_RUN := docker run --rm -e REGION=$(REGION) -e REGIONS -e SLICE_BATCH -v "$(ROOT):/work" -w /work/pipeline
 TOOLS := $(DOCKER_RUN) $(TOOLS_IMAGE)
 VALHALLA := $(DOCKER_RUN) $(VALHALLA_IMAGE)
 PLANETILER_IMAGE := $(call base,basemap,image)

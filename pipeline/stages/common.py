@@ -30,6 +30,26 @@ def catalogue_entry(region: str) -> dict | None:
     return dict(entry, source_urls=[cat["leaves"][leaf] for leaf in entry["sources"]]) if entry else None
 
 
+def valid_polygon(geom):
+    """A valid (Multi)Polygon: the catalogue's outlines are simplified, then rounded to 4 decimals, which can cross
+    an edge (30 of 219 regions, coasts and islands mostly); shapely then fails on them (17 Nov 2026: 12 builds)."""
+    from shapely import make_valid
+    from shapely.geometry import MultiPolygon, Polygon
+    from shapely.ops import unary_union
+    if geom.is_valid:
+        return geom
+    g = make_valid(geom)
+    if isinstance(g, (Polygon, MultiPolygon)):
+        return g
+    return unary_union([p for p in getattr(g, "geoms", []) if isinstance(p, (Polygon, MultiPolygon))])
+
+
+def catalogue_polygon(entry: dict):
+    """The region's catalogue outline as a valid shapely geometry."""
+    from shapely.geometry import shape
+    return valid_polygon(shape(entry["polygon"]))
+
+
 def load_config(region: str | None = None) -> dict:
     """config/_base.yml (what every region shares), then the region's catalogue entry (generated), then
     config/<region>.yml when one exists (hand-written: Italy's timetables, smoke checks, pinned borders)."""

@@ -28,6 +28,23 @@ class Slice(unittest.TestCase):
         self.assertEqual([r["id"] for r in wanted("switzerland", self.cat, {"lombardy", "luxembourg"})], ["lombardy"])
         self.assertEqual(wanted("switzerland", self.cat, {"luxembourg"}), [])
 
+    def test_every_catalogue_outline_is_usable(self):
+        from common import catalogue_polygon
+        from shapely.geometry import Point
+        for r in self.cat["regions"]:
+            g = catalogue_polygon(r)
+            self.assertTrue(g.is_valid and not g.is_empty, r["id"])
+            g.contains(Point(g.representative_point()))     # raised on 30 outlines before (main_city.py)
+            self.assertGreater(g.area, shape(r["polygon"]).buffer(0).area * 0.98, r["id"])  # repaired, not cut
+
+    def test_batches_fit_the_memory(self):
+        import slice as sl
+        import os
+        os.environ["SLICE_BATCH"] = "3"
+        self.assertEqual(sl.batch_size(), 3)
+        del os.environ["SLICE_BATCH"]
+        self.assertGreaterEqual(sl.batch_size(), 1)
+
     def test_each_slice_covers_the_region_and_its_buffer(self):
         lux = next(r for r in self.cat["regions"] if r["id"] == "luxembourg")
         with tempfile.TemporaryDirectory() as d:

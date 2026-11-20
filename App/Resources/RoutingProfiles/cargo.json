@@ -9,7 +9,8 @@
       "use_roads": 0.0,
       "use_hills": 0.0,
       "avoid_bad_surfaces": 1.0,
-      "use_living_streets": 0.9
+      "use_living_streets": 0.9,
+      "use_ferry": 0.0
     }
   },
   "fastest": {
@@ -20,7 +21,8 @@
       "use_roads": 1.0,
       "use_hills": 0.5,
       "avoid_bad_surfaces": 0.0,
-      "use_living_streets": 0.5
+      "use_living_streets": 0.5,
+      "use_ferry": 0.0
     }
   }
 }
