@@ -104,7 +104,7 @@ geofabrik_iso:
   monaco: MC
   montenegro: ME
   netherlands: NL
-  norway: NO
+  norway: "NO"     # quoted: bare NO is YAML for false
   poland: PL
   portugal: PT
   romania: RO
