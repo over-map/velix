@@ -248,6 +248,8 @@ struct VelixMap: UIViewRepresentable {
             MainActor.assumeIsolated {
                 loaded = true
                 if let style = mapView.style { VelixMapStyle.localize(style) }
+                tilted = nil
+                applyBuildingMode(on: mapView)
                 applyStyleState(on: mapView)
                 if cameraPending { applyCamera(on: mapView, animated: false) }
             }
@@ -262,8 +264,29 @@ struct VelixMap: UIViewRepresentable {
 
         private var movedByUser = false
 
+        /// Flat or tilted, as last applied to the building layers (nil: not yet, for this style).
+        private var tilted: Bool?
+
+        /// Buildings extruded only while the map is tilted, whoever tilts it (riding in 3D, or two fingers): flat, they
+        /// are roofs with the outline on their edge (Filippo, 22 Nov). Reads the map's own pitch, so gestures count too;
+        /// touches the style only when flat ↔ tilted flips.
+        func applyBuildingMode(on map: MLNMapView) {
+            guard loaded, let style = map.style else { return }
+            let now = VelixMapStyle.isTilted(pitch: map.camera.pitch)
+            guard now != tilted else { return }
+            tilted = now
+            for (id, on) in VelixMapStyle.buildingVisibility(tilted: now, layerIDs: style.layers.map(\.identifier)) {
+                style.layer(withIdentifier: id)?.isVisible = on
+            }
+        }
+
+        nonisolated func mapViewRegionIsChanging(_ mapView: MLNMapView) {
+            MainActor.assumeIsolated { applyBuildingMode(on: mapView) }
+        }
+
         nonisolated func mapView(_ mapView: MLNMapView, regionDidChangeWith reason: MLNCameraChangeReason, animated: Bool) {
             MainActor.assumeIsolated {
+                applyBuildingMode(on: mapView)
                 guard movedByUser else { return }
                 movedByUser = false
                 let c = mapView.centerCoordinate

@@ -8013,6 +8013,52 @@
    }
   },
   {
+   "id": "building-flat-2d",
+   "type": "fill",
+   "source": "omt",
+   "source-layer": "building",
+   "minzoom": 15,
+   "paint": {
+    "fill-color": [
+     "case",
+     [
+      ">=",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       0
+      ],
+      85
+     ],
+     "#4B7F8E",
+     [
+      "match",
+      [
+       "%",
+       [
+        "to-number",
+        [
+         "id"
+        ],
+        0
+       ],
+       4
+      ],
+      0,
+      "#2C5870",
+      1,
+      "#2A556D",
+      2,
+      "#2F5B73",
+      "#295369"
+     ]
+    ]
+   }
+  },
+  {
    "id": "building-edge",
    "type": "line",
    "source": "omt",
@@ -9196,11 +9242,11 @@
    }
   },
   {
-   "id": "building-3d-edge-0",
-   "type": "fill-extrusion",
+   "id": "building-outline",
+   "type": "line",
    "source": "omt",
    "source-layer": "building",
-   "minzoom": 15,
+   "minzoom": 14.9,
    "filter": [
     "!=",
     [
@@ -9210,8 +9256,9 @@
     true
    ],
    "paint": {
-    "fill-extrusion-color": "#184158",
-    "fill-extrusion-base": [
+    "line-color": "#184158",
+    "line-width": 0.6,
+    "line-opacity": [
      "interpolate",
      [
       "linear"
@@ -9219,291 +9266,11 @@
      [
       "zoom"
      ],
-     14.6,
+     14.9,
      0,
-     15.8,
-     [
-      "coalesce",
-      [
-       "get",
-       "render_height"
-      ],
-      6
-     ]
-    ],
-    "fill-extrusion-height": [
-     "interpolate",
-     [
-      "linear"
-     ],
-     [
-      "zoom"
-     ],
-     14.6,
-     0,
-     15.8,
-     [
-      "+",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       6
-      ],
-      0.05
-     ]
-    ],
-    "fill-extrusion-translate": [
-     0.8,
-     0
-    ],
-    "fill-extrusion-translate-anchor": "viewport",
-    "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 1
-   }
-  },
-  {
-   "id": "building-3d-edge-1",
-   "type": "fill-extrusion",
-   "source": "omt",
-   "source-layer": "building",
-   "minzoom": 15,
-   "filter": [
-    "!=",
-    [
-     "get",
-     "hide_3d"
-    ],
-    true
-   ],
-   "paint": {
-    "fill-extrusion-color": "#184158",
-    "fill-extrusion-base": [
-     "interpolate",
-     [
-      "linear"
-     ],
-     [
-      "zoom"
-     ],
-     14.6,
-     0,
-     15.8,
-     [
-      "coalesce",
-      [
-       "get",
-       "render_height"
-      ],
-      6
-     ]
-    ],
-    "fill-extrusion-height": [
-     "interpolate",
-     [
-      "linear"
-     ],
-     [
-      "zoom"
-     ],
-     14.6,
-     0,
-     15.8,
-     [
-      "+",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       6
-      ],
-      0.05
-     ]
-    ],
-    "fill-extrusion-translate": [
-     -0.4,
-     0.69
-    ],
-    "fill-extrusion-translate-anchor": "viewport",
-    "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 1
-   }
-  },
-  {
-   "id": "building-3d-edge-2",
-   "type": "fill-extrusion",
-   "source": "omt",
-   "source-layer": "building",
-   "minzoom": 15,
-   "filter": [
-    "!=",
-    [
-     "get",
-     "hide_3d"
-    ],
-    true
-   ],
-   "paint": {
-    "fill-extrusion-color": "#184158",
-    "fill-extrusion-base": [
-     "interpolate",
-     [
-      "linear"
-     ],
-     [
-      "zoom"
-     ],
-     14.6,
-     0,
-     15.8,
-     [
-      "coalesce",
-      [
-       "get",
-       "render_height"
-      ],
-      6
-     ]
-    ],
-    "fill-extrusion-height": [
-     "interpolate",
-     [
-      "linear"
-     ],
-     [
-      "zoom"
-     ],
-     14.6,
-     0,
-     15.8,
-     [
-      "+",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       6
-      ],
-      0.05
-     ]
-    ],
-    "fill-extrusion-translate": [
-     -0.4,
-     -0.69
-    ],
-    "fill-extrusion-translate-anchor": "viewport",
-    "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 1
-   }
-  },
-  {
-   "id": "building-3d-roof",
-   "type": "fill-extrusion",
-   "source": "omt",
-   "source-layer": "building",
-   "minzoom": 15,
-   "filter": [
-    "!=",
-    [
-     "get",
-     "hide_3d"
-    ],
-    true
-   ],
-   "paint": {
-    "fill-extrusion-color": [
-     "case",
-     [
-      ">=",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       0
-      ],
-      85
-     ],
-     "#4B7F8E",
-     [
-      "match",
-      [
-       "%",
-       [
-        "to-number",
-        [
-         "id"
-        ],
-        0
-       ],
-       4
-      ],
-      0,
-      "#2C5870",
-      1,
-      "#2A556D",
-      2,
-      "#2F5B73",
-      "#295369"
-     ]
-    ],
-    "fill-extrusion-base": [
-     "interpolate",
-     [
-      "linear"
-     ],
-     [
-      "zoom"
-     ],
-     14.6,
-     0,
-     15.8,
-     [
-      "+",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       6
-      ],
-      0.05
-     ]
-    ],
-    "fill-extrusion-height": [
-     "interpolate",
-     [
-      "linear"
-     ],
-     [
-      "zoom"
-     ],
-     14.6,
-     0,
-     15.8,
-     [
-      "+",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       6
-      ],
-      0.1
-     ]
-    ],
-    "fill-extrusion-vertical-gradient": false,
-    "fill-extrusion-opacity": 1
+     15,
+     1
+    ]
    }
   },
   {

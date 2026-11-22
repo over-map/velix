@@ -84,6 +84,20 @@ enum VelixMapStyle {
         }
     }
 
+    /// Buildings are extruded only in a tilted view (riding in 3D, or two fingers); flat, they are flat roofs with the
+    /// outline drawn on their edge, so the outline is always visible in 2D (Filippo, 22 Nov). z < 15 layers stay as they are.
+    static func buildingVisibility(tilted: Bool, layerIDs: [String]) -> [String: Bool] {
+        var out: [String: Bool] = [:]
+        for id in layerIDs {
+            if id.hasPrefix("building-3d") { out[id] = tilted }
+            else if id == "building-flat-2d" || id == "building-outline" { out[id] = !tilted }
+        }
+        return out
+    }
+
+    /// More than a degree of pitch counts as tilted (a two-finger tilt starts from 0).
+    static func isTilted(pitch: Double) -> Bool { pitch > 1 }
+
     /// Layers the MapStyleSheet overlay toggles switch (on / off variants share an id prefix).
     static func visibility(bikeLanes: Bool, transitLines: Bool, layerIDs: [String]) -> [String: Bool] {
         var out: [String: Bool] = [:]

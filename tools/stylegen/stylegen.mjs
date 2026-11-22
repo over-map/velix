@@ -335,6 +335,7 @@ function style(name, mode) {
   const roof = ['match', roofIdx, ...P.roof.flatMap((c, i) => [i, c]).slice(0, -2), P.roof[P.roof.length - 1]];
   const landmark = ['>=', ['coalesce', ['get', 'render_height'], 0], 85];
   if (!sat) omt('building', 'building-flat', 'fill', { minzoom: 13.6, maxzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof], 'fill-opacity': fade(13.6, 14.2) } });
+  if (!sat) omt('building', 'building-flat-2d', 'fill', { minzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof] } });
   if (!sat) omt('building', 'building-edge', 'line', { minzoom: 14.2, maxzoom: 15, paint: { 'line-color': P.wallD, 'line-width': 0.4, 'line-opacity': fade(14.2, 14.6, null, null, 0.5) } });
   // Walls lighter at the bottom, darker at the top (Filippo, 30 Oct): MapLibre's own vertical gradient darkens the
   // bottom and can't be reversed, so each building is stacked slices of its height, lighter to darker, with the
@@ -362,24 +363,12 @@ function style(name, mode) {
         'fill-extrusion-base': ramp(i === 0 ? minH : at(i / SLICES)), 'fill-extrusion-height': ramp(at((i + 1) / SLICES)),
         'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
   }
-  // The outline sits on the roof edge (Filippo, 22 Nov; it was a line on the ground, 9 Nov, which showed at the
-  // buildings' base, and MapLibre can't raise a line): a thin slab of `edgeHi` at roof height drawn three times, each
-  // shifted EDGE_PT on screen (120° apart), then the roof cap unshifted over it, so the slabs show as a rim of 0.5–1 ×
-  // EDGE_PT around every roof, from straight above and pitched. No extra map data (the pack has no room for a ring layer).
-  if (!sat && P.edgeHi) {
-    const EDGE_PT = 0.8;
-    const top = (dh) => ramp(['+', hgt, dh]);
-    [0, 120, 240].forEach((deg, i) => {
-      const r = (deg * Math.PI) / 180;
-      omt('building', `building-3d-edge-${i}`, 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
-        paint: { 'fill-extrusion-color': P.edgeHi, 'fill-extrusion-base': ramp(hgt), 'fill-extrusion-height': top(0.05),
-          'fill-extrusion-translate': [+(EDGE_PT * Math.cos(r)).toFixed(2), +(EDGE_PT * Math.sin(r)).toFixed(2)],
-          'fill-extrusion-translate-anchor': 'viewport', 'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
-    });
-    omt('building', 'building-3d-roof', 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
-      paint: { 'fill-extrusion-color': shade(0), 'fill-extrusion-base': top(0.05), 'fill-extrusion-height': top(0.1),
-        'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
-  }
+  // From the landing zoom up (z15+, flat camera): roofs alone barely part from the land, so a thin outline over them
+  // (`edgeHi`; Filippo, 9 Nov): lighter than the roofs in light, darker in dark. It traces the footprint, which is the
+  // roof edge only while the map is flat, so a flat map draws flat roofs (`building-flat-2d`) and this outline, and a
+  // tilted one the extrusions (Filippo, 22 Nov): the app switches them on the camera's pitch (VelixMapStyle.buildingVisibility).
+  if (!sat && P.edgeHi) omt('building', 'building-outline', 'line', { minzoom: 14.9, filter: ['!=', ['get', 'hide_3d'], true],
+    paint: { 'line-color': P.edgeHi, 'line-width': 0.6, 'line-opacity': fade(14.9, 15) } });
   if (sat && P.dim) add({ id: 'night-dim', type: 'background', paint: { 'background-color': `rgba(5,8,12,${P.dim})` } });
 
   // ---- road labels (below the route: it covers its own street names) ----
