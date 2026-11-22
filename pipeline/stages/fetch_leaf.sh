@@ -10,16 +10,18 @@
 set -euo pipefail
 cd /work/pipeline
 URL="$1"; SRC="cache/$(basename "$URL")"; mkdir -p cache
-# Geofabrik sometimes refuses a runner for a while (14 Nov: 30 min): ≈ 10 min of retries, then fail clearly (a build
+# Geofabrik sometimes refuses a runner for a while (14 Nov: 30 min): ≈ 20 min of retries, then fail clearly (a build
 # whose slice job failed downloads the leaf itself, from another runner).
-retry() { local what="$1"; shift; for i in $(seq 1 8); do "$@" && return 0; sleep $((i * 15)); done
+retry() { local what="$1"; shift; for i in $(seq 1 12); do "$@" && return 0; sleep $((i * 15)); done
           echo "[fetch] $what: Geofabrik unreachable" >&2; return 1; }
-resolve() { FINAL=$(curl -fsSIL --connect-timeout 30 -o /dev/null -w '%{url_effective}' "$URL"); }
+# The address and its checksum are fetched together: during Geofabrik's daily update `-latest` points to the new dated
+# file a while before its .md5 exists (404s on 20 Nov, 15:35 UTC), so each try resolves again (≈ 20 min of tries).
+resolve_md5() { FINAL=$(curl -fsSIL --connect-timeout 30 -o /dev/null -w '%{url_effective}' "$URL") &&
+                curl -fsSL --connect-timeout 30 -o "$SRC.md5.new" "$FINAL.md5"; }
 # Geofabrik's servers disagreed for a while after its Nov 2026 move (two .md5 answers for one file a minute apart): on a
 # mismatch, start over (address, checksum, file) up to 4 times before failing.
 for round in 1 2 3 4; do
-  retry "$URL" resolve
-  retry "$FINAL.md5" curl -fsSL --connect-timeout 30 -o "$SRC.md5.new" "$FINAL.md5"
+  retry "$URL" resolve_md5
   WANT=$(cut -d' ' -f1 "$SRC.md5.new"); rm -f "$SRC.md5.new"
   [[ "$WANT" =~ ^[0-9a-f]{32}$ ]] || { echo "[fetch] $FINAL.md5: not an md5" >&2; exit 1; }
   if [ -f "$SRC" ] && [ "$(cat "$SRC.md5" 2>/dev/null)" = "$WANT" ]; then
