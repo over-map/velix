@@ -355,11 +355,11 @@ function style(name, mode) {
   const at = (f) => ['+', minH, ['*', ['-', hgt, minH], f]];
   const SLICES = 8, LIGHT = -(P.wallLift ?? 0.3), DARK = 0;   // 2 Nov: a stronger gradient (was 14 %, light 35 %)
   // The outline sits at the top of the walls (Filippo, 22 Nov; it was a line on the ground, 9 Nov, which showed at the
-  // buildings' base): MapLibre can't raise a line, so the top of each building is a band of `edgeHi` about one pixel
-  // tall (metres per pixel at Milan's latitude, never more than a fifth of the building), and over it a roof cap a few
+  // buildings' base): MapLibre can't raise a line, so the top of each building is a band of `edgeHi` about three pixels
+  // tall (one was invisible on the phone, 22 Nov) (metres per pixel at Milan's latitude, never more than a third of the building), and over it a roof cap a few
   // centimetres thick in the roof colour, so roofs keep their colour. `rimBase` is where the walls' slices end.
-  const RIM_M = [[15.8, 0.97], [17, 0.42], [18, 0.21], [19, 0.11], [20, 0.05]];   // ≈ 1 px: 78271.5 · cos 45.5° / 2^z
-  const rimAt = (d) => ['-', hgt, ['min', d, ['*', 0.2, ['-', hgt, minH]]]];
+  const RIM_PX = 3, RIM_M = [[15.8, 0.97], [17, 0.42], [18, 0.21], [19, 0.11], [20, 0.05]].map(([z, m]) => [z, m * RIM_PX]);   // 1 px: 78271.5 · cos 45.5° / 2^z
+  const rimAt = (d) => ['-', hgt, ['min', d, ['*', 0.33, ['-', hgt, minH]]]];
   const rim = !sat && P.edgeHi;
   const rimBase = rim ? ['interpolate', ['linear'], ['zoom'], 14.6, 0, ...RIM_M.flatMap(([z, d]) => [z, rimAt(d)])]
     : ramp(hgt);
