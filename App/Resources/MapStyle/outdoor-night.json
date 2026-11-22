@@ -9834,37 +9834,197 @@
      0,
      15.8,
      [
-      "+",
+      "-",
       [
        "coalesce",
        [
         "get",
-        "render_min_height"
+        "render_height"
        ],
-       0
+       6
       ],
       [
-       "*",
+       "min",
+       0.97,
        [
-        "-",
+        "*",
+        0.2,
         [
-         "coalesce",
+         "-",
          [
-          "get",
-          "render_height"
+          "coalesce",
+          [
+           "get",
+           "render_height"
+          ],
+          6
          ],
-         6
-        ],
-        [
-         "coalesce",
          [
-          "get",
-          "render_min_height"
-         ],
-         0
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
+         ]
         ]
+       ]
+      ]
+     ],
+     17,
+     [
+      "-",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
        ],
-       1
+       6
+      ],
+      [
+       "min",
+       0.42,
+       [
+        "*",
+        0.2,
+        [
+         "-",
+         [
+          "coalesce",
+          [
+           "get",
+           "render_height"
+          ],
+          6
+         ],
+         [
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
+         ]
+        ]
+       ]
+      ]
+     ],
+     18,
+     [
+      "-",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       6
+      ],
+      [
+       "min",
+       0.21,
+       [
+        "*",
+        0.2,
+        [
+         "-",
+         [
+          "coalesce",
+          [
+           "get",
+           "render_height"
+          ],
+          6
+         ],
+         [
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
+         ]
+        ]
+       ]
+      ]
+     ],
+     19,
+     [
+      "-",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       6
+      ],
+      [
+       "min",
+       0.11,
+       [
+        "*",
+        0.2,
+        [
+         "-",
+         [
+          "coalesce",
+          [
+           "get",
+           "render_height"
+          ],
+          6
+         ],
+         [
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
+         ]
+        ]
+       ]
+      ]
+     ],
+     20,
+     [
+      "-",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       6
+      ],
+      [
+       "min",
+       0.05,
+       [
+        "*",
+        0.2,
+        [
+         "-",
+         [
+          "coalesce",
+          [
+           "get",
+           "render_height"
+          ],
+          6
+         ],
+         [
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
+         ]
+        ]
+       ]
       ]
      ]
     ],
@@ -9873,11 +10033,11 @@
    }
   },
   {
-   "id": "building-outline",
-   "type": "line",
+   "id": "building-3d-rim",
+   "type": "fill-extrusion",
    "source": "omt",
    "source-layer": "building",
-   "minzoom": 14.9,
+   "minzoom": 15,
    "filter": [
     "!=",
     [
@@ -9887,9 +10047,8 @@
     true
    ],
    "paint": {
-    "line-color": "#184158",
-    "line-width": 0.6,
-    "line-opacity": [
+    "fill-extrusion-color": "#184158",
+    "fill-extrusion-base": [
      "interpolate",
      [
       "linear"
@@ -9897,11 +10056,326 @@
      [
       "zoom"
      ],
-     14.9,
+     14.6,
      0,
-     15,
-     1
-    ]
+     15.8,
+     [
+      "-",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       6
+      ],
+      [
+       "min",
+       0.97,
+       [
+        "*",
+        0.2,
+        [
+         "-",
+         [
+          "coalesce",
+          [
+           "get",
+           "render_height"
+          ],
+          6
+         ],
+         [
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
+         ]
+        ]
+       ]
+      ]
+     ],
+     17,
+     [
+      "-",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       6
+      ],
+      [
+       "min",
+       0.42,
+       [
+        "*",
+        0.2,
+        [
+         "-",
+         [
+          "coalesce",
+          [
+           "get",
+           "render_height"
+          ],
+          6
+         ],
+         [
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
+         ]
+        ]
+       ]
+      ]
+     ],
+     18,
+     [
+      "-",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       6
+      ],
+      [
+       "min",
+       0.21,
+       [
+        "*",
+        0.2,
+        [
+         "-",
+         [
+          "coalesce",
+          [
+           "get",
+           "render_height"
+          ],
+          6
+         ],
+         [
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
+         ]
+        ]
+       ]
+      ]
+     ],
+     19,
+     [
+      "-",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       6
+      ],
+      [
+       "min",
+       0.11,
+       [
+        "*",
+        0.2,
+        [
+         "-",
+         [
+          "coalesce",
+          [
+           "get",
+           "render_height"
+          ],
+          6
+         ],
+         [
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
+         ]
+        ]
+       ]
+      ]
+     ],
+     20,
+     [
+      "-",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       6
+      ],
+      [
+       "min",
+       0.05,
+       [
+        "*",
+        0.2,
+        [
+         "-",
+         [
+          "coalesce",
+          [
+           "get",
+           "render_height"
+          ],
+          6
+         ],
+         [
+          "coalesce",
+          [
+           "get",
+           "render_min_height"
+          ],
+          0
+         ]
+        ]
+       ]
+      ]
+     ]
+    ],
+    "fill-extrusion-height": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14.6,
+     0,
+     15.8,
+     [
+      "coalesce",
+      [
+       "get",
+       "render_height"
+      ],
+      6
+     ]
+    ],
+    "fill-extrusion-vertical-gradient": false,
+    "fill-extrusion-opacity": 1
+   }
+  },
+  {
+   "id": "building-3d-roof",
+   "type": "fill-extrusion",
+   "source": "omt",
+   "source-layer": "building",
+   "minzoom": 15,
+   "filter": [
+    "!=",
+    [
+     "get",
+     "hide_3d"
+    ],
+    true
+   ],
+   "paint": {
+    "fill-extrusion-color": [
+     "case",
+     [
+      ">=",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       0
+      ],
+      85
+     ],
+     "#4B7F8E",
+     [
+      "match",
+      [
+       "%",
+       [
+        "to-number",
+        [
+         "id"
+        ],
+        0
+       ],
+       4
+      ],
+      0,
+      "#2C5870",
+      1,
+      "#2A556D",
+      2,
+      "#2F5B73",
+      "#295369"
+     ]
+    ],
+    "fill-extrusion-base": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14.6,
+     0,
+     15.8,
+     [
+      "coalesce",
+      [
+       "get",
+       "render_height"
+      ],
+      6
+     ]
+    ],
+    "fill-extrusion-height": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14.6,
+     0,
+     15.8,
+     [
+      "+",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       6
+      ],
+      0.05
+     ]
+    ],
+    "fill-extrusion-vertical-gradient": false,
+    "fill-extrusion-opacity": 1
    }
   },
   {

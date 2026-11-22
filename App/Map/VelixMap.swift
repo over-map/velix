@@ -200,8 +200,6 @@ struct VelixMap: UIViewRepresentable {
         }
 
         static let attributionMargin: CGFloat = 8
-        /// 3D riding: 85 % opaque buildings.
-        static let ridingBuildingOpacity = 0.85
 
         static func duration(_ motion: MapCameraMotion) -> TimeInterval? {
             switch motion {
@@ -331,13 +329,7 @@ struct VelixMap: UIViewRepresentable {
                 for (id, on) in VelixMapStyle.visibility(bikeLanes: s.bikeLanes, transitLines: s.transitLines, layerIDs: ids) {
                     style.layer(withIdentifier: id)?.isVisible = on
                 }
-                // Riding in 3D: buildings a little see-through, so the street and the route read through them (30 Oct).
-                for layer in style.layers where layer.identifier.hasPrefix("building-3d") {
-                    (layer as? MLNFillExtrusionStyleLayer)?.fillExtrusionOpacity =
-                        NSExpression(forConstantValue: s.riding && s.camera.pitch > 0 ? Self.ridingBuildingOpacity : 1)
-                }
-                // The z15 building outline traces footprints over the roofs: right only with a flat camera (9 Nov).
-                style.layer(withIdentifier: "building-outline")?.isVisible = s.camera.pitch == 0
+                // Buildings stay opaque while riding too (Filippo, 22 Nov; 30 Oct–22 Nov they were 85 % in 3D).
                 // Riding: only the bike POIs, without names (see tools/stylegen: the full POI layers cost 3 fps).
                 for l in style.layers where l.identifier.hasPrefix("poi-t") { l.isVisible = !s.riding }   // the POI tiers
                 style.layer(withIdentifier: "poi-riding")?.isVisible = s.riding
