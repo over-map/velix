@@ -2,7 +2,7 @@ name: Region pack
 
 # Every region of the catalogue (pipeline/regions/europe.json), monthly (M11 PR 3):
 #   plan → test → slice (each Geofabrik leaf downloaded once, cut per region) → build (one job per region)
-#   → golden (Lombardy) → sign (environment `pack-publish`: Filippo approves, the only job with the key)
+#   → golden (Lombardy) → sign (environment `pack-publish`: `main` only, no approval since 22 Nov; the only job with the key)
 #   → publish (one release per region) → index (packs.json + signature on `pack-index`, then old releases pruned).
 # Pull requests build a sample of three regions and never sign or publish.
 
@@ -16,7 +16,7 @@ on:
         type: string
         default: all
       publish:
-        description: "Sign and publish (main only; needs approval in the pack-publish environment)"
+        description: "Sign and publish (main only)"
         type: boolean
         default: false
   pull_request:
@@ -224,7 +224,7 @@ jobs:
           path: build/golden/
           if-no-files-found: ignore
 
-  # The only job that holds the signing key: environment `pack-publish` (required reviewer: Filippo). Signs every
+  # The only job that holds the signing key: environment `pack-publish` (`main` only; no reviewer since 22 Nov: the checks before it gate the publish). Signs every
   # built manifest and the new index; publish and index then upload exactly these bytes.
   sign:
     needs: [plan, build, golden]
