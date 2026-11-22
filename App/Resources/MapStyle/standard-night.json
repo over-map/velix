@@ -8013,6 +8013,52 @@
    }
   },
   {
+   "id": "building-flat-2d",
+   "type": "fill",
+   "source": "omt",
+   "source-layer": "building",
+   "minzoom": 15,
+   "paint": {
+    "fill-color": [
+     "case",
+     [
+      ">=",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       0
+      ],
+      85
+     ],
+     "#4B7F8E",
+     [
+      "match",
+      [
+       "%",
+       [
+        "to-number",
+        [
+         "id"
+        ],
+        0
+       ],
+       4
+      ],
+      0,
+      "#2C5870",
+      1,
+      "#2A556D",
+      2,
+      "#2F5B73",
+      "#295369"
+     ]
+    ]
+   }
+  },
+  {
    "id": "building-edge",
    "type": "line",
    "source": "omt",
