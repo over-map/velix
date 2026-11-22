@@ -11,8 +11,8 @@ description: The Velix branch → commit → PR → CI → merge protocol, inclu
 3. Small commits with clear messages. Every commit message ends with the attribution trailer your harness gives. In the original sessions that was `Co-Authored-By: Claude <model> <noreply@anthropic.com>`.
 4. Push with `git push -u origin <branch>`. The remote is `git@github.com-personal:over-map/velix.git`, an SSH host alias for Filippo's personal GitHub account. `gh` has two accounts logged in, and **`over-map` must be the active one** (`gh auth status`). Never use the TomTom account for this repo.
 5. `gh pr create`. The PR body ends with the line your harness gives (originally `🤖 Generated with [Claude Code](https://claude.com/claude-code)`).
-6. **Merge only when Filippo says "check CI and merge #N" (or "go ahead" right after a PR), and only when CI is green.**
-   - `gh pr checks N`: if anything is pending, say so and stop. Don't wait, poll or schedule checks; Filippo asks again.
+6. **Merge yourself, only when every check is green** (Filippo, 22 Nov 2026: he doesn't want to be the bottleneck, so don't wait for "check CI and merge #N"). A PR merges once it holds what he asked for; visual work, after he has seen or accepted it.
+   - `gh pr checks N`: if anything is pending, wait with one background `gh pr checks N --watch --interval 120` (you're woken when it ends). No repeated polling, no schedules. If something fails, read the log, fix, push, and wait again.
    - When green: `gh pr merge N --merge --delete-branch`. It's a merge commit, never squash. Then `git checkout main && git pull --ff-only` and delete the local branch.
    - Auto-merge is blocked by the permission classifier. Don't try it.
    - A CI failure from GitHub infrastructure (504, "could not connect" while downloading packages) gets a rerun: `gh run rerun <id> --failed`. Ask Filippo first if he hasn't already said "rerun".

@@ -117,7 +117,7 @@ Keep this section accurate when commands change.
 ## Working agreements with Filippo
 
 - **Plan mode first** for every milestone part; one PR per part.
-- **Merge only on his explicit "check CI and merge #N"** (or "go ahead" right after a PR), only with CI green, with `gh pr merge N --merge --delete-branch`. If CI is pending, say so and stop: never poll or schedule CI checks. Stacked PRs merge in stack order; retarget the child to `main` before its parent's branch is deleted.
+- **Don't make him the bottleneck (22 Nov 2026):** check CI and merge yourself, without waiting for "check CI and merge #N". Merge a PR once it holds what he asked for (visual work: after he has seen or accepted it) and every check is green, with `gh pr merge N --merge --delete-branch`. If checks are pending, wait with one background `gh pr checks N --watch --interval 120` (no repeated polling, no schedules); if they fail, fix and push. Then do what he asked to follow the merge (e.g. a pack run). Stacked PRs merge in stack order; retarget the child to `main` before its parent's branch is deleted.
 - **Ask before** any map-style or visual change, new copy, or anything that grows a pack past 320 MB. Otherwise, when he says "you decide", make the call and say why: he wants a recommendation, not a list of open questions.
 - **Services must be free, keyless and work globally.** No API keys, no accounts, no paid tiers.
 - **Performance beats features:** if something isn't smooth on the iPhone 11, drop it or simplify it.
