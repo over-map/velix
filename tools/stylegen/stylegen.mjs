@@ -335,6 +335,7 @@ function style(name, mode) {
   const roof = ['match', roofIdx, ...P.roof.flatMap((c, i) => [i, c]).slice(0, -2), P.roof[P.roof.length - 1]];
   const landmark = ['>=', ['coalesce', ['get', 'render_height'], 0], 85];
   if (!sat) omt('building', 'building-flat', 'fill', { minzoom: 13.6, maxzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof], 'fill-opacity': fade(13.6, 14.2) } });
+  if (!sat) omt('building', 'building-flat-2d', 'fill', { minzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof] } });
   if (!sat) omt('building', 'building-edge', 'line', { minzoom: 14.2, maxzoom: 15, paint: { 'line-color': P.wallD, 'line-width': 0.4, 'line-opacity': fade(14.2, 14.6, null, null, 0.5) } });
   // Walls lighter at the bottom, darker at the top (Filippo, 30 Oct): MapLibre's own vertical gradient darkens the
   // bottom and can't be reversed, so each building is stacked slices of its height, lighter to darker, with the
@@ -363,8 +364,9 @@ function style(name, mode) {
         'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
   }
   // From the landing zoom up (z15+, flat camera): roofs alone barely part from the land, so a thin outline over them
-  // (`edgeHi`; Filippo, 9 Nov): lighter than the roofs in light, darker in dark. It traces the footprint, which a
-  // flat camera draws on the roof edge; the app hides it when the camera is pitched.
+  // (`edgeHi`; Filippo, 9 Nov): lighter than the roofs in light, darker in dark. It traces the footprint, which is the
+  // roof edge only while the map is flat, so a flat map draws flat roofs (`building-flat-2d`) and this outline, and a
+  // tilted one the extrusions (Filippo, 22 Nov): the app switches them on the camera's pitch (VelixMapStyle.buildingVisibility).
   if (!sat && P.edgeHi) omt('building', 'building-outline', 'line', { minzoom: 14.9, filter: ['!=', ['get', 'hide_3d'], true],
     paint: { 'line-color': P.edgeHi, 'line-width': 0.6, 'line-opacity': fade(14.9, 15) } });
   if (sat && P.dim) add({ id: 'night-dim', type: 'background', paint: { 'background-color': `rgba(5,8,12,${P.dim})` } });

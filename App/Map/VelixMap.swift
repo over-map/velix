@@ -200,8 +200,6 @@ struct VelixMap: UIViewRepresentable {
         }
 
         static let attributionMargin: CGFloat = 8
-        /// 3D riding: 85 % opaque buildings.
-        static let ridingBuildingOpacity = 0.85
 
         static func duration(_ motion: MapCameraMotion) -> TimeInterval? {
             switch motion {
@@ -250,6 +248,8 @@ struct VelixMap: UIViewRepresentable {
             MainActor.assumeIsolated {
                 loaded = true
                 if let style = mapView.style { VelixMapStyle.localize(style) }
+                tilted = nil
+                applyBuildingMode(on: mapView)
                 applyStyleState(on: mapView)
                 if cameraPending { applyCamera(on: mapView, animated: false) }
             }
@@ -264,8 +264,29 @@ struct VelixMap: UIViewRepresentable {
 
         private var movedByUser = false
 
+        /// Flat or tilted, as last applied to the building layers (nil: not yet, for this style).
+        private var tilted: Bool?
+
+        /// Buildings extruded only while the map is tilted, whoever tilts it (riding in 3D, or two fingers): flat, they
+        /// are roofs with the outline on their edge (Filippo, 22 Nov). Reads the map's own pitch, so gestures count too;
+        /// touches the style only when flat ↔ tilted flips.
+        func applyBuildingMode(on map: MLNMapView) {
+            guard loaded, let style = map.style else { return }
+            let now = VelixMapStyle.isTilted(pitch: map.camera.pitch)
+            guard now != tilted else { return }
+            tilted = now
+            for (id, on) in VelixMapStyle.buildingVisibility(tilted: now, layerIDs: style.layers.map(\.identifier)) {
+                style.layer(withIdentifier: id)?.isVisible = on
+            }
+        }
+
+        nonisolated func mapViewRegionIsChanging(_ mapView: MLNMapView) {
+            MainActor.assumeIsolated { applyBuildingMode(on: mapView) }
+        }
+
         nonisolated func mapView(_ mapView: MLNMapView, regionDidChangeWith reason: MLNCameraChangeReason, animated: Bool) {
             MainActor.assumeIsolated {
+                applyBuildingMode(on: mapView)
                 guard movedByUser else { return }
                 movedByUser = false
                 let c = mapView.centerCoordinate
@@ -331,13 +352,7 @@ struct VelixMap: UIViewRepresentable {
                 for (id, on) in VelixMapStyle.visibility(bikeLanes: s.bikeLanes, transitLines: s.transitLines, layerIDs: ids) {
                     style.layer(withIdentifier: id)?.isVisible = on
                 }
-                // Riding in 3D: buildings a little see-through, so the street and the route read through them (30 Oct).
-                for layer in style.layers where layer.identifier.hasPrefix("building-3d") {
-                    (layer as? MLNFillExtrusionStyleLayer)?.fillExtrusionOpacity =
-                        NSExpression(forConstantValue: s.riding && s.camera.pitch > 0 ? Self.ridingBuildingOpacity : 1)
-                }
-                // The z15 building outline traces footprints over the roofs: right only with a flat camera (9 Nov).
-                style.layer(withIdentifier: "building-outline")?.isVisible = s.camera.pitch == 0
+                // Buildings stay opaque while riding too (Filippo, 22 Nov; 30 Oct–22 Nov they were 85 % in 3D).
                 // Riding: only the bike POIs, without names (see tools/stylegen: the full POI layers cost 3 fps).
                 for l in style.layers where l.identifier.hasPrefix("poi-t") { l.isVisible = !s.riding }   // the POI tiers
                 style.layer(withIdentifier: "poi-riding")?.isVisible = s.riding

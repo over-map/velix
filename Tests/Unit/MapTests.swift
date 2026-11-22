@@ -35,6 +35,20 @@ struct MapTests {
         #expect(on["station-metro"] == false)
     }
 
+    @Test func buildingsExtrudeOnlyWhenTilted() {
+        // Flat: flat roofs with the ground outline on their edge; tilted (riding in 3D or two fingers): extruded (22 Nov).
+        let ids = ["building-flat", "building-edge", "building-flat-2d", "building-outline", "building-3d", "building-3d-7", "road-minor"]
+        let flat = VelixMapStyle.buildingVisibility(tilted: false, layerIDs: ids)
+        #expect(flat["building-flat-2d"] == true && flat["building-outline"] == true)
+        #expect(flat["building-3d"] == false && flat["building-3d-7"] == false)
+        #expect(flat["building-flat"] == nil && flat["building-edge"] == nil && flat["road-minor"] == nil)
+        let tilted = VelixMapStyle.buildingVisibility(tilted: true, layerIDs: ids)
+        #expect(tilted["building-flat-2d"] == false && tilted["building-outline"] == false)
+        #expect(tilted["building-3d"] == true && tilted["building-3d-7"] == true)
+        #expect(VelixMapStyle.isTilted(pitch: 0) == false && VelixMapStyle.isTilted(pitch: 0.4) == false)
+        #expect(VelixMapStyle.isTilted(pitch: 2) == true && VelixMapStyle.isTilted(pitch: 55) == true)
+    }
+
     @Test func placeNamesFollowThePhonesLanguage() throws {
         func fields(_ language: String?) -> [String] {
             (VelixMapStyle.placeName(language: language).dropFirst()).compactMap { ($0 as? [Any])?.last as? String }
