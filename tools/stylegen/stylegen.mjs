@@ -354,29 +354,30 @@ function style(name, mode) {
   const DEEP = !sat && mode === 'day' ? 0.2 : 0;
   const at = (f) => ['+', minH, ['*', ['-', hgt, minH], f]];
   const SLICES = 8, LIGHT = -(P.wallLift ?? 0.3), DARK = 0;   // 2 Nov: a stronger gradient (was 14 %, light 35 %)
-  // The outline sits at the top of the walls (Filippo, 22 Nov; it was a line on the ground, 9 Nov, which showed at the
-  // buildings' base): MapLibre can't raise a line, so the top of each building is a band of `edgeHi` about three pixels
-  // tall (one was invisible on the phone, 22 Nov) (metres per pixel at Milan's latitude, never more than a third of the building), and over it a roof cap a few
-  // centimetres thick in the roof colour, so roofs keep their colour. `rimBase` is where the walls' slices end.
-  const RIM_PX = 3, RIM_M = [[15.8, 0.97], [17, 0.42], [18, 0.21], [19, 0.11], [20, 0.05]].map(([z, m]) => [z, m * RIM_PX]);   // 1 px: 78271.5 · cos 45.5° / 2^z
-  const rimAt = (d) => ['-', hgt, ['min', d, ['*', 0.33, ['-', hgt, minH]]]];
-  const rim = !sat && P.edgeHi;
-  const rimBase = rim ? ['interpolate', ['linear'], ['zoom'], 14.6, 0, ...RIM_M.flatMap(([z, d]) => [z, rimAt(d)])]
-    : ramp(hgt);
   for (let i = 0; sat ? false : i < SLICES; i++) {
     const k = i / (SLICES - 1);
     const t = DEEP ? DEEP * (1 - k) : LIGHT + (DARK - LIGHT) * k;
     omt('building', i === 0 ? 'building-3d' : `building-3d-${i}`, 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
       paint: { 'fill-extrusion-color': shade(t),
-        'fill-extrusion-base': ramp(i === 0 ? minH : at(i / SLICES)), 'fill-extrusion-height': i === SLICES - 1 ? rimBase : ramp(at((i + 1) / SLICES)),
+        'fill-extrusion-base': ramp(i === 0 ? minH : at(i / SLICES)), 'fill-extrusion-height': ramp(at((i + 1) / SLICES)),
         'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
   }
-  if (rim) {
-    omt('building', 'building-3d-rim', 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
-      paint: { 'fill-extrusion-color': P.edgeHi, 'fill-extrusion-base': rimBase, 'fill-extrusion-height': ramp(hgt),
-        'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
+  // The outline sits on the roof edge (Filippo, 22 Nov; it was a line on the ground, 9 Nov, which showed at the
+  // buildings' base, and MapLibre can't raise a line): a thin slab of `edgeHi` at roof height drawn three times, each
+  // shifted EDGE_PT on screen (120° apart), then the roof cap unshifted over it, so the slabs show as a rim of 0.5–1 ×
+  // EDGE_PT around every roof, from straight above and pitched. No extra map data (the pack has no room for a ring layer).
+  if (!sat && P.edgeHi) {
+    const EDGE_PT = 0.8;
+    const top = (dh) => ramp(['+', hgt, dh]);
+    [0, 120, 240].forEach((deg, i) => {
+      const r = (deg * Math.PI) / 180;
+      omt('building', `building-3d-edge-${i}`, 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
+        paint: { 'fill-extrusion-color': P.edgeHi, 'fill-extrusion-base': ramp(hgt), 'fill-extrusion-height': top(0.05),
+          'fill-extrusion-translate': [+(EDGE_PT * Math.cos(r)).toFixed(2), +(EDGE_PT * Math.sin(r)).toFixed(2)],
+          'fill-extrusion-translate-anchor': 'viewport', 'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
+    });
     omt('building', 'building-3d-roof', 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
-      paint: { 'fill-extrusion-color': shade(0), 'fill-extrusion-base': ramp(hgt), 'fill-extrusion-height': ramp(['+', hgt, 0.05]),
+      paint: { 'fill-extrusion-color': shade(0), 'fill-extrusion-base': top(0.05), 'fill-extrusion-height': top(0.1),
         'fill-extrusion-vertical-gradient': false, 'fill-extrusion-opacity': 1 } });
   }
   if (sat && P.dim) add({ id: 'night-dim', type: 'background', paint: { 'background-color': `rgba(5,8,12,${P.dim})` } });

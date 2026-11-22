@@ -9834,197 +9834,37 @@
      0,
      15.8,
      [
-      "-",
+      "+",
       [
        "coalesce",
        [
         "get",
-        "render_height"
+        "render_min_height"
        ],
-       6
+       0
       ],
       [
-       "min",
-       2.91,
+       "*",
        [
-        "*",
-        0.33,
+        "-",
         [
-         "-",
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_height"
-          ],
-          6
+          "get",
+          "render_height"
          ],
+         6
+        ],
+        [
+         "coalesce",
          [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
-         ]
+          "get",
+          "render_min_height"
+         ],
+         0
         ]
-       ]
-      ]
-     ],
-     17,
-     [
-      "-",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
        ],
-       6
-      ],
-      [
-       "min",
-       1.26,
-       [
-        "*",
-        0.33,
-        [
-         "-",
-         [
-          "coalesce",
-          [
-           "get",
-           "render_height"
-          ],
-          6
-         ],
-         [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
-         ]
-        ]
-       ]
-      ]
-     ],
-     18,
-     [
-      "-",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       6
-      ],
-      [
-       "min",
-       0.63,
-       [
-        "*",
-        0.33,
-        [
-         "-",
-         [
-          "coalesce",
-          [
-           "get",
-           "render_height"
-          ],
-          6
-         ],
-         [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
-         ]
-        ]
-       ]
-      ]
-     ],
-     19,
-     [
-      "-",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       6
-      ],
-      [
-       "min",
-       0.33,
-       [
-        "*",
-        0.33,
-        [
-         "-",
-         [
-          "coalesce",
-          [
-           "get",
-           "render_height"
-          ],
-          6
-         ],
-         [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
-         ]
-        ]
-       ]
-      ]
-     ],
-     20,
-     [
-      "-",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       6
-      ],
-      [
-       "min",
-       0.15000000000000002,
-       [
-        "*",
-        0.33,
-        [
-         "-",
-         [
-          "coalesce",
-          [
-           "get",
-           "render_height"
-          ],
-          6
-         ],
-         [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
-         ]
-        ]
-       ]
+       1
       ]
      ]
     ],
@@ -10033,7 +9873,7 @@
    }
   },
   {
-   "id": "building-3d-rim",
+   "id": "building-3d-edge-0",
    "type": "fill-extrusion",
    "source": "omt",
    "source-layer": "building",
@@ -10060,201 +9900,64 @@
      0,
      15.8,
      [
-      "-",
+      "coalesce",
       [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       6
+       "get",
+       "render_height"
       ],
-      [
-       "min",
-       2.91,
-       [
-        "*",
-        0.33,
-        [
-         "-",
-         [
-          "coalesce",
-          [
-           "get",
-           "render_height"
-          ],
-          6
-         ],
-         [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
-         ]
-        ]
-       ]
-      ]
-     ],
-     17,
-     [
-      "-",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       6
-      ],
-      [
-       "min",
-       1.26,
-       [
-        "*",
-        0.33,
-        [
-         "-",
-         [
-          "coalesce",
-          [
-           "get",
-           "render_height"
-          ],
-          6
-         ],
-         [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
-         ]
-        ]
-       ]
-      ]
-     ],
-     18,
-     [
-      "-",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       6
-      ],
-      [
-       "min",
-       0.63,
-       [
-        "*",
-        0.33,
-        [
-         "-",
-         [
-          "coalesce",
-          [
-           "get",
-           "render_height"
-          ],
-          6
-         ],
-         [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
-         ]
-        ]
-       ]
-      ]
-     ],
-     19,
-     [
-      "-",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       6
-      ],
-      [
-       "min",
-       0.33,
-       [
-        "*",
-        0.33,
-        [
-         "-",
-         [
-          "coalesce",
-          [
-           "get",
-           "render_height"
-          ],
-          6
-         ],
-         [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
-         ]
-        ]
-       ]
-      ]
-     ],
-     20,
-     [
-      "-",
-      [
-       "coalesce",
-       [
-        "get",
-        "render_height"
-       ],
-       6
-      ],
-      [
-       "min",
-       0.15000000000000002,
-       [
-        "*",
-        0.33,
-        [
-         "-",
-         [
-          "coalesce",
-          [
-           "get",
-           "render_height"
-          ],
-          6
-         ],
-         [
-          "coalesce",
-          [
-           "get",
-           "render_min_height"
-          ],
-          0
-         ]
-        ]
-       ]
-      ]
+      6
      ]
     ],
     "fill-extrusion-height": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14.6,
+     0,
+     15.8,
+     [
+      "+",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       6
+      ],
+      0.05
+     ]
+    ],
+    "fill-extrusion-translate": [
+     0.8,
+     0
+    ],
+    "fill-extrusion-translate-anchor": "viewport",
+    "fill-extrusion-vertical-gradient": false,
+    "fill-extrusion-opacity": 1
+   }
+  },
+  {
+   "id": "building-3d-edge-1",
+   "type": "fill-extrusion",
+   "source": "omt",
+   "source-layer": "building",
+   "minzoom": 15,
+   "filter": [
+    "!=",
+    [
+     "get",
+     "hide_3d"
+    ],
+    true
+   ],
+   "paint": {
+    "fill-extrusion-color": "#E0EBED",
+    "fill-extrusion-base": [
      "interpolate",
      [
       "linear"
@@ -10274,6 +9977,104 @@
       6
      ]
     ],
+    "fill-extrusion-height": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14.6,
+     0,
+     15.8,
+     [
+      "+",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       6
+      ],
+      0.05
+     ]
+    ],
+    "fill-extrusion-translate": [
+     -0.4,
+     0.69
+    ],
+    "fill-extrusion-translate-anchor": "viewport",
+    "fill-extrusion-vertical-gradient": false,
+    "fill-extrusion-opacity": 1
+   }
+  },
+  {
+   "id": "building-3d-edge-2",
+   "type": "fill-extrusion",
+   "source": "omt",
+   "source-layer": "building",
+   "minzoom": 15,
+   "filter": [
+    "!=",
+    [
+     "get",
+     "hide_3d"
+    ],
+    true
+   ],
+   "paint": {
+    "fill-extrusion-color": "#E0EBED",
+    "fill-extrusion-base": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14.6,
+     0,
+     15.8,
+     [
+      "coalesce",
+      [
+       "get",
+       "render_height"
+      ],
+      6
+     ]
+    ],
+    "fill-extrusion-height": [
+     "interpolate",
+     [
+      "linear"
+     ],
+     [
+      "zoom"
+     ],
+     14.6,
+     0,
+     15.8,
+     [
+      "+",
+      [
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       6
+      ],
+      0.05
+     ]
+    ],
+    "fill-extrusion-translate": [
+     -0.4,
+     -0.69
+    ],
+    "fill-extrusion-translate-anchor": "viewport",
     "fill-extrusion-vertical-gradient": false,
     "fill-extrusion-opacity": 1
    }
@@ -10342,12 +10143,16 @@
      0,
      15.8,
      [
-      "coalesce",
+      "+",
       [
-       "get",
-       "render_height"
+       "coalesce",
+       [
+        "get",
+        "render_height"
+       ],
+       6
       ],
-      6
+      0.05
      ]
     ],
     "fill-extrusion-height": [
@@ -10371,7 +10176,7 @@
        ],
        6
       ],
-      0.05
+      0.1
      ]
     ],
     "fill-extrusion-vertical-gradient": false,
