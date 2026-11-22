@@ -245,12 +245,15 @@ def fetch_json(url: str, dst: Path):
 
 
 def head_size(url: str) -> int:
-    for attempt in range(8):
-        r = subprocess.run(["curl", "-sIL", "-m", "60", "-A", UA["User-Agent"], url], capture_output=True, text=True)
+    """The extract's bytes (the last hop of the redirects). ≈ 20 min of tries, like fetch_leaf.sh: around Geofabrik's
+    daily update two jobs got no answer for 3 min (22 Nov). -f: an error page's own length is never taken as the size."""
+    for attempt in range(12):
+        r = subprocess.run(["curl", "-fsSIL", "-m", "60", "-A", UA["User-Agent"], url], capture_output=True, text=True)
         sizes = re.findall(r"(?im)^content-length:\s*(\d+)", r.stdout)
         if r.returncode == 0 and sizes:
             return int(sizes[-1])
-        time.sleep(5 * (attempt + 1))
+        print(f"[regions] {url}: no size ({r.stderr.strip() or 'no content-length'}), retrying ({attempt + 1})", flush=True)
+        time.sleep(15 * (attempt + 1))
     raise SystemExit(f"no size for {url}")
 
 
