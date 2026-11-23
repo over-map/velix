@@ -384,7 +384,9 @@ final class RideSession {
     }
 
     /// The view changed (RidingView: 2D, 3D, north).
-    func noteView(_ name: String) { log?.event(.app("view \(name)")) }
+    func noteView(_ name: String) { view = name; log?.event(.app("view \(name)")) }
+    /// The riding view for the health line (RideCamera starts in 2D follow).
+    private var view = "twoD"
 
     private func logVoice(_ phase: String, _ text: String) {
         let app = UIApplication.shared
@@ -436,10 +438,17 @@ final class RideSession {
         let cpu = now > lastCPU.at ? (cpuNow - lastCPU.cpu) / (now - lastCPU.at) * 100 : -1
         lastCPU = (cpuNow, now)
         log?.event(.health(battery: Double(d.batteryLevel), charging: state == .charging || state == .full, thermal: thermal,
-                           memoryMB: Self.memoryMB(), fixes: fixesThisMinute, fps: frames.fps, slowFrames: frames.slow, cpu: cpu))
+                           memoryMB: Self.memoryMB(), fixes: fixesThisMinute, fps: frames.fps, slowFrames: frames.slow, cpu: cpu,
+                           brightness: Self.brightness(), view: view))
         if activity != nil { log?.event(.activity("updates", count: activityUpdates)) }
         fixesThisMinute = 0
         activityUpdates = 0
+    }
+
+    /// The screen's brightness (0–1), -1 without a window scene.
+    private static func brightness() -> Double {
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        return scene.map { Double($0.screen.brightness) } ?? -1
     }
 
     /// The app's memory footprint (what iOS counts against it).

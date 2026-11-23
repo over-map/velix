@@ -305,6 +305,22 @@ def health(ride: Ride) -> list[str]:
     cpu = [e["cpu"] for e in h[1:] if e.get("cpu", -1) >= 0]
     if cpu:
         out.append(f"CPU {statistics.median(cpu):.0f} % of a core median, {max(cpu):.0f} % worst minute")
+    # Screen brightness and the riding view per minute (from 23 Nov); CPU per view, to split a ride's cost.
+    bright = [e["bright"] for e in h[1:] if e.get("bright", -1) >= 0]
+    if bright:
+        out.append(f"screen brightness {statistics.median(bright) * 100:.0f} % median")
+    views: dict[str, list[float]] = {}
+    for e in h[1:]:
+        if "view" in e:
+            views.setdefault(e["view"], []).append(e.get("cpu", -1))
+    if views:
+        def per(v: str, c: list[float]) -> str:
+            ok = [x for x in c if x >= 0]
+            return f"{v} {len(c)} min" + (f" (CPU {statistics.median(ok):.0f} %)" if ok else "")
+        out.append("view: " + ", ".join(per(v, c) for v, c in sorted(views.items(), key=lambda kv: -len(kv[1]))))
+    start = ride.of("start")
+    if start and start[0].get("lowPower"):
+        out.append("Low Power Mode on at the start (caps the map at 30 fps and slows the CPU: not comparable)")
     mb = [e.get("mb", -1) for e in h if e.get("mb", -1) > 0]
     if mb:
         out.append(f"memory peak {max(mb):.0f} MB")
