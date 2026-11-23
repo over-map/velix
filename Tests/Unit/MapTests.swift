@@ -96,6 +96,19 @@ struct MapTests {
         }
     }
 
+    @Test func satelliteDrawsNationalAerialPhotosOverEOX() throws {
+        let style = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: VelixMapStyle.url(.satellite, .day))) as? [String: Any])
+        let ids = (style["layers"] as? [[String: Any]] ?? []).compactMap { $0["id"] as? String }
+        let eox = try #require(ids.firstIndex(of: "imagery")), hd = try #require(ids.firstIndex(of: "imagery-hd"))
+        #expect(hd == eox + 1)
+        let src = try #require((style["sources"] as? [String: Any])?["imagery-hd"] as? [String: Any])
+        #expect((src["tiles"] as? [String]) == ["https://tiles.velix.invalid/imagery-hd/{z}/{x}/{y}"])
+        #expect(src["minzoom"] as? Int == 13 && src["maxzoom"] as? Int == 18)
+        for kind in [MapStyleKind.standard, .outdoor] {
+            #expect(!(try String(contentsOf: VelixMapStyle.url(kind, .day), encoding: .utf8)).contains("imagery-hd"))
+        }
+    }
+
     @MainActor @Test func runtimeImagesExistForEveryNameTheStylesUse() {
         for name in ["trees-day", "hz-stripe-night", "hz-tram-day", "cnt-12-night", "poi-food-day", "poi-bike-night",
                      "metro-M1.red.0,M3.yellow.0-day", "rail-night", "start-day", "end-night", "puck-34", "ev-EV5"] {

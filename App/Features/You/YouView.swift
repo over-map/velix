@@ -258,6 +258,8 @@ struct AboutView: View {
                                         + "COPERNICUS by the EU and ESA), swisstopo, Regione Lombardia and other national elevation data"),
                                        ("Satellite imagery", "Sentinel-2 cloudless (s2maps.eu) by EOX IT Services GmbH, "
                                         + "contains modified Copernicus Sentinel data 2024 (CC BY-NC-SA 4.0)")]
+        // The national aerial photos over it (AerialImagery, 23 Nov): each agency's credit, as it asks for it.
+        out += AerialImagery.Catalog.bundled.sources.map { ("Aerial imagery: \($0.name)", "\($0.attribution) (\($0.licence))") }
         if case let .ready(m) = app.pack.state {
             for s in m.sources where !out.contains(where: { $0.1 == s.attribution }) { out.append((s.name, s.attribution)) }
         }

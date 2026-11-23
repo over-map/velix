@@ -40,6 +40,19 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
         return URLSession(configuration: config)
     }()
 
+    /// National aerial photos (``AerialImagery``), in a cache of their own: a few streets of z18 photos would
+    /// otherwise push the basemap and hillshade out of the 100 MB one. The agencies ask apps to say who they are.
+    static let aerialSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        let dir = URL.cachesDirectory.appending(path: "velix-aerial-tiles", directoryHint: .isDirectory)
+        config.urlCache = URLCache(memoryCapacity: 8_000_000, diskCapacity: 150_000_000, directory: dir)
+        config.requestCachePolicy = .useProtocolCachePolicy
+        config.timeoutIntervalForRequest = 15
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1"
+        config.httpAdditionalHeaders = ["User-Agent": "Velix/\(version) (+https://github.com/over-map/velix)"]
+        return URLSession(configuration: config)
+    }()
+
     /// Point MapLibre's network session at this protocol (once, before the first map).
     static func install() {
         let manager = MLNNetworkConfiguration.sharedManager
@@ -83,6 +96,18 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
         if parts[0] == "imagery" {
             // Satellite: EOX Sentinel-2 cloudless (Filippo, 9 Nov: no Esri in a public app). Online, cached.
             return Self.imagery(z: z, x: x, y: y) { [self] data in respond(data ?? Data(), contentType: "image/jpeg") }
+        }
+        if parts[0] == "imagery-hd" {
+            // National aerial photos over EOX where a country publishes them openly; an empty answer lets EOX show.
+            guard let source = AerialImagery.Catalog.bundled.source(z: z, x: x, y: y),
+                  let url = AerialImagery.url(source.url, z: z, x: x, y: y) else { return respond(Data()) }
+            return Self.fetch(url, session: Self.aerialSession) { [self] data in
+                switch data.map(AerialImagery.dropNoData) ?? .empty {
+                case .empty: respond(Data())
+                case .asIs: respond(data ?? Data(), contentType: "image/jpeg")
+                case let .cleared(png): respond(png, contentType: "image/png")
+                }
+            }
         }
         if parts[0] == "overlays" {
             let packs = Self.lock.withLock { Self.overlays }
@@ -197,11 +222,11 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
     }
 
     /// The network, then (offline, or the server failing) whatever the cache holds.
-    private static func fetch(_ url: URL, done: @escaping @Sendable (Data?) -> Void) {
-        onlineSession.dataTask(with: url) { data, response, _ in
+    private static func fetch(_ url: URL, session: URLSession = onlineSession, done: @escaping @Sendable (Data?) -> Void) {
+        session.dataTask(with: url) { data, response, _ in
             if (response as? HTTPURLResponse)?.statusCode == 200, let data { return done(data) }
             let cached = URLRequest(url: url, cachePolicy: .returnCacheDataDontLoad)
-            onlineSession.dataTask(with: cached) { data, response, _ in
+            session.dataTask(with: cached) { data, response, _ in
                 done((response as? HTTPURLResponse)?.statusCode == 200 ? data : nil)
             }.resume()
         }.resume()
