@@ -150,6 +150,20 @@ class BatteryStepsTests(unittest.TestCase):
                    for i, b in enumerate(levels)]
         return rr.Ride("r", events=events)
 
+    def test_brightness_and_minutes_per_view(self):
+        ride = self._ride([0.9] * 6)
+        for i, e in enumerate(ride.of("health")):
+            e["bright"] = 0.5 if i < 3 else 1.0
+            e["view"] = "twoD" if i < 2 else "threeD"
+        out = rr.health(ride)
+        self.assertIn("screen brightness 100 % median", out)
+        self.assertIn("view: threeD 4 min (CPU 45 %), twoD 1 min (CPU 40 %)", out)
+
+    def test_low_power_mode_is_flagged(self):
+        ride = self._ride([0.9] * 3)
+        ride.of("start")[0]["lowPower"] = True
+        self.assertTrue(any(h.startswith("Low Power Mode on") for h in rr.health(ride)))
+
     def test_one_step_gives_no_rate(self):
         # 100 % held for 56 min, then one 5 % step: not 5 %/h.
         out = rr.health(self._ride([1.0] * 56 + [0.95] * 7))
