@@ -16,8 +16,22 @@ retry() { local what="$1"; shift; for i in $(seq 1 12); do "$@" && return 0; sle
           echo "[fetch] $what: Geofabrik unreachable" >&2; return 1; }
 # The address and its checksum are fetched together: during Geofabrik's daily update `-latest` points to the new dated
 # file a while before its .md5 exists (404s on 20 Nov, 15:35 UTC), so each try resolves again (≈ 20 min of tries).
-resolve_md5() { FINAL=$(curl -fsSIL --connect-timeout 30 -o /dev/null -w '%{url_effective}' "$URL") &&
-                curl -fsSL --connect-timeout 30 -o "$SRC.md5.new" "$FINAL.md5"; }
+# On 23 Nov the day's dated file stayed listed but missing (404 for > 5 h, file and .md5 both): when the dated file
+# `-latest` points to can't be read (its address is still followed: no -f), the extract of one of the 3 days before
+# is used (a day older is fine for a pack). Probes stop after 60 s: some requests hung after connecting.
+served() { curl -fsS --connect-timeout 30 --max-time 60 -r 0-0 -o /dev/null "$1" && curl -fsSL --connect-timeout 30 --max-time 60 -o "$SRC.md5.new" "$1.md5"; }
+resolve_md5() {
+  local latest day cand
+  latest=$(curl -sSIL --connect-timeout 30 --max-time 60 -o /dev/null -w '%{url_effective}' "$URL") && [ -n "$latest" ] || return 1
+  served "$latest" && { FINAL="$latest"; return 0; }
+  [[ "$latest" =~ -([0-9]{6})\.osm\.pbf$ ]] || return 1
+  day="${BASH_REMATCH[1]}"
+  for back in 1 2 3; do
+    cand="${latest%-*.osm.pbf}-$(date -u -d "20${day:0:2}-${day:2:2}-${day:4:2} -$back day" +%y%m%d).osm.pbf"
+    served "$cand" && { echo "[fetch] $latest missing: using $cand" >&2; FINAL="$cand"; return 0; }
+  done
+  return 1
+}
 # Geofabrik's servers disagreed for a while after its Nov 2026 move (two .md5 answers for one file a minute apart): on a
 # mismatch, start over (address, checksum, file) up to 4 times before failing.
 for round in 1 2 3 4; do
@@ -33,7 +47,7 @@ for round in 1 2 3 4; do
   PART="cache/$(basename "$FINAL").part"
   OK=""
   for i in $(seq 1 20); do
-    curl -fsSL --connect-timeout 30 -C - -o "$PART" "$FINAL" && { OK=1; break; }
+    curl -fsSL --connect-timeout 30 --speed-limit 10000 --speed-time 120 -C - -o "$PART" "$FINAL" && { OK=1; break; }
     echo "[fetch] resuming ($i)" >&2; sleep $((i * 5))
   done
   [ -n "$OK" ] || { echo "[fetch] $FINAL: download failed" >&2; exit 1; }
