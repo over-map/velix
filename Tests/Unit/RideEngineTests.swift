@@ -129,6 +129,12 @@ struct RouteTrackTests {
         #expect(RideScreenState.street(unnamed, position: t.position, track: t) == nil)
         let arrive = RideTurn(maneuver: .arrive, meters: 1500, street: "Politecnico", secondsLeft: 300, metersLeft: 1500)
         #expect(RideScreenState.street(arrive, position: t.position, track: t) == nil)
+        // A merge or a name change is not a turn: its "street" is the one being ridden (Filippo, 23 Nov: the tag sat
+        // before the real turn, naming the street he was on). Nor once the turn is reached: the rider is on it.
+        let merge = RideTurn(maneuver: .merge, meters: 500, street: "Via Pacini", secondsLeft: 300, metersLeft: 1500)
+        #expect(RideScreenState.street(merge, position: t.position, track: t) == nil)
+        let reached = RideTurn(maneuver: .left, meters: 5, street: "Via Pacini", secondsLeft: 300, metersLeft: 1500)
+        #expect(RideScreenState.street(reached, position: t.position, track: t) == nil)
     }
 
     @Test func offRouteFixesDoNotMoveIt() {

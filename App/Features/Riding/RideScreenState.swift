@@ -165,12 +165,16 @@ struct RideScreenState: Equatable {
     /// How far past the turn the street tag sits: on the new street, clear of the corner.
     static let streetPast = 35.0
 
+    /// Under this distance the turn is reached: the rider is already on its street, so no tag.
+    static let streetReached = 10.0
+
     /// The next turn's street on the route, ``streetPast`` beyond the turn; none on an unnamed way ("Turn right."),
-    /// for going straight on, or when the route ends first. The turn's place is rounded to 10 m so the tag doesn't
+    /// for going straight on, a merge or a name change (the street being ridden, not a turn: Filippo, 23 Nov), once
+    /// the turn is reached, or when the route ends first. The turn's place is rounded to 10 m so the tag doesn't
     /// re-upload with every fix.
     static func street(_ turn: RideTurn, position: Double, track: RouteTrack) -> MapRouteModel.Street? {
-        guard turn.street != turn.maneuver.spoken, !turn.street.isEmpty,
-              turn.maneuver != .arrive, turn.maneuver != .straight else { return nil }
+        guard turn.street != turn.maneuver.spoken, !turn.street.isEmpty, turn.meters >= streetReached,
+              ![.arrive, .straight, .merge].contains(turn.maneuver) else { return nil }
         let at = ((position + turn.meters) / 10).rounded() * 10 + streetPast
         guard at < track.length else { return nil }
         return .init(at: track.point(at: at), name: turn.street)
