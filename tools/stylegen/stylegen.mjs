@@ -210,6 +210,9 @@ function style(name, mode) {
   // where no tile is cached), under boundaries, roads and labels; no buildings over photos. Served by the app
   // (PackTileProtocol `imagery`: EOX Sentinel-2 cloudless, 10 m, enlarged above z14; Esri dropped 9 Nov), online and cached.
   if (sat) add({ id: 'imagery', type: 'raster', source: 'imagery', paint: { 'raster-fade-duration': 150 } });
+  // National aerial photos over it from z13 where a country publishes them openly (23 Nov; PackTileProtocol
+  // `imagery-hd`, AerialImagery.swift): elsewhere the tile is empty and EOX shows through.
+  if (sat) add({ id: 'imagery-hd', type: 'raster', source: 'imagery-hd', minzoom: 13, paint: { 'raster-fade-duration': 150 } });
 
   // ---- roads ----
   const roadCol = (k) => (sat ? P.road : k === 'tertiary' ? P.secondary : P[k]);
@@ -600,7 +603,9 @@ function style(name, mode) {
       ...(sat ? {} : { terrain: { type: 'raster-dem', tiles: ['https://tiles.velix.invalid/terrain/{z}/{x}/{y}'], tileSize: 512, encoding: 'terrarium',
         minzoom: 0, maxzoom: 12, attribution: '© Mapterhorn (Copernicus GLO-30 and national elevation data)' } }),
       ...(sat ? { imagery: { type: 'raster', tiles: ['https://tiles.velix.invalid/imagery/{z}/{x}/{y}'], tileSize: 256, minzoom: 0, maxzoom: 14,
-        attribution: 'Sentinel-2 cloudless by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2024)' } } : {}),
+        attribution: 'Sentinel-2 cloudless by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2024)' },
+        'imagery-hd': { type: 'raster', tiles: ['https://tiles.velix.invalid/imagery-hd/{z}/{x}/{y}'], tileSize: 256, minzoom: 13, maxzoom: 18,
+          attribution: 'Aerial imagery: national mapping agencies (list in About)' } } : {}),
       'velix-route': { ...empty, lineMetrics: true },
       'velix-hazards': { ...empty, cluster: true, clusterRadius: 44, clusterMaxZoom: 14 },
       'velix-markers': empty,

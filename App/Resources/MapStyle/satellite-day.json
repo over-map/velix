@@ -46,6 +46,16 @@
    "maxzoom": 14,
    "attribution": "Sentinel-2 cloudless by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2024)"
   },
+  "imagery-hd": {
+   "type": "raster",
+   "tiles": [
+    "https://tiles.velix.invalid/imagery-hd/{z}/{x}/{y}"
+   ],
+   "tileSize": 256,
+   "minzoom": 13,
+   "maxzoom": 18,
+   "attribution": "Aerial imagery: national mapping agencies (list in About)"
+  },
   "velix-route": {
    "type": "geojson",
    "data": {
@@ -1085,6 +1095,15 @@
    "id": "imagery",
    "type": "raster",
    "source": "imagery",
+   "paint": {
+    "raster-fade-duration": 150
+   }
+  },
+  {
+   "id": "imagery-hd",
+   "type": "raster",
+   "source": "imagery-hd",
+   "minzoom": 13,
    "paint": {
     "raster-fade-duration": 150
    }
