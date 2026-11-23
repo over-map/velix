@@ -68,3 +68,52 @@ names:
   Isole: Sicily and Sardinia
   Seine-et-Marne and around: Paris and around   # Paris, its inner suburbs, Essonne and Seine-et-Marne
   Newry, Mourne and Down District and around: Northern Ireland   # all eleven NI districts, one region
+
+# ISO 3166-1 alpha-2 of each Geofabrik country: Geofabrik's index dropped its `iso3166-1:alpha2` field around
+# 18 Nov 2026 (the catalogue read it). Built from countries.geojson by name; the index's own field wins when present.
+geofabrik_iso:
+  albania: AL
+  andorra: AD
+  austria: AT
+  belarus: BY
+  belgium: BE
+  bosnia-herzegovina: BA
+  bulgaria: BG
+  croatia: HR
+  cyprus: CY
+  czech-republic: CZ
+  denmark: DK
+  estonia: EE
+  faroe-islands: FO
+  finland: FI
+  france: FR
+  georgia: GE
+  germany: DE
+  greece: GR
+  hungary: HU
+  iceland: IS
+  ireland-and-northern-ireland: IE
+  italy: IT
+  latvia: LV
+  liechtenstein: LI
+  lithuania: LT
+  luxembourg: LU
+  macedonia: MK
+  malta: MT
+  moldova: MD
+  monaco: MC
+  montenegro: ME
+  netherlands: NL
+  norway: "NO"     # quoted: bare NO is YAML for false
+  poland: PL
+  portugal: PT
+  romania: RO
+  serbia: RS
+  slovakia: SK
+  slovenia: SI
+  spain: ES
+  sweden: SE
+  switzerland: CH
+  turkey: TR
+  ukraine: UA
+  united-kingdom: GB

@@ -2,7 +2,7 @@ name: Region pack
 
 # Every region of the catalogue (pipeline/regions/europe.json), monthly (M11 PR 3):
 #   plan → test → slice (each Geofabrik leaf downloaded once, cut per region) → build (one job per region)
-#   → golden (Lombardy) → sign (environment `pack-publish`: Filippo approves, the only job with the key)
+#   → golden (Lombardy) → sign (environment `pack-publish`: `main` only, no approval since 22 Nov; the only job with the key)
 #   → publish (one release per region) → index (packs.json + signature on `pack-index`, then old releases pruned).
 # Pull requests build a sample of three regions and never sign or publish.
 
@@ -16,7 +16,7 @@ on:
         type: string
         default: all
       publish:
-        description: "Sign and publish (main only; needs approval in the pack-publish environment)"
+        description: "Sign and publish (main only)"
         type: boolean
         default: false
   pull_request:
@@ -62,6 +62,7 @@ jobs:
     timeout-minutes: 240
     strategy:
       fail-fast: false
+      max-parallel: 8         # Geofabrik's fair use: 43 jobs at once got some runners refused (17 Nov)
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.groups) }}
     steps:
@@ -223,7 +224,7 @@ jobs:
           path: build/golden/
           if-no-files-found: ignore
 
-  # The only job that holds the signing key: environment `pack-publish` (required reviewer: Filippo). Signs every
+  # The only job that holds the signing key: environment `pack-publish` (`main` only; no reviewer since 22 Nov: the checks before it gate the publish). Signs every
   # built manifest and the new index; publish and index then upload exactly these bytes.
   sign:
     needs: [plan, build, golden]
@@ -312,7 +313,12 @@ jobs:
           VERSION=$(python3 -c "import json;print(json.load(open('$PACK/manifest.json'))['version'])")
           N=${TAG#"pack-$REGION-$VERSION"}; TITLE="$NAME region pack $VERSION${N:+ (build ${N#.})}"
           python3 pipeline/stages/release_notes.py "$PACK/manifest.json" > notes.md
-          if gh release view "$TAG" >/dev/null 2>&1; then   # a re-run: finish the uploads
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # A re-run (stages/releases.py kept the tag because the release holds these manifest bytes): skip it when
+            # every asset is already there, else finish the uploads.
+            HAVE=$(gh release view "$TAG" --json assets -q '[.assets[].name] | sort | join(" ")')
+            WANT=$(find "$PACK" -maxdepth 1 -type f -exec basename {} \; | sort | tr '\n' ' ' | sed 's/ $//')
+            if [ "$HAVE" = "$WANT" ]; then echo "$TAG is complete: nothing to upload"; exit 0; fi
             gh release upload "$TAG" "$PACK"/* --clobber
           else
             gh release create "$TAG" --title "$TITLE" --notes-file notes.md --latest=false "$PACK"/*

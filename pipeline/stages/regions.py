@@ -229,19 +229,31 @@ def region_timezone(tf, poly, n: int = 7) -> str:
     return max(sorted(seen), key=seen.get)
 
 def fetch_json(url: str, dst: Path):
-    if not dst.exists():
-        with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=300) as r:
-            dst.write_bytes(r.read())
+    """Retried ≈ 10 min: on 19 Nov three runners had no route to Geofabrik for a while (Errno 101)."""
+    for attempt in range(8):
+        if dst.exists():
+            break
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=300) as r:
+                dst.write_bytes(r.read())
+        except OSError as e:
+            if attempt == 7:
+                raise SystemExit(f"{url}: {e}")
+            print(f"[regions] {url}: {e}, retrying ({attempt + 1})", flush=True)
+            time.sleep(15 * (attempt + 1))
     return json.loads(dst.read_text())
 
 
 def head_size(url: str) -> int:
-    for attempt in range(8):
-        r = subprocess.run(["curl", "-sIL", "-m", "60", "-A", UA["User-Agent"], url], capture_output=True, text=True)
+    """The extract's bytes (the last hop of the redirects). ≈ 20 min of tries, like fetch_leaf.sh: around Geofabrik's
+    daily update two jobs got no answer for 3 min (22 Nov). -f: an error page's own length is never taken as the size."""
+    for attempt in range(12):
+        r = subprocess.run(["curl", "-fsSIL", "-m", "60", "-A", UA["User-Agent"], url], capture_output=True, text=True)
         sizes = re.findall(r"(?im)^content-length:\s*(\d+)", r.stdout)
         if r.returncode == 0 and sizes:
             return int(sizes[-1])
-        time.sleep(5 * (attempt + 1))
+        print(f"[regions] {url}: no size ({r.stderr.strip() or 'no content-length'}), retrying ({attempt + 1})", flush=True)
+        time.sleep(15 * (attempt + 1))
     raise SystemExit(f"no size for {url}")
 
 
@@ -380,9 +392,18 @@ def load_index(work: Path):
     return rules, props, geoms, leaves
 
 
+def iso_of(cid: str, props: dict, rules: dict) -> str | None:
+    """A Geofabrik country's ISO code: the index's field, else rules.yml `geofabrik_iso`. The field was a list, went
+    missing (18 Nov 2026), then came back as a plain string (20 Nov: "IE"[0] gave "I"); all three are read."""
+    codes = props.get(cid, {}).get("iso3166-1:alpha2")
+    if isinstance(codes, str):
+        return codes
+    return codes[0] if codes else rules.get("geofabrik_iso", {}).get(cid)
+
+
 def country_units(c: str, work: Path, rules: dict, props: dict, geoms: dict, leaves) -> list:
     """The Units of one Geofabrik country: its leaves that fit, and the admin areas of the big ones."""
-    iso = props[c]["iso3166-1:alpha2"][0]
+    iso = iso_of(c, props, rules)
     country = rules.get("join_country", {}).get(iso, iso)
     units, sized = [], []
     for leaf in leaves(c):
@@ -428,14 +449,17 @@ def load_units(paths: list) -> list:
 
 
 def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, leaves) -> int:
-    from shapely.geometry import mapping
+    from shapely.geometry import mapping, shape
     from shapely.ops import transform
     from pyproj import Transformer
     from timezonefinder import TimezoneFinder
 
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from common import valid_polygon
+
     # Country borders (Geofabrik's), with the carve rule: Ireland's loses Northern Ireland to the UK's.
-    borders = {p["iso3166-1:alpha2"][0]: (cid, geoms[cid]) for cid, p in sorted(props.items())
-               if p.get("parent") == "europe" and p.get("iso3166-1:alpha2") and cid in geoms}
+    borders = {iso_of(cid, props, rules): (cid, geoms[cid]) for cid, p in sorted(props.items())
+               if p.get("parent") == "europe" and iso_of(cid, props, rules) and cid in geoms}
     for iso_c, others in rules.get("carve", {}).items():
         cid, g = borders[iso_c]
         borders[iso_c] = (cid, g.buffer(0).difference(unary_union([borders[o][1] for o in others]).buffer(0)))
@@ -457,6 +481,12 @@ def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, le
     # Source leaves: every leaf in Europe (scope or not) that the region's border + buffer touches.
     all_leaves = [l for l in leaves("europe") if l in geoms]
     tf = TimezoneFinder()
+    def rounded_valid(g) -> dict:
+        """GeoJSON at 4 decimals, repaired: rounding the simplified outline crossed edges in 30 regions (17 Nov)."""
+        r = json.loads(json.dumps(mapping(g)), parse_float=lambda f: round(float(f), 4))
+        return r if shape(r).is_valid else json.loads(json.dumps(mapping(valid_polygon(shape(r)))),
+                                                      parse_float=lambda f: round(float(f), 4))
+
     out, countries_seen = [], set()
     for rid, name, r in sorted(assign_ids(regions, rules.get("names", {})), key=lambda t: t[0]):
         poly = unary_union([u.geom for u in r.members]).buffer(0)
@@ -472,7 +502,7 @@ def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, le
         countries_seen.add(r.lead.country)
         out.append({"id": rid, "name": name, "country": r.lead.country, "timezone": region_timezone(tf, simple),
                     "forecast_mb": round(r.size / MB * rules["forecast_factor"]), "members": [u.key for u in r.members],
-                    "sources": sources, "polygon": json.loads(json.dumps(mapping(simple)), parse_float=lambda f: round(float(f), 4))})
+                    "sources": sources, "polygon": rounded_valid(simple)})
     catalogue = {"schema": 1, "generated_from": INDEX_URL, "budget_mb": 320,
                  "leaves": {l: props[l]["urls"]["pbf"] for l in sorted({s for r in out for s in r["sources"]})},
                  "regions": out}

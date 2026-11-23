@@ -4,7 +4,9 @@ The DEM is used at build time only; it is not shipped in the pack.
 Outputs: out/<region>/elevation/N45/N45E009.hgt …, sources/elevation.json"""
 import json
 import math
+import os
 import subprocess
+import time
 from pathlib import Path
 
 from common import cache_dir, load_config, log, out_dir
@@ -48,9 +50,20 @@ def main() -> None:
             log(f"read {name} window from {el['source']}")
             # Unscale (dm → m) while cutting the window, with a margin for the bilinear resample.
             m = 0.01
-            subprocess.run(["gdal_translate", "-q", "-unscale", "-ot", "Float32",
-                            "-projwin", f"{lon - m}", f"{lat + 1 + m}", f"{lon + 1 + m}", f"{lat - m}",
-                            "-co", "COMPRESS=DEFLATE", f"/vsicurl/{el['url']}", str(window)], check=True)
+            cut = ["gdal_translate", "-q", "-unscale", "-ot", "Float32",
+                   "-projwin", f"{lon - m}", f"{lat + 1 + m}", f"{lon + 1 + m}", f"{lat - m}",
+                   "-co", "COMPRESS=DEFLATE", f"/vsicurl/{el['url']}", str(window)]
+            # The GEDTM30 host answers HTTP 500 under load (32 of 219 builds on 17 Nov, ≈ 20 reading at once): GDAL
+            # retries each request (500/502/503/504/429), and the whole cut is retried after a pause.
+            env = dict(os.environ, GDAL_HTTP_MAX_RETRY="8", GDAL_HTTP_RETRY_DELAY="5")
+            for attempt in range(1, 6):
+                if subprocess.run(cut, env=env).returncode == 0:
+                    break
+                window.unlink(missing_ok=True)
+                if attempt == 5:
+                    raise SystemExit(f"[elevation] {name}: {el['source']} unreachable after 5 tries")
+                log(f"{name}: {el['source']} failed (try {attempt}), retrying in {attempt * 30} s")
+                time.sleep(attempt * 30)
         hgt.parent.mkdir(parents=True, exist_ok=True)
         tmp = hgt.with_suffix(".tif")
         subprocess.run(["gdalwarp", "-q", "-overwrite",

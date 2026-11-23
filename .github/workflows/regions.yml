@@ -30,6 +30,20 @@ jobs:
         run: |
           python3 -m pip install -q pyyaml
           echo "list=$(python3 -c 'import json, yaml; print(json.dumps(yaml.safe_load(open("pipeline/regions/rules.yml"))["countries"]))')" >> "$GITHUB_OUTPUT"
+      # Fetched once and handed to every job: 32 jobs fetching it at once lost Geofabrik for 10 min (20 Nov).
+      - name: Geofabrik's index
+        run: |
+          for i in 1 2 3 4 5 6 7 8; do
+            curl -fsSL --connect-timeout 30 -A "Velix region catalogue (https://github.com/over-map/velix)" \
+              -o index-v1.json https://download.geofabrik.de/index-v1.json && break
+            sleep $((i * 15))
+          done
+          python3 -c 'import json; json.load(open("index-v1.json"))'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: geofabrik-index
+          path: index-v1.json
+          retention-days: 3
 
   units:
     needs: countries
@@ -46,6 +60,10 @@ jobs:
         run: sudo mkdir -p /mnt/regions && sudo chmod 777 /mnt/regions && df -h /mnt /
       - name: Tools image
         run: make -C pipeline tools
+      - uses: actions/download-artifact@v4
+        with:
+          name: geofabrik-index
+          path: /mnt/regions
       - name: Areas of ${{ matrix.country }}
         run: |
           docker run --rm -v "$PWD:/work" -v /mnt/regions:/scratch -w /work/pipeline velix-pipeline-tools \
@@ -66,6 +84,10 @@ jobs:
           pattern: units-*
           merge-multiple: true
           path: pipeline/out/units
+      - uses: actions/download-artifact@v4
+        with:
+          name: geofabrik-index
+          path: pipeline/out/regions
       - name: Tools image
         run: make -C pipeline tools
       - name: Group into regions

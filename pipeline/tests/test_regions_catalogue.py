@@ -132,3 +132,25 @@ class TimeZones(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CountryCodes(unittest.TestCase):
+    def test_every_country_in_scope_has_a_two_letter_code(self):
+        import re
+        try:
+            import yaml
+        except ImportError:  # pragma: no cover
+            self.skipTest("needs PyYAML (tools image)")
+        rules = yaml.safe_load((Path(__file__).resolve().parents[1] / "regions" / "rules.yml").read_text())
+        iso = rules["geofabrik_iso"]
+        for c in rules["countries"]:
+            self.assertIn(c, iso, c)
+        for c, code in iso.items():     # a bare NO in YAML is False (Norway)
+            self.assertTrue(isinstance(code, str) and re.fullmatch("[A-Z]{2}", code), f"{c}: {code!r}")
+
+    def test_index_code_read_as_list_string_or_missing(self):
+        from regions import iso_of
+        rules = {"geofabrik_iso": {"ireland-and-northern-ireland": "IE"}}
+        cid = "ireland-and-northern-ireland"
+        for props in ({cid: {"iso3166-1:alpha2": ["IE"]}}, {cid: {"iso3166-1:alpha2": "IE"}}, {cid: {}}, {}):
+            self.assertEqual(iso_of(cid, props, rules), "IE", props)
