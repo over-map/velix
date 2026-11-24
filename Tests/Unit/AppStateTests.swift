@@ -65,6 +65,17 @@ struct AppStateTests {
         #expect(s.recents.filter { $0.name == "Place 10" }.count == 1)
     }
 
+    /// Filippo, 25 Nov: Road said "4 of 3 rules on". A stored rule the type no longer lists (Road lost its tram-rails
+    /// rule) isn't counted, and isn't enforced either.
+    @Test func onlyTheTypesOwnRulesCount() {
+        var s = AppState()
+        s.rules[.road] = [.pavedOnly, .noCobbles, .bikeLanesOnly, .neverAlongTramRails]
+        let set = s.ruleSet(for: .road)
+        #expect(set.enabledCount == 3)
+        #expect(!set.active.contains(.neverAlongTramRails))
+        #expect(s.ruleSet(for: .city).enabledCount == 3)        // City's defaults: cobbles, tram rails, steps
+    }
+
     @Test func rulesPerTypeFallBackToDefaults() {
         var s = AppState()
         #expect(s.ruleSet(for: .cargo) == RuleSet.defaults(for: .cargo))
