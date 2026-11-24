@@ -79,6 +79,11 @@ struct VelixMap: UIViewRepresentable {
         if riding { map.preferredFramesPerSecond = .lowPower }
         context.coordinator.state = self
         #if DEBUG
+        // `-map-fps 15`: the riding map's frame cap, for battery experiments.
+        let args = ProcessInfo.processInfo.arguments
+        if riding, let i = args.firstIndex(of: "-map-fps"), i + 1 < args.count, let fps = Int(args[i + 1]) {
+            map.preferredFramesPerSecond = MLNMapViewPreferredFramesPerSecond(rawValue: fps)
+        }
         Perf.startHeartbeat()
         #endif
         context.coordinator.applyDetail(on: map)
