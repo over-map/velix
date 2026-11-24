@@ -182,6 +182,13 @@ def assign_ids(regions: list, names: dict) -> list:
     return out
 
 
+def weighted(leaf_key: str, size: int, rules: dict) -> int:
+    """OSM bytes × the leaf's measured weight (rules.yml `weight`): a pack is ≈ 1.05 × its extract in most of Europe,
+    but up to 1.85 × in Sweden's, Finland's and Romania's large, sparse areas (lakes, forest, land cover: the basemap
+    grows with the land, not the data). Every size the catalogue groups, splits and forecasts is weighted."""
+    return int(size * rules.get("weight", {}).get(leaf_key.split("/")[0], 1.0))
+
+
 def pick_level(candidates: dict, total: int) -> int | None:
     """The first admin level whose areas (≥ 2) hold ≥ 80 % of the leaf's bytes: {level: [(name, bytes)]}."""
     for level in sorted(candidates):
@@ -340,7 +347,7 @@ def split(pbf: Path, work: Path, leaf_key: str, country: str, geom, size: int, r
         areas = admin_areas(pbf, work, level, geom)
         if len(areas) < 2:
             continue
-        sizes = measure(src, work, areas, level)
+        sizes = [weighted(leaf_key, s, rules) for s in measure(src, work, areas, level)]
         print(f"[regions] {leaf_key}: level {level}, {len(areas)} areas, {sum(sizes) / MB:.0f} MB in "
               f"{time.time() - t:.0f} s", flush=True)
         candidates[level] = [(a[0], s) for a, s in zip(areas, sizes)]
@@ -407,7 +414,7 @@ def country_units(c: str, work: Path, rules: dict, props: dict, geoms: dict, lea
     country = rules.get("join_country", {}).get(iso, iso)
     units, sized = [], []
     for leaf in leaves(c):
-        sized.append((leaf, head_size(props[leaf]["urls"]["pbf"])))
+        sized.append((leaf, weighted(leaf, head_size(props[leaf]["urls"]["pbf"]), rules)))
         print(f"[regions] {leaf}: {sized[-1][1] / MB:.0f} MB", flush=True)
     big = [(leaf, size) for leaf, size in sized if size > rules["group_mb"] * MB]
     if big:
@@ -448,7 +455,20 @@ def load_units(paths: list) -> list:
     return units
 
 
-def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, leaves) -> int:
+def keep_others(new: list, old: list, excluded: set = frozenset()) -> list:
+    """The regions of a partial run (some countries' units) with the current catalogue's regions of every other
+    country, kept as they are (ids stay stable where nothing changed), less those made only of leaves now excluded;
+    by id. A new id equal to a kept one fails."""
+    redone = {r["country"] for r in new}
+    kept = [r for r in old if r["country"] not in redone
+            and not all(m.split("/")[0] in excluded for m in r["members"])]
+    clash = sorted({r["id"] for r in new} & {r["id"] for r in kept})
+    if clash:
+        raise SystemExit(f"new regions reuse ids of kept ones: {clash}")
+    return sorted(new + kept, key=lambda r: r["id"])
+
+
+def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, leaves, partial: bool = False) -> int:
     from shapely.geometry import mapping, shape
     from shapely.ops import transform
     from pyproj import Transformer
@@ -503,6 +523,8 @@ def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, le
         out.append({"id": rid, "name": name, "country": r.lead.country, "timezone": region_timezone(tf, simple),
                     "forecast_mb": round(r.size / MB * rules["forecast_factor"]), "members": [u.key for u in r.members],
                     "sources": sources, "polygon": rounded_valid(simple)})
+    if partial:   # `catalogue --keep-others`: only some countries' units were rebuilt
+        out = keep_others(out, json.loads((REGIONS / "europe.json").read_text())["regions"], set(rules["exclude"]))
     catalogue = {"schema": 1, "generated_from": INDEX_URL, "budget_mb": 320,
                  "leaves": {l: props[l]["urls"]["pbf"] for l in sorted({s for r in out for s in r["sources"]})},
                  "regions": out}
@@ -537,7 +559,8 @@ def catalogue(work: Path, units: list, rules: dict, props: dict, geoms: dict, le
 
 def main(argv: list) -> int:
     """regions.py units <work> <country> <out.json>: one country's Units (a GitHub matrix job);
-    regions.py catalogue <work> <units.json …>: the catalogue from them;
+    regions.py catalogue <work> [--keep-others] <units.json …>: the catalogue from them (--keep-others: the units are
+    some countries only, and every other country's regions stay as in the current europe.json);
     regions.py <work>: both, for every country in scope (or VELIX_REGION_COUNTRIES, for a local trial)."""
     if argv and argv[0] == "units":
         work, c, out = Path(argv[1]), argv[2], Path(argv[3])
@@ -545,9 +568,10 @@ def main(argv: list) -> int:
         save_units(out, country_units(c, work, rules, props, geoms, leaves))
         return 0
     if argv and argv[0] == "catalogue":
-        work = Path(argv[1])
+        work, partial = Path(argv[1]), "--keep-others" in argv
         rules, props, geoms, leaves = load_index(work)
-        return catalogue(work, load_units(argv[2:]), rules, props, geoms, leaves)
+        return catalogue(work, load_units([a for a in argv[2:] if a != "--keep-others"]), rules, props, geoms, leaves,
+                         partial)
     work = Path(argv[0]) if argv else Path("/tmp/velix-regions")
     rules, props, geoms, leaves = load_index(work)
     countries = os.environ["VELIX_REGION_COUNTRIES"].split(",") if os.environ.get("VELIX_REGION_COUNTRIES") \

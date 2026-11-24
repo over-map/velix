@@ -11,13 +11,19 @@ countries: [austria, belgium, bulgaria, croatia, cyprus, czech-republic, denmark
 # Berlin and Bremen are also inside Geofabrik's Brandenburg and Niedersachsen extracts ("mit Berlin", "mit Bremen"):
 # they come out of those leaves' split instead.
 exclude: [bermuda, falklands, alps, dach, britain-and-ireland, great-britain, guernsey-jersey, isle-of-man, faroe-islands,
-          guadeloupe, guyane, martinique, mayotte, reunion, ceuta, melilla, berlin, bremen]
+          guadeloupe, guyane, martinique, mayotte, reunion, ceuta, melilla, berlin, bremen, svalbard-janmayen]
+# Svalbard and Jan Mayen left out (24 Nov 2026): no road joins its settlements (the generic smoke trip had no route)
+# and no cycle route; a 13 MB pack nobody can ride between towns.
 
 # Sizes are OSM extract bytes; a pack is ≈ 1.0–1.1 × its extract (Lombardy 297 MB → 299 MB, Piemonte 202 → 223).
 group_mb: 260      # a leaf above this is split into admin areas, and areas are grouped up to it
 single_mb: 300     # one admin area is kept whole up to this (Lombardy), else split at the next level
 tiny_mb: 40        # a region below this joins a neighbour of the same country when the sum stays ≤ single_mb
 forecast_factor: 1.05
+# Leaves whose packs measured far above 1.05 × their extract (the first Europe run, 23 Nov 2026: Norrbotten 481 MB for a
+# 260 MB forecast): their sizes are multiplied by this before grouping, splitting and forecasting (stages/regions.py
+# weighted()). Each value is the leaf's worst ratio of measured pack to forecast among packs ≥ 150 MB, rounded up.
+weight: {sweden: 1.9, finland: 1.7, romania: 1.45}
 buffer_km: 10      # coverage past the border: the source leaves are every leaf it touches
 
 # Admin levels tried, in order, to split a big leaf or area (the first that covers ≥ 80 % of it with ≥ 2 areas wins;
