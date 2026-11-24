@@ -1,4 +1,4 @@
-"""Stage 8: validate out/<region>/pack/manifest.json against the schema, sizes, checksums and the download budget;
+"""Stage 8: validate out/<region>/pack/manifest.json against the schema, sizes, checksums and the download budgets;
 check routes.sqlite's mix shares."""
 import json
 import sqlite3
@@ -29,8 +29,7 @@ def main() -> int:
             errors.append(f"{f['asset']}: sha256 mismatch")
     if manifest["download_bytes"] != sum(f["bytes"] for f in manifest["files"]):
         errors.append("download_bytes is not the sum of file sizes")
-    if manifest["download_bytes"] > manifest["budget_bytes"]:
-        errors.append(f"over budget: {manifest['download_bytes'] / 1e6:.1f} MB > {manifest['budget_bytes'] / 1e6:.0f} MB")
+    errors += budget_errors(manifest)
     if {f["role"] for f in manifest["files"]} != ROLES:
         errors.append("pack must contain " + ", ".join(sorted(ROLES)))
     errors += check_routes(out_dir(cfg) / "routes.sqlite")
@@ -39,6 +38,23 @@ def main() -> int:
     if not errors:
         log(f"manifest OK · {manifest['pack']} {manifest['version']} · {manifest['download_bytes'] / 1e6:.1f} MB")
     return 1 if errors else 0
+
+
+def parts(manifest: dict) -> dict:
+    """The download in its two parts: the optional map (the basemap) and routing (every other file)."""
+    map_bytes = sum(f["bytes"] for f in manifest["files"] if f["role"] == "basemap")
+    return {"routing": sum(f["bytes"] for f in manifest["files"]) - map_bytes, "map": map_bytes}
+
+
+def budget_errors(manifest: dict) -> list[str]:
+    """Each part within its budget (24 Nov); a manifest without `map_budget_bytes` has one budget for the whole pack."""
+    if "map_budget_bytes" not in manifest:
+        total, budget = manifest["download_bytes"], manifest["budget_bytes"]
+        return [f"over budget: {total / 1e6:.1f} MB > {budget / 1e6:.0f} MB"] if total > budget else []
+    p = parts(manifest)
+    return [f"{part} over budget: {p[part] / 1e6:.1f} MB > {budget / 1e6:.0f} MB"
+            for part, budget in (("routing", manifest["budget_bytes"]), ("map", manifest["map_budget_bytes"]))
+            if p[part] > budget]
 
 
 def check_routes(path) -> list[str]:

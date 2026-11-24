@@ -61,6 +61,15 @@ class Index(unittest.TestCase):
                     catalogue={"lombardy", "veneto", "skane-county-and-around"})
         self.assertEqual([r["id"] for r in idx["regions"]], ["lombardy", "veneto"])
 
+    def test_each_entry_has_its_map_size_and_keeps_it_when_carried(self):
+        m = manifest("lombardy", "Lombardy", files=[{"role": "basemap", "bytes": 3}, {"role": "routing_tiles", "bytes": 2}])
+        r = build([("pack-lombardy-2026.11", m)])["regions"][0]
+        self.assertEqual(r["map_bytes"], 3)
+        again = build([], {"regions": [r]})["regions"][0]
+        self.assertEqual(again["map_bytes"], 3)
+        old = {k: v for k, v in r.items() if k != "map_bytes"}     # an entry from before 24 Nov
+        self.assertNotIn("map_bytes", build([], {"regions": [old]})["regions"][0])
+
     @unittest.skipIf(index_outline is None, "run in the tools image")
     def test_every_catalogue_region_fits_an_index_under_400_kb(self):
         cat = json.loads((Path(__file__).resolve().parents[1] / "regions" / "europe.json").read_text())

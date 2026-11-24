@@ -29,7 +29,8 @@
     },
     "download_bytes": {"type": "integer", "minimum": 1},
     "unpacked_bytes": {"type": "integer", "minimum": 1},
-    "budget_bytes": {"type": "integer", "minimum": 1},
+    "budget_bytes": {"type": "integer", "minimum": 1, "description": "The routing part's budget: every file but the basemap"},
+    "map_budget_bytes": {"type": "integer", "minimum": 1, "description": "The optional map's budget (basemap.pmtiles), 24 Nov 2026"},
     "files": {
       "type": "array", "minItems": 7,
       "items": {

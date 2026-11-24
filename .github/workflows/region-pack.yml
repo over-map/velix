@@ -151,7 +151,9 @@ jobs:
           import os
           m = json.load(open(f"pipeline/out/{os.environ['REGION']}/pack/manifest.json"))
           print(f"## {m['name']} pack {m['version']}\n")
-          print(f"Download **{m['download_bytes']/1e6:.1f} MB** (budget {m['budget_bytes']/1e6:.0f} MB) · on phone {m['unpacked_bytes']/1e6:.0f} MB\n")
+          mp = sum(f["bytes"] for f in m["files"] if f["role"] == "basemap")
+          print(f"Download **{(m['download_bytes'] - mp)/1e6:.1f} MB** routing (budget {m['budget_bytes']/1e6:.0f} MB) "
+                f"+ **{mp/1e6:.1f} MB** optional map (budget {m.get('map_budget_bytes', 0)/1e6:.0f} MB) · on phone {m['unpacked_bytes']/1e6:.0f} MB\n")
           print("| File | Download | Unpacked |\n|---|---|---|")
           for f in m["files"]:
               print(f"| {f['name']} | {f['bytes']/1e6:.1f} MB | {f['unpacked_bytes']/1e6:.1f} MB |")

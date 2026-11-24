@@ -94,7 +94,7 @@ In `docs/BUILD_PLAN.md`. Gaps still open for PR 5: Lombardy/Milan defaults; the 
 | App CPU while riding | 46 % → 41 % of a core over 15 min. 36 % over the 63-min ride |
 | Battery while riding | **under 10 %/h** (likely 6–9), down from 18 %/h on the M1 real ride |
 | Memory over a ride | 350 → 600–790 MB. It's MapLibre's cache: it drops to ≈ 400 MB in the background |
-| Pack size budget | ≤ 320 MB download per region |
+| Pack size budget | ≤ 300 MB download per part: routing, and the optional offline map (24 Nov) |
 
 ## 5. Gotchas that cost hours before
 - **Two Xcodes, one Package.resolved.** CI uses Xcode 26.x and the Mac uses Xcode 27, and `swift-custom-dump` 1.7.3 has two manifests. `Package.resolved` must pin both `xctest-dynamic-overlay` 1.13.1 and `swift-issue-reporting` 2.1.2. Don't let Xcode "clean up" either pin.

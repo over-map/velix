@@ -53,11 +53,13 @@ def main():
         "files": files,
         "download_bytes": sum(f["bytes"] for f in files),
         "unpacked_bytes": sum(f["unpacked_bytes"] for f in files),
-        "budget_bytes": cfg["pack"]["budget_mb"] * 1_000_000,
+        # The routing part's budget (app builds before 24 Nov read this one) and the optional map's (validate.py).
+        "budget_bytes": cfg["pack"]["budget_mb"]["routing"] * 1_000_000,
+        "map_budget_bytes": cfg["pack"]["budget_mb"]["map"] * 1_000_000,
         "sources": sources, "counts": counts}
     write_json(pack / "manifest.json", manifest)
     log(f"download {manifest['download_bytes'] / 1e6:.1f} MB · on phone {manifest['unpacked_bytes'] / 1e6:.0f} MB "
-        f"· budget {cfg['pack']['budget_mb']} MB")
+        f"· budget {cfg['pack']['budget_mb']['routing']} + {cfg['pack']['budget_mb']['map']} MB (routing + map)")
 
 
 if __name__ == "__main__":
