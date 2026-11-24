@@ -340,10 +340,9 @@ function style(name, mode) {
   if (!sat) omt('building', 'building-flat', 'fill', { minzoom: 13.6, maxzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof], 'fill-opacity': fade(13.6, 14.2) } });
   if (!sat) omt('building', 'building-flat-2d', 'fill', { minzoom: 15, paint: { 'fill-color': ['case', landmark, P.lmRoof, roof] } });
   if (!sat) omt('building', 'building-edge', 'line', { minzoom: 14.2, maxzoom: 15, paint: { 'line-color': P.wallD, 'line-width': 0.4, 'line-opacity': fade(14.2, 14.6, null, null, 0.5) } });
-  // Walls lighter at the bottom, darker at the top (Filippo, 30 Oct): MapLibre's own vertical gradient darkens the
-  // bottom and can't be reversed, so each building is stacked slices of its height, lighter to darker, with the
-  // built-in gradient off. `building-3d` is the bottom slice, `building-3d-1`… the ones above it. The top slice is the
-  // roof colour itself, so roofs keep the flat z<15 colour (Filippo, 2 Nov).
+  // Walls were lighter at the bottom, darker at the top (Filippo, 30 Oct), as stacked slices of each building's height
+  // with MapLibre's built-in gradient off (it darkens the bottom and can't be reversed). Now one slice (24 Nov, below):
+  // `building-3d`, the roof colour, so roofs keep the flat z<15 colour (Filippo, 2 Nov). SLICES > 1 brings the gradient back.
   const hgt = ['coalesce', ['get', 'render_height'], 6], minH = ['coalesce', ['get', 'render_min_height'], 0];
   const ramp = (v) => ['interpolate', ['linear'], ['zoom'], 14.6, 0, 15.8, v];
   // Darker: toward black, or (light, 6 Nov) toward the navy ink, so pale walls deepen without going grey.
@@ -357,9 +356,12 @@ function style(name, mode) {
   // The roof is the top face of the last slice, which is the roof colour itself (2 Nov: roofs keep the z<15 colour).
   const DEEP = !sat && mode === 'day' ? 0.2 : 0;
   const at = (f) => ['+', minH, ['*', ['-', hgt, minH], f]];
-  const SLICES = 8, LIGHT = -(P.wallLift ?? 0.3), DARK = 0;   // 2 Nov: a stronger gradient (was 14 %, light 35 %)
+  // One slice (Filippo, 24 Nov): each slice draws every building's whole geometry again, and the eight-slice gradient
+  // was ≈ 85 % of the riding 3D map's GPU work on the iPhone 11 (GPU busy 26–30 % → 7.5 % with one). The single slice
+  // is the top one, the roof colour, so roofs keep the z<15 colour; MapLibre's light still shades walls by direction.
+  const SLICES = 1, LIGHT = -(P.wallLift ?? 0.3), DARK = 0;
   for (let i = 0; sat ? false : i < SLICES; i++) {
-    const k = i / (SLICES - 1);
+    const k = SLICES === 1 ? 1 : i / (SLICES - 1);
     const t = DEEP ? DEEP * (1 - k) : LIGHT + (DARK - LIGHT) * k;
     omt('building', i === 0 ? 'building-3d' : `building-3d-${i}`, 'fill-extrusion', { minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
       paint: { 'fill-extrusion-color': shade(t),

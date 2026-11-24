@@ -96,6 +96,17 @@ struct MapTests {
         }
     }
 
+    @Test func buildingsExtrudeInOneSlice() throws {
+        // Each fill-extrusion layer draws every building again: one slice, for the GPU (24 Nov, ≈ 4× less in riding 3D).
+        for kind in [MapStyleKind.standard, .outdoor] {
+            for mode in MapMode.allCases {
+                let style = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: VelixMapStyle.url(kind, mode))) as? [String: Any])
+                let extruded = (style["layers"] as? [[String: Any]] ?? []).filter { $0["type"] as? String == "fill-extrusion" }
+                #expect(extruded.compactMap { $0["id"] as? String } == ["building-3d"], "\(kind) \(mode)")
+            }
+        }
+    }
+
     @Test func satelliteDrawsNationalAerialPhotosOverEOX() throws {
         let style = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: VelixMapStyle.url(.satellite, .day))) as? [String: Any])
         let ids = (style["layers"] as? [[String: Any]] ?? []).compactMap { $0["id"] as? String }
