@@ -6,7 +6,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stages"))
 try:
     from shapely.geometry import box
-    from regions import MB, Region, Unit, assign_ids, clean, combine, group, group_by_leaf, merge_tiny, name_of, pick_level, region_timezone, slug
+    from regions import (MB, Region, Unit, assign_ids, clean, combine, group, group_by_leaf, keep_others, merge_tiny, name_of,
+                         pick_level, region_timezone, slug, weighted)
 except ImportError:  # pragma: no cover
     box = None
 
@@ -50,6 +51,44 @@ class Grouping(unittest.TestCase):
 
 
 @unittest.skipIf(box is None, "run in the tools image")
+class Weights(unittest.TestCase):
+    """Packs of large, sparse leaves measure far above their extract (Norrbotten 481 MB for 260, 23 Nov 2026)."""
+    rules = {"weight": {"sweden": 1.9}}
+
+    def test_a_weighted_leaf_and_its_areas_count_heavier(self):
+        self.assertEqual(weighted("sweden", 100 * MB, self.rules), 190 * MB)
+        self.assertEqual(weighted("sweden/norrbottens-lan", 100 * MB, self.rules), 190 * MB)
+        self.assertEqual(weighted("finland/lappi", 100 * MB, self.rules), 100 * MB)
+        self.assertEqual(weighted("sweden", 100 * MB, {}), 100 * MB)
+
+    def test_weighted_areas_make_smaller_groups(self):
+        sizes = [weighted("sweden/a", int(s * MB), self.rules) / MB for s in [100, 90, 80, 70]]
+        g = group(strip(4, sizes, leaf="sweden"), 260 * MB)
+        self.assertEqual(len(g), 4)                          # unweighted, they make two groups
+
+    def test_the_bundled_rules_weigh_the_north_and_leave_out_svalbard(self):
+        import yaml
+        rules = yaml.safe_load((Path(__file__).resolve().parents[1] / "regions" / "rules.yml").read_text())
+        self.assertGreater(rules["weight"]["sweden"], 1.8)
+        self.assertIn("svalbard-janmayen", rules["exclude"])
+
+
+class PartialCatalogue(unittest.TestCase):
+    old = [{"id": "lapland", "country": "FI", "members": ["finland/lappi"]},
+           {"id": "norrbotten", "country": "SE", "members": ["sweden/norrbottens-lan"]},
+           {"id": "lombardy", "country": "IT", "members": ["nord-ovest/lombardia"]},
+           {"id": "svalbard", "country": "NO", "members": ["svalbard-janmayen"]}]
+
+    def test_other_countries_stay_as_they_were(self):
+        new = [{"id": "norrbotten-county", "country": "SE"}, {"id": "vasterbotten", "country": "SE"}]
+        self.assertEqual([r["id"] for r in keep_others(new, self.old, {"svalbard-janmayen"})],
+                         ["lapland", "lombardy", "norrbotten-county", "vasterbotten"])   # Svalbard: now excluded
+
+    def test_a_new_id_equal_to_a_kept_one_fails(self):
+        with self.assertRaises(SystemExit):
+            keep_others([{"id": "lombardy", "country": "SE"}], self.old)
+
+
 class TinyRegions(unittest.TestCase):
     def test_a_tiny_region_joins_its_smallest_neighbour_of_the_same_country(self):
         big, mid, tiny = (Region([u]) for u in strip(3, [200, 120, 10]))

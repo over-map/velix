@@ -1,13 +1,18 @@
 name: Region catalogue
 
 # Generates pipeline/regions/europe.json and countries.geojson (stages/regions.py): every Velix pack in Europe.
-# Run by hand (about quarterly, so ids stay stable) or on a PR that changes the rules; the result is an artifact
-# to commit in that PR. One job per country (its big Geofabrik leaves are split on the runner's /mnt disk), then one
+# Run by hand (about quarterly, so ids stay stable); the result is an artifact to commit in a PR. Input `countries`
+# (Geofabrik ids, space-separated) rebuilds only those countries and keeps every other country's regions as they are
+# (24 Nov 2026: Sweden, Finland and Romania after their packs measured over budget). No longer on every PR that
+# touches the rules: a full run is 32 jobs against Geofabrik, and the pipeline unit tests run in CI anyway. One job per country (its big Geofabrik leaves are split on the runner's /mnt disk), then one
 # that groups the areas into regions: one job for all of Europe ran past 5 hours (11 Nov 2026).
 on:
   workflow_dispatch:
-  pull_request:
-    paths: ["pipeline/stages/regions.py", "pipeline/regions/rules.yml", ".github/workflows/regions.yml"]
+    inputs:
+      countries:
+        description: "Geofabrik country ids, space-separated (empty: every country in scope)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -29,7 +34,9 @@ jobs:
         name: Countries in scope
         run: |
           python3 -m pip install -q pyyaml
-          echo "list=$(python3 -c 'import json, yaml; print(json.dumps(yaml.safe_load(open("pipeline/regions/rules.yml"))["countries"]))')" >> "$GITHUB_OUTPUT"
+          echo "list=$(python3 -c 'import json, sys, yaml; scope = yaml.safe_load(open("pipeline/regions/rules.yml"))["countries"]; want = sys.argv[1].split(); bad = [c for c in want if c not in scope]; assert not bad, f"not in scope: {bad}"; print(json.dumps(want or scope))' "$COUNTRIES")" >> "$GITHUB_OUTPUT"
+        env:
+          COUNTRIES: ${{ inputs.countries }}
       # Fetched once and handed to every job: 32 jobs fetching it at once lost Geofabrik for 10 min (20 Nov).
       - name: Geofabrik's index
         run: |
@@ -94,7 +101,9 @@ jobs:
         run: |
           mkdir -p pipeline/out/regions
           docker run --rm -v "$PWD:/work" -w /work/pipeline velix-pipeline-tools \
-            sh -c 'python stages/regions.py catalogue out/regions out/units/*.json'
+            sh -c "python stages/regions.py catalogue out/regions ${COUNTRIES:+--keep-others} out/units/*.json"
+        env:
+          COUNTRIES: ${{ inputs.countries }}
       - name: Summary
         if: always()
         run: cat pipeline/out/regions/report.md >> "$GITHUB_STEP_SUMMARY" || true
