@@ -52,6 +52,15 @@ class Index(unittest.TestCase):
         self.assertNotIn("coverage", by["veneto"])
         self.assertEqual(by["veneto"]["manifest"], f"{MIRRORS[0]}pack-veneto-2026.10/manifest.json")
 
+    def test_regions_the_catalogue_dropped_leave_the_index(self):
+        # 24 Nov: skane-county became skane-county-and-around; the old entry overlapped the new pack.
+        previous = {"regions": [{"id": i, "name": i, "tag": f"pack-{i}-2026.11", "version": "2026.11", "built": "x",
+                                 "bbox": [], "polygon": [], "download_bytes": 1, "unpacked_bytes": 2}
+                                for i in ("skane-county", "veneto")]}
+        idx = build([("pack-lombardy-2026.11", manifest("lombardy", "Lombardy"))], previous,
+                    catalogue={"lombardy", "veneto", "skane-county-and-around"})
+        self.assertEqual([r["id"] for r in idx["regions"]], ["lombardy", "veneto"])
+
     @unittest.skipIf(index_outline is None, "run in the tools image")
     def test_every_catalogue_region_fits_an_index_under_400_kb(self):
         cat = json.loads((Path(__file__).resolve().parents[1] / "regions" / "europe.json").read_text())
