@@ -117,7 +117,7 @@ struct RideView: View {
                          icon: VelixIconView(.wifiOff, size: 22), tone: .info)
         } else if let r = offer {
             NoticeBanner(title: "\(r.name) isn’t on your phone",
-                         message: "Download it (\(r.downloadBytes / 1_000_000) MB) for routes there, even without signal.",
+                         message: "Download it (\(app.pack.downloadBytes(of: r) / 1_000_000) MB) for routes there, even without signal.",
                          icon: VelixIconView(.download, size: 22), tone: .info, onDismiss: { declined.insert(r.id) },
                          link: ("Download \(r.name)", { app.pack.install(r.id) }))
         } else if browsedUncovered {

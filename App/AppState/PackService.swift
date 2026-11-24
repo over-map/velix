@@ -30,6 +30,18 @@ final class PackService {
     private var connectionPinned = false
     /// You → Offline map: Update automatically. Newer packs of the downloaded regions install on Wi-Fi, one at a time.
     var autoUpdate = false { didSet { installUpdates() } }
+    /// You → Offline map: Map without signal (Filippo, 24 Nov: off by default, the map then comes online). On: every
+    /// region on the phone gets its map, one at a time, as an update (the region serves meanwhile). Off: the maps go.
+    var offlineMap = false {
+        didSet {
+            guard offlineMap != oldValue else { return }
+            if offlineMap { installNextMap() } else { removeMaps() }
+        }
+    }
+    /// Maps that failed to download this launch (not retried until the next one, or the switch turned on again).
+    private var failedMaps: Set<String> = []
+    /// The switch stopped the running update: not a failure (it comes back, as the switch now says).
+    private var stoppedBySwitch = false
     /// The running download updates a region that stays usable (its old pack serves until the new one is in).
     private var updating = false
     /// Updates that failed this launch (not retried until the next one).
@@ -99,6 +111,31 @@ final class PackService {
     }
 
     func state(of region: String) -> State { states[region] ?? .none }
+
+    /// The region's offline map is on the phone.
+    func hasMap(_ region: String) -> Bool { installedPack(region)?.hasMap ?? false }
+
+    /// What the region's files on the phone took to download (its map's share only when the map is there).
+    func bytes(of region: String) -> Int64 {
+        if let p = installedPack(region) { return p.downloadedBytes }
+        if case let .ready(m) = states[region] { return m.downloadBytes }   // no files to look at (tests, side-loaded)
+        return 0
+    }
+
+    /// The space the region's files take on the phone (Remove frees it).
+    func storedBytes(of region: String) -> Int64 { installedPack(region)?.storedBytes ?? 0 }
+
+    /// What downloading a region on offer fetches, with or without its map (the switch).
+    func downloadBytes(of region: RegionCatalog.Region) -> Int64 { region.downloadBytes(withMap: offlineMap) }
+
+    /// The maps of the regions on the phone: what the switch adds, or what they take.
+    var mapBytes: Int64 {
+        installed.reduce(0) { sum, m in sum + (m.file(.basemap)?.bytes ?? catalog.region(m.pack)?.mapBytes ?? 0) }
+    }
+
+    private func installedPack(_ region: String) -> InstalledRegionPack? {
+        RegionPackInstaller.current(root: RegionPack.root(region, base: base))
+    }
     func isInstalled(_ region: String) -> Bool { if case .ready = states[region] { true } else { false } }
 
     func name(of region: String) -> String {
@@ -151,6 +188,7 @@ final class PackService {
             if updating, downloading != region { queued = region; task?.cancel() }
             return
         }
+        let withMap = offlineMap
         let previous = state(of: region)
         let update: Bool = if case .ready = previous { true } else { false }
         downloading = region
@@ -159,16 +197,18 @@ final class PackService {
             guard let self else { return }
             defer {
                 self.task = nil; self.downloading = nil; self.updating = false
-                if let next = self.queued { self.queued = nil; self.install(next) } else { self.installUpdates() }
+                if let next = self.queued { self.queued = nil; self.install(next) }
+                else if !self.installNextMap() { self.installUpdates() }
             }
             if !update { self.states[region] = .checking }
             do {
                 if self.catalog.regions.isEmpty { await self.refreshCatalog() }
                 guard let entry = self.catalog.region(region) else { self.states[region] = previous; return }
-                let total = entry.downloadBytes
+                let total = entry.downloadBytes(withMap: withMap)
                 if !update { self.states[region] = .downloading(received: 0, total: total) }
                 let installed = try await self.installerFor(region).install(manifest: entry.manifest,
-                                                                             mirrors: self.catalog.assetMirrors) { fraction in
+                                                                             mirrors: self.catalog.assetMirrors,
+                                                                             skip: withMap ? [] : [.basemap]) { fraction in
                     Task { @MainActor in self.progress(region, fraction, total: total) }
                 }
                 self.states[region] = .ready(installed.manifest)
@@ -178,11 +218,33 @@ final class PackService {
                 if update {
                     // The installed pack is untouched; a cancelled update (the rider's download first) comes back.
                     self.states[region] = previous
-                    if self.queued == nil { self.failedUpdates.insert(region) }
+                    if self.stoppedBySwitch { self.stoppedBySwitch = false }
+                    else if self.queued == nil, withMap, !self.hasMap(region) { self.failedMaps.insert(region) }
+                    else if self.queued == nil { self.failedUpdates.insert(region) }
                 } else if case let .downloading(r, t) = self.states[region] { self.states[region] = .failed(received: r, total: t) }
                 else { self.states[region] = previous == .checking ? .none : previous }
             }
         }
+    }
+
+    /// The next region on the phone without its map, while the switch is on: download it (any connection: the rider
+    /// asked). Returns whether one started.
+    @discardableResult
+    private func installNextMap() -> Bool {
+        guard offlineMap, task == nil,
+              let next = installed.first(where: { !hasMap($0.pack) && !failedMaps.contains($0.pack) && $0.version != "side-loaded" })
+        else { return false }
+        install(next.pack)
+        return true
+    }
+
+    /// The switch off: stop a map on its way and remove the maps on the phone (routes, hazards and overlays stay).
+    private func removeMaps() {
+        failedMaps = []
+        // A running update fetches the map too: stop it (it comes back without the map).
+        if task != nil, updating { stoppedBySwitch = true; task?.cancel() }
+        for m in installed { RegionPackInstaller.removeMap(root: RegionPack.root(m.pack, base: base)) }
+        PackTileProtocol.use(RegionPack.mapSources)
     }
 
     /// Stop the running download (You → Offline map: Cancel). Its files so far stay, so Retry resumes.

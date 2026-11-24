@@ -16,6 +16,11 @@ struct RegionCatalog: Codable, Equatable, Sendable {
         let manifest: URL
         /// ISO 3166-1 alpha-2 (schema 2).
         var country: String?
+        /// The offline map's share of the download (index from 24 Nov; older entries: unknown).
+        var mapBytes: Int64?
+
+        /// What downloading the region fetches: routing only unless the offline map is on (Filippo, 24 Nov).
+        func downloadBytes(withMap: Bool) -> Int64 { withMap ? downloadBytes : downloadBytes - (mapBytes ?? 0) }
 
         /// Inside the region's outline (its bbox when the index has no polygon).
         func contains(_ p: LatLon) -> Bool {

@@ -6,7 +6,13 @@ import SwiftUI
 @MainActor
 @Observable
 final class AppModel {
-    var state: AppState { didSet { if state != oldValue { store.save(state) } } }
+    var state: AppState {
+        didSet {
+            guard state != oldValue else { return }
+            store.save(state)
+            if state.offlineMap != oldValue.offlineMap { pack.offlineMap = state.offlineMap ?? false }
+        }
+    }
     let location: LocationService
     let pack: PackService
     let engine = EngineHost()
@@ -35,6 +41,10 @@ final class AppModel {
         self.search = search
         self.history = history ?? RideHistory()
         pack.onInstalled = { [weak self] _ in self?.engine.reset() }
+        // The map switch (24 Nov): a phone with a region's map from before keeps it; new ones start routing only.
+        let offlineMap = AppState.offlineMap(stored: state.offlineMap, mapsInstalled: pack.installed.contains { pack.hasMap($0.pack) })
+        if state.offlineMap == nil { state.offlineMap = offlineMap; store.save(state) }   // observers don't run in init
+        pack.offlineMap = offlineMap
     }
 
     var rules: RuleSet { state.ruleSet(for: state.rideType, litStreetsOnly: litStreetsOnly) }

@@ -91,11 +91,27 @@ struct InstalledRegionPack: Equatable, Sendable {
         guard let f = manifest.file(role) else { throw RegionPackError.missingFile(role.rawValue) }
         return directory.appending(path: f.name)
     }
+
+    /// The offline map is on the phone (Filippo, 24 Nov: optional, routing only by default).
+    var hasMap: Bool { (try? file(.basemap)).map { FileManager.default.fileExists(atPath: $0.path) } ?? false }
+
+    /// The download size of the files on the phone (the map's share left out when it isn't there).
+    var downloadedBytes: Int64 { present.reduce(0) { $0 + $1.bytes } }
+
+    /// The space the files on the phone take (unpacked).
+    var storedBytes: Int64 { present.reduce(0) { $0 + $1.unpackedBytes } }
+
+    private var present: [RegionPackManifest.File] {
+        manifest.files.filter { FileManager.default.fileExists(atPath: directory.appending(path: $0.name).path) }
+    }
 }
 
 /// Installs a region pack: download the manifest and its signature → check the signature (``PackSignature``) →
 /// download each asset → check sha256 → unpack xz → check unpacked sha256, all in `staging/<version>/`; then switch
 /// `current` to the new version and remove the old one. Every download tries the mirrors in order.
+/// Files of `skip` roles are left out (the offline map is optional, 24 Nov), and a file the installed version already
+/// holds with the same bytes is copied from it (an APFS clone) instead of downloaded: turning the map on fetches only
+/// the map, and an update with the map off never fetches it.
 /// A failure at any step leaves the installed pack untouched. Finished files stay in staging and an interrupted
 /// download keeps its resume data, so the next attempt picks up where this one stopped.
 struct RegionPackInstaller: Sendable {
@@ -146,7 +162,9 @@ struct RegionPackInstaller: Sendable {
     ///   - manifest: URL of `manifest.json` (release download URL); its signature is `manifest.json.sig` beside it.
     ///   - mirrors: other hosts of the same releases (the index's `mirrors`), tried after the manifest's own folder.
     @discardableResult
-    func install(manifest manifestURL: URL, mirrors: [URL] = [], progress: @escaping @Sendable (Double) -> Void = { _ in })
+    ///   - skip: roles to leave out (`[.basemap]`: routing only).
+    func install(manifest manifestURL: URL, mirrors: [URL] = [], skip: Set<RegionPackManifest.File.Role> = [],
+                 progress: @escaping @Sendable (Double) -> Void = { _ in })
         async throws -> InstalledRegionPack
     {
         let fm = FileManager.default
@@ -181,12 +199,19 @@ struct RegionPackInstaller: Sendable {
         try? fm.removeItem(at: stagedSignature)
         try signature.write(to: stagedSignature)
 
-        let total = Double(max(manifest.downloadBytes, 1))
+        let wanted = manifest.files.filter { !skip.contains($0.role) }
+        let total = Double(max(wanted.reduce(0) { $0 + $1.bytes }, 1))
         var done: Int64 = 0
-        for file in manifest.files {
+        let previous = Self.current(root: root)
+        for file in wanted {
             let unpacked = staging.appending(path: file.name)
             if (try? Self.verify(unpacked, bytes: file.unpackedBytes, sha256: file.unpackedSha256, label: file.name)) != nil {
                 done += file.bytes                       // finished by an earlier attempt
+                progress(Double(done) / total)
+                continue
+            }
+            if let previous, Self.reuse(file, from: previous, to: unpacked) {
+                done += file.bytes                       // the installed version holds the same bytes
                 progress(Double(done) / total)
                 continue
             }
@@ -209,7 +234,6 @@ struct RegionPackInstaller: Sendable {
         let versions = root.appending(path: "versions", directoryHint: .isDirectory)
         try fm.createDirectory(at: versions, withIntermediateDirectories: true)
         let target = versions.appending(path: manifest.version, directoryHint: .isDirectory)
-        let previous = Self.current(root: root)
         if fm.fileExists(atPath: target.path) { try fm.removeItem(at: target) }
         try fm.moveItem(at: staging, to: target)
         try Self.writeCurrent(manifest.version, root: root)
@@ -218,6 +242,26 @@ struct RegionPackInstaller: Sendable {
         }
         progress(1)
         return InstalledRegionPack(directory: target, manifest: manifest)
+    }
+
+    /// Copies the installed version's file when its manifest lists the same bytes and the file on disk has their size
+    /// (it was checked when installed). A copy on APFS is a clone: no second copy of the bytes.
+    private static func reuse(_ file: RegionPackManifest.File, from installed: InstalledRegionPack, to destination: URL) -> Bool {
+        guard let old = installed.manifest.files.first(where: { $0.name == file.name }),
+              old.unpackedSha256 == file.unpackedSha256, old.unpackedBytes == file.unpackedBytes else { return false }
+        let source = installed.directory.appending(path: file.name)
+        let size = (try? source.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init)
+        guard size == file.unpackedBytes else { return false }
+        try? FileManager.default.removeItem(at: destination)
+        return (try? FileManager.default.copyItem(at: source, to: destination)) != nil
+    }
+
+    /// Removes the installed version's offline map (You → Offline map, the map switch off). The manifest keeps listing
+    /// it; the map then comes online. Returns whether there was one to remove.
+    @discardableResult
+    static func removeMap(root: URL) -> Bool {
+        guard let installed = current(root: root), installed.hasMap, let url = try? installed.file(.basemap) else { return false }
+        return (try? FileManager.default.removeItem(at: url)) != nil
     }
 
     /// The installed pack `current` points to, if any.

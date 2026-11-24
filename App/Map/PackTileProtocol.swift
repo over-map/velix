@@ -7,7 +7,9 @@ import MapLibre
 ///
 /// A basemap tile wholly inside a pack's border comes from the pack (offline, as fast as ever while riding). Any other
 /// tile, at low zoom, across a border or outside every pack, comes from OpenFreeMap (the same OpenMapTiles schema),
-/// kept in a 100 MB disk cache: the map shows the whole world, and places seen before show offline (Filippo, 5 Nov).
+/// kept in a 200 MB disk cache: the map shows the whole world, and places seen before show offline (Filippo, 5 Nov).
+/// Since 24 Nov a region's map is optional (routing only by default): its tiles come online too, and the tiles along a
+/// ride's route are fetched at its start (``MapPrefetch``) for stretches without signal.
 /// Offline and not cached, a border tile falls back to the packs' part of it (merged, ``VectorTileMerge``).
 final class PackTileProtocol: URLProtocol, @unchecked Sendable {
     static let host = "tiles.velix.invalid"
@@ -30,11 +32,12 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) private static var templateChecked = false
     private static let templateKey = "velix.onlineTileTemplate"
 
-    /// OpenFreeMap tiles, cached on disk (their responses allow ten years; the URL names the planet build).
+    /// OpenFreeMap tiles, cached on disk (their responses allow ten years; the URL names the planet build). 200 MB
+    /// since the offline map became optional (24 Nov): a city's z14 tiles are a few tens of MB.
     static let onlineSession: URLSession = {
         let config = URLSessionConfiguration.default
         let dir = URL.cachesDirectory.appending(path: "velix-online-tiles", directoryHint: .isDirectory)
-        config.urlCache = URLCache(memoryCapacity: 8_000_000, diskCapacity: 100_000_000, directory: dir)
+        config.urlCache = URLCache(memoryCapacity: 8_000_000, diskCapacity: 200_000_000, directory: dir)
         config.requestCachePolicy = .useProtocolCachePolicy
         config.timeoutIntervalForRequest = 15
         return URLSession(configuration: config)
@@ -198,6 +201,16 @@ final class PackTileProtocol: URLProtocol, @unchecked Sendable {
         Self.template { [self] template in
             guard let template, let url = Self.url(template, z: z, x: x, y: y) else { return respond(fallback()) }
             Self.fetch(url) { [self] data in respond(data ?? fallback()) }
+        }
+    }
+
+    /// Fetches a basemap tile into the online cache unless a pack on the phone holds it (``MapPrefetch``). Already
+    /// cached tiles come from the cache, with no request.
+    static func warm(z: Int, x: Int, y: Int, done: @escaping @Sendable () -> Void) {
+        guard basemapChoice(z: z, x: x, y: y).1 == nil else { return done() }
+        template { template in
+            guard let template, let url = url(template, z: z, x: x, y: y) else { return done() }
+            fetch(url) { _ in done() }
         }
     }
 

@@ -63,6 +63,8 @@ final class RideSession {
     /// The ride as GPX, written when it ends (S6 Share GPX).
     private(set) var gpx: URL?
     private var cancellables = Set<AnyCancellable>()
+    /// The map along the route, fetched for stretches without signal (``MapPrefetch``); again after a reroute.
+    private var prefetch: Task<Void, Never>?
     private var activity: Activity<RideActivityAttributes>?
     private var lastActivityPosition = -Double.infinity
     private var lastActivityKey = ""
@@ -152,6 +154,7 @@ final class RideSession {
         location.startUpdating()
         try core.startNavigation(route: route)
         self.core = core
+        prefetch = MapPrefetch.warm(track.shape)
         UIApplication.shared.isIdleTimerDisabled = true
         startActivity()
     }
@@ -167,6 +170,7 @@ final class RideSession {
         gpx = try? log?.gpx(name: "Velix · \(destination.name)")
         core?.stopNavigation()
         core = nil
+        prefetch?.cancel()
         cancellables.removeAll()
         location.stopUpdating()
         voice.stop()
@@ -257,6 +261,8 @@ final class RideSession {
         provider.choice = choice
         track = RouteTrack(shape: next.analysis.shape)
         if let here { track.update(here) }
+        prefetch?.cancel()
+        prefetch = MapPrefetch.warm(next.analysis.shape)
         tracker = HazardTracker(hazards: next.analysis.hazards, alerted: tracker.alerted)
         lastActivityKey = ""
         #if DEBUG
@@ -338,6 +344,8 @@ final class RideSession {
             avoided = provider.lastAvoided
             track = RouteTrack(shape: planned.analysis.shape)
             if let here { track.update(here) }
+            prefetch?.cancel()
+            prefetch = MapPrefetch.warm(planned.analysis.shape)
             tracker = HazardTracker(hazards: planned.analysis.hazards, alerted: tracker.alerted)
             policy.succeeded(at: Date())
             log?.event(.reroute("accepted", ms: rerouteAsked.map { Date().timeIntervalSince($0) * 1000 }, meters: planned.meters))

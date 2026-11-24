@@ -160,6 +160,12 @@ struct YouView: View {
                                  },
                                  onRemove: app.pack.canRemove(id) ? { removing = id } : nil)
             }
+            // The offline map is optional (Filippo, 24 Nov): routing only by default, the map online.
+            Toggle(isOn: Binding(get: { app.state.offlineMap ?? false }, set: { app.state.offlineMap = $0 })) {
+                ListRow(title: "Map without signal", subtitle: Self.mapSubtitle(app.pack), divider: false)
+            }
+            .toggleStyle(VelixToggleStyle())
+            .overlay(alignment: .top) { Rectangle().fill(Color.velix.line).frame(height: 1) }
             Toggle(isOn: $app.state.packAutoUpdate) {
                 ListRow(title: "Update automatically", subtitle: "On Wi-Fi only", divider: false)
             }
@@ -176,10 +182,19 @@ struct YouView: View {
         }
     }
 
+    /// Map without signal: what it adds for the regions on the phone, or what it takes once there.
+    static func mapSubtitle(_ pack: PackService) -> String? {
+        let mb = pack.mapBytes / 1_000_000
+        let names = pack.installed.map(\.name)
+        let place = names.count == 1 ? names[0] : "your regions"
+        guard mb > 0 else { return nil }
+        return pack.offlineMap ? "\(mb) MB for \(place)" : "Adds \(mb) MB for \(place)"
+    }
+
     /// The region's size on the phone (its unpacked files).
     static func megabytes(onPhone id: String, _ pack: PackService) -> String {
-        guard case let .ready(m) = pack.state(of: id) else { return "its space" }
-        let bytes = m.files.reduce(Int64(0)) { $0 + $1.unpackedBytes }
+        guard case .ready = pack.state(of: id) else { return "its space" }
+        let bytes = pack.storedBytes(of: id)
         return bytes > 0 ? "\(bytes / 1_000_000) MB" : "its space"
     }
 
@@ -204,9 +219,10 @@ struct YouView: View {
             return .downloading(received: "\(r / 1_000_000)", total: "\(t / 1_000_000) MB", fraction: t > 0 ? Double(r) / Double(t) : 0)
         case .failed: return .failed
         case let .ready(m):
-            return .ready(size: m.downloadBytes > 0 ? "\(m.downloadBytes / 1_000_000) MB" : "Side-loaded", updated: Self.date(m.built))
+            let bytes = app.pack.bytes(of: id)
+            return .ready(size: bytes > 0 ? "\(bytes / 1_000_000) MB" : "Side-loaded", updated: Self.date(m.built))
         case .none, .checking:
-            if let r = app.pack.catalog.region(id) { return .available(size: "\(r.downloadBytes / 1_000_000) MB") }
+            if let r = app.pack.catalog.region(id) { return .available(size: "\(app.pack.downloadBytes(of: r) / 1_000_000) MB") }
             return .available(size: "")
         }
     }

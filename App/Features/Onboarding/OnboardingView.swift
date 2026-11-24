@@ -132,8 +132,8 @@ struct DownloadSheet: View {
                 VelixIconView(.circleCheck, size: 26).foregroundStyle(Color.velix.success)
                 Text("\(pack.regionName) is ready").velixType(.title2).foregroundStyle(Color.velix.ink)
             }
-            if case let .ready(m) = pack.state, m.downloadBytes > 0 {
-                Text("\(m.downloadBytes / 1_000_000) MB. Routes work anywhere in \(pack.regionName), even without signal.")
+            if case let .ready(m) = pack.state, pack.bytes(of: m.pack) > 0 {
+                Text("\(pack.bytes(of: m.pack) / 1_000_000) MB. Routes work anywhere in \(pack.regionName), even without signal.")
                     .velixType(.callout).foregroundStyle(Color.velix.ink2)
             }
             PrimaryButton(title: "Start riding", casing: true, action: onClose)
