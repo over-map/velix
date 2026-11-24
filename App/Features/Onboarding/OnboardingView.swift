@@ -109,7 +109,9 @@ struct DownloadSheet: View {
     private func downloading(_ r: Int64, _ t: Int64) -> some View {
         VStack(alignment: .leading, spacing: CGFloat.velix.s) {
             Text("Downloading \(pack.regionName)").velixType(.title2).foregroundStyle(Color.velix.ink)
-            Text("Routes and the map work offline once it’s done.").velixType(.callout).foregroundStyle(Color.velix.ink2)
+            // The map is offline only with Map without signal on (Filippo, 24 Nov).
+            Text(pack.offlineMap ? "Routes and the map work offline once it’s done." : "Routes work offline once it’s done.")
+                .velixType(.callout).foregroundStyle(Color.velix.ink2)
             progress(r, t, colour: Color.velix.ink)
             if pack.isExpensive, t > r {
                 HStack(alignment: .top, spacing: CGFloat.velix.xs) {
