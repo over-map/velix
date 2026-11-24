@@ -183,6 +183,12 @@ struct RegionsTests {
         #expect(pack.isInstalled("lombardy") && pack.bytes(of: "lombardy") == 60)
         #expect(pack.mapBytes == 40)                                          // what turning it on would add
 
+        // A map left on the phone with the switch off (the app quit while removing it) goes at launch.
+        try Data("map!!".utf8).write(to: version.appending(path: "basemap.pmtiles"))
+        #expect(pack.hasMap("lombardy"))
+        pack.reconcileMaps()
+        #expect(!pack.hasMap("lombardy"))
+
         pack.offlineMap = true                                                // fetched as an update: the pack serves meanwhile
         #expect(pack.downloading == "lombardy" && !pack.isDownloading && pack.isInstalled("lombardy"))
         pack.offlineMap = false                                               // changed its mind: stop, nothing to remove

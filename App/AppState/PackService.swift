@@ -227,6 +227,12 @@ final class PackService {
         }
     }
 
+    /// At launch: the phone matches the switch. Off, a map left on the phone (the app quit while removing it) goes;
+    /// on, a region without its map gets it.
+    func reconcileMaps() {
+        if offlineMap { installNextMap() } else if installed.contains(where: { hasMap($0.pack) }) { removeMaps() }
+    }
+
     /// The next region on the phone without its map, while the switch is on: download it (any connection: the rider
     /// asked). Returns whether one started.
     @discardableResult

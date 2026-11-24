@@ -45,6 +45,7 @@ final class AppModel {
         let offlineMap = AppState.offlineMap(stored: state.offlineMap, mapsInstalled: pack.installed.contains { pack.hasMap($0.pack) })
         if state.offlineMap == nil { state.offlineMap = offlineMap; store.save(state) }   // observers don't run in init
         pack.offlineMap = offlineMap
+        pack.reconcileMaps()
     }
 
     var rules: RuleSet { state.ruleSet(for: state.rideType, litStreetsOnly: litStreetsOnly) }
