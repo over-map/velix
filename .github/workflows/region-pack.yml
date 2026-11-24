@@ -256,7 +256,7 @@ jobs:
             cp "manifests/manifest-$REGION/manifest.json" "signed/manifest-$REGION.json"
             ARGS+=("$TAG" "signed/manifest-$REGION.json")
           done < signed/tags.txt
-          python3 pipeline/stages/index.py signed/packs.json --previous previous.json "${ARGS[@]}"
+          python3 pipeline/stages/index.py signed/packs.json --previous previous.json --catalogue pipeline/regions/europe.json "${ARGS[@]}"
 
       - name: Sign
         env:
@@ -367,5 +367,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 pipeline/stages/releases.py prune releases.json signed/packs.json > prune.txt
-          echo "pruning $(wc -l < prune.txt | tr -d ' ') releases"
-          while read -r TAG; do [ -n "$TAG" ] && gh release delete "$TAG" --yes --cleanup-tag; done < prune.txt
+          echo "pruning $(grep -c . prune.txt || true) releases"
+          while read -r TAG; do [ -z "$TAG" ] || gh release delete "$TAG" --yes --cleanup-tag; done < prune.txt

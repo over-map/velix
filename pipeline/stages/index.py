@@ -3,9 +3,10 @@ the host, stdlib only).
 
 The app reads it to know which regions exist, where they are (so panning or searching into one offers its download)
 and which release is the newest for each. Regions this run didn't rebuild keep their entry from the previous index, so
-the job never lists releases (GitHub's list stopped at 200 before M11). Kept small (≈ 330 KB for 219 regions): the
+the job never lists releases (GitHub's list stopped at 200 before M11), unless the catalogue no longer has them (a
+regrouped country: the old region would overlap its new ones). Kept small (≈ 330 KB for 219 regions): the
 outline is the manifest's `outline`, the coverage polygon stays in the manifest.
-Usage: python3 stages/index.py out.json [--previous packs.json] <tag> <manifest.json> [<tag> <manifest.json> …]"""
+Usage: python3 stages/index.py out.json [--previous packs.json] [--catalogue regions/europe.json] <tag> <manifest.json> [<tag> <manifest.json> …]"""
 import json
 import sys
 
@@ -29,8 +30,9 @@ def carried(e: dict) -> dict:
     return {**{k: e.get(k) for k in keep}, "manifest": f"{MIRRORS[0]}{e['tag']}/manifest.json"}
 
 
-def build(pairs: list[tuple[str, dict]], previous: dict | None = None) -> dict:
-    regions = {e["id"]: carried(e) for e in (previous or {}).get("regions", [])}
+def build(pairs: list[tuple[str, dict]], previous: dict | None = None, catalogue: set | None = None) -> dict:
+    regions = {e["id"]: carried(e) for e in (previous or {}).get("regions", [])
+               if catalogue is None or e["id"] in catalogue}
     regions.update({e["id"]: e for e in (entry(t, m) for t, m in pairs)})
     return {"schema": SCHEMA, "mirrors": MIRRORS, "regions": sorted(regions.values(), key=lambda e: e["name"])}
 
@@ -48,9 +50,14 @@ if __name__ == "__main__":
         except (OSError, ValueError):
             print(f"[index] no previous index at {rest[1]}")
         rest = rest[2:]
+    catalogue = None
+    if rest[:1] == ["--catalogue"]:
+        catalogue = {r["id"] for r in json.load(open(rest[1]))["regions"]}
+        rest = rest[2:]
     pairs = [(rest[i], json.load(open(rest[i + 1]))) for i in range(0, len(rest), 2)]
-    index = build(pairs, previous)
+    index = build(pairs, previous, catalogue)
     with open(out, "w") as f:
         f.write(dumps(index))
     kept = len(index["regions"]) - len(pairs)
-    print(f"[index] {len(pairs)} rebuilt + {kept} kept → {out}")
+    dropped = sorted({e["id"] for e in (previous or {}).get("regions", [])} - {e["id"] for e in index["regions"]})
+    print(f"[index] {len(pairs)} rebuilt + {kept} kept → {out}" + (f"; dropped (not in the catalogue): {', '.join(dropped)}" if dropped else ""))
