@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// RouteCard (P2 §08, S3): Best selected, Fastest unselected, Best and fastest, computing. No score (HANDOFF).
+/// RouteCard (P2 §08, S3): Best selected, Fastest unselected, Best and fastest, computing. No score (HANDOFF), and no
+/// comfort mix bar (Filippo, 26 Nov: the colours meant nothing on a card; the difference line says it in words).
 struct RouteCard: View {
     struct Model: Equatable {
         var name: String
         var distance: String
         var minutes: Int
-        var mix: [MixCategory: Double]
         /// DifferenceLine text with `**bold**` lead; nil on an unselected Fastest card.
         var line: String?
         var selected: Bool
@@ -31,9 +31,6 @@ struct RouteCard: View {
                         .foregroundStyle(Color.velix.ink)
                         .lineLimit(1)
                 }
-                ComfortMixBar(mix: model.mix, size: model.selected ? .large : .compact)
-                // The selected card names each colour (Filippo, 26 Nov: unexplained colours can't be read).
-                if model.selected { ComfortMixLegend(meters: model.mix) }
                 if let line = model.line { DifferenceLine(text: line) }
             }
             .padding(.horizontal, 14).padding(.vertical, CGFloat.velix.s)
@@ -50,7 +47,7 @@ struct RouteCard: View {
 }
 
 extension RouteCard.Model {
-    /// P8: "Calmest for city. 23 minutes, 5.4 kilometres. 5 minutes slower than fastest: avoids … Mostly protected lanes."
+    /// P8: "Calmest for city. 23 minutes, 5.4 kilometres. 5 minutes slower than fastest: avoids …" (no mix: the card has none)
     var spoken: String {
         let time = time.map(Format.spoken) ?? "\(minutes) minutes"
         var parts = ["\(name).", "\(time), \(Format.spoken(distance))."]
@@ -58,7 +55,6 @@ extension RouteCard.Model {
             let plain = Format.spoken(line.replacingOccurrences(of: "**", with: ""))
             parts.append(plain.hasSuffix(".") ? plain : plain + ".")
         }
-        if let mix = ComfortMixBar.spokenSummary(mix) { parts.append(mix) }
         return parts.joined(separator: " ")
     }
 }
@@ -72,8 +68,7 @@ struct RouteCardSkeleton: View {
                 Spacer()
                 bar(70, 24)
             }
-            bar(60, 12)
-            bar(nil, 8)
+            bar(nil, 12)
         }
         .padding(14)
         .overlay(RoundedRectangle(cornerRadius: CGFloat.velix.radius.card).strokeBorder(Color.velix.line, lineWidth: 1))
@@ -89,13 +84,10 @@ struct RouteCardSkeleton: View {
 extension RouteCard.Model {
     /// Sample data from P2 (illustrative).
     static let sampleBest = RouteCard.Model(name: "Calmest for city", distance: "5.4 km", minutes: 23,
-                                            mix: [.protected: 2400, .painted: 1400, .quiet: 1300, .mixed: 300],
                                             line: "**+5 min** · avoids 420 m cobbles, 3 rail crossings", selected: true)
     static let sampleFastest = RouteCard.Model(name: "Fastest", distance: "4.6 km", minutes: 18,
-                                               mix: [.protected: 700, .painted: 900, .quiet: 500, .mixed: 1800, .cobbles: 700],
                                                line: nil, selected: false)
     static let sampleSingle = RouteCard.Model(name: "Best and fastest", distance: "3.1 km", minutes: 12,
-                                              mix: [.protected: 1900, .painted: 900, .quiet: 300],
                                               line: "Calmest for city, and the quickest", selected: true)
 }
 

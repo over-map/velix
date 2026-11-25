@@ -31,71 +31,22 @@ struct ComfortMixBar: View {
     }
 }
 
-/// Legend under the mix bar: swatch, label, distance per category, in design order. Entries flow left to right and wrap
-/// whole (never mid-word), so long labels and large Dynamic Type keep each entry on one line.
+/// Legend under the mix bar: swatch, label, distance, two columns in design order.
 struct ComfortMixLegend: View {
     let meters: [MixCategory: Double]
-    /// P2 legend: km with one decimal ("0.6 km"); under 100 m, metres to the nearest 10 ("30 m") so a short stretch of
-    /// cobbles doesn't read "0.0 km".
-    static func km(_ m: Double) -> String {
-        m < 95 ? "\(max(10, Int((m / 10).rounded()) * 10)) m" : String(format: "%.1f km", m / 1000)
-    }
+    /// P2 legend: always km, one decimal ("0.6 km").
+    static func km(_ m: Double) -> String { String(format: "%.1f km", m / 1000) }
     var body: some View {
-        LegendFlow(spacing: 16, lineSpacing: CGFloat.velix.xs) {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible())], alignment: .leading, spacing: CGFloat.velix.xs) {
             ForEach(MixCategory.allCases.filter { (meters[$0] ?? 0) > 0 }, id: \.self) { c in
-                HStack(spacing: 6) {
+                HStack(spacing: CGFloat.velix.xs) {
                     MixSwatch(category: c).frame(width: 16, height: 16).clipShape(RoundedRectangle(cornerRadius: 3))
                     Text(c.label).velixType(.detail).foregroundStyle(Color.velix.ink)
+                    Spacer(minLength: 0)
                     Text(Self.km(meters[c] ?? 0)).velixType(.detail).monospacedDigit().foregroundStyle(Color.velix.ink2)
                 }
-                .fixedSize()
             }
         }
-    }
-}
-
-/// Lays children out in rows, left to right, starting a new row when the next child doesn't fit.
-private struct LegendFlow: Layout {
-    var spacing: CGFloat
-    var lineSpacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = rows(width: proposal.width ?? .infinity, subviews)
-        let width = rows.map { $0.width }.max() ?? 0
-        let height = rows.map(\.height).reduce(0, +) + lineSpacing * CGFloat(max(rows.count - 1, 0))
-        return CGSize(width: proposal.width ?? width, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var y = bounds.minY
-        for row in rows(width: bounds.width, subviews) {
-            var x = bounds.minX
-            for i in row.items {
-                let size = subviews[i].sizeThatFits(.unspecified)
-                subviews[i].place(at: CGPoint(x: x, y: y + (row.height - size.height) / 2), proposal: .unspecified)
-                x += size.width + spacing
-            }
-            y += row.height + lineSpacing
-        }
-    }
-
-    private struct Row { var items: [Int] = []; var width: CGFloat = 0; var height: CGFloat = 0 }
-
-    private func rows(width: CGFloat, _ subviews: Subviews) -> [Row] {
-        var rows: [Row] = []
-        var row = Row()
-        for (i, view) in subviews.enumerated() {
-            let size = view.sizeThatFits(.unspecified)
-            if !row.items.isEmpty, row.width + spacing + size.width > width {
-                rows.append(row)
-                row = Row()
-            }
-            row.width += (row.items.isEmpty ? 0 : spacing) + size.width
-            row.height = max(row.height, size.height)
-            row.items.append(i)
-        }
-        if !row.items.isEmpty { rows.append(row) }
-        return rows
     }
 }
 
