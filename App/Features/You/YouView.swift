@@ -72,7 +72,7 @@ struct YouView: View {
                     .background(current ? Color.velix.accent : Color.velix.surface2, in: RoundedRectangle(cornerRadius: 10))
                 VStack(alignment: .leading, spacing: 0) {
                     Text(type.name).velixType(.rowTitle)
-                    Text(current ? "Your ride type now" : "\(set.enabled.count) of \(total) rules on").velixType(.rowSubtitle)
+                    Text(current ? "Your ride type now" : "\(set.enabledCount) of \(total) rules on").velixType(.rowSubtitle)
                         .foregroundStyle(Color.velix.ink2)
                 }
                 Spacer()

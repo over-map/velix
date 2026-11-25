@@ -88,6 +88,10 @@ struct RuleSet: Equatable, Sendable {
             + (allowsWalking ? [] : [.noWalking]) + (litStreetsOnly ? [.litStreetsOnly] : [])
     }
 
+    /// How many of the type's own rules are on (You: "2 of 3 rules on"). A stored rule the type no longer lists isn't
+    /// counted (Road had tram rails once: "4 of 3", 25 Nov).
+    var enabledCount: Int { rideType.ruleDefaults.filter { enabled.contains($0.0) }.count }
+
     /// Short pedestrian passages (bicycle=yes in the tiles, listed in walk_ways) may be ridden slowly.
     var allowsWalking: Bool { enabled.contains(.walkingStretches) }
 }
