@@ -39,5 +39,5 @@ If a merge from main conflicts in DECISIONS, keep both sets of rows, newest firs
 ## Approval needed before
 - any map-style or visual change (show it on the phone or as screenshots first);
 - new copy not in the design files;
-- anything that grows a region pack past the 320 MB budget;
+- anything that grows a region pack part (routing or map) past its 300 MB budget;
 - new dependencies (they need an OSI licence and a THIRD_PARTY.md entry).

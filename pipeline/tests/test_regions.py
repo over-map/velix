@@ -28,7 +28,7 @@ class RegionConfigs(unittest.TestCase):
             for k in ("osm_relation", "city_area_relation", "timezone", "name"):
                 self.assertIn(k, c["region"], r)
             self.assertTrue(c["osm"].get("sources") or c["osm"]["url"].endswith("italy-latest.osm.pbf"), r)
-            self.assertEqual(c["pack"]["budget_mb"], 320, r)
+            self.assertEqual(c["pack"]["budget_mb"], {"routing": 300, "map": 300}, r)
             self.assertGreaterEqual(c["coverage"]["buffer_km"], 0, r)
             self.assertTrue((PIPELINE / "config" / "smoke_trips" / f"{r}.txt").exists(), r)
 

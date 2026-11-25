@@ -27,7 +27,7 @@ These files are the GitHub Release assets. The app downloads them one by one and
 | `basemap.pmtiles.xz` | OpenMapTiles-schema vector tiles z0–14 for the map (planetiler), tiles uncompressed inside the PMTiles so xz compresses across them |
 | `overlays.pmtiles.xz` | Velix overlay tiles: `velix_cycling`, `velix_routes`, `velix_transit`, `velix_stations` (see `stages/overlays.py`) |
 
-The budget is **320 MB to download** per region (Filippo: 300 on 16 Oct 2026, 320 with the routing buffer on 2 Nov); `validate` fails the build above it.
+The budget is **300 MB to download per part** (Filippo, 24 Nov 2026): routing (every file but the basemap) and the optional offline map (`basemap.pmtiles`); `validate` fails the build when either is over. Before, 320 MB was the whole pack (300 on 16 Oct, 320 with the routing buffer on 2 Nov). The app downloads routing by default and the map only when the rider turns it on.
 
 ## Stages (`stages/`)
 

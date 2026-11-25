@@ -20,6 +20,8 @@ def entry(tag: str, m: dict) -> dict:
     return {"id": m["pack"], "name": m["name"], "country": m.get("country"), "tag": tag, "version": m["version"],
             "built": m["built"], "bbox": m["bbox"], "polygon": m.get("outline") or m.get("polygon"),
             "download_bytes": m["download_bytes"], "unpacked_bytes": m["unpacked_bytes"],
+            # The optional offline map's share of the download (24 Nov): the app offers routing only by default.
+            "map_bytes": sum(f["bytes"] for f in m.get("files", []) if f["role"] == "basemap"),
             # Read by app builds before schema 2.
             "manifest": f"{MIRRORS[0]}{tag}/manifest.json"}
 
@@ -27,7 +29,8 @@ def entry(tag: str, m: dict) -> dict:
 def carried(e: dict) -> dict:
     """An entry of the previous index, in this schema (schema 1 had the coverage polygon)."""
     keep = ("id", "name", "country", "tag", "version", "built", "bbox", "polygon", "download_bytes", "unpacked_bytes")
-    return {**{k: e.get(k) for k in keep}, "manifest": f"{MIRRORS[0]}{e['tag']}/manifest.json"}
+    extra = {"map_bytes": e["map_bytes"]} if "map_bytes" in e else {}
+    return {**{k: e.get(k) for k in keep}, **extra, "manifest": f"{MIRRORS[0]}{e['tag']}/manifest.json"}
 
 
 def build(pairs: list[tuple[str, dict]], previous: dict | None = None, catalogue: set | None = None) -> dict:
