@@ -1,6 +1,6 @@
 # Test trips (golden routes)
 
-Ten trips × six ride types = 60 golden cases, run by `Tests/Golden/GoldenRouteTests.swift` against a real region pack.
+Eleven trips × six ride types = 66 golden cases, run by `Tests/Golden/GoldenRouteTests.swift` against a real region pack.
 
 ```bash
 TEST_RUNNER_VELIX_PACK_DIR=$PWD/pipeline/out/lombardy TEST_RUNNER_VELIX_GOLDEN_OUT=$PWD/build/golden \
@@ -22,14 +22,15 @@ TEST_RUNNER_VELIX_PACK_DIR=$PWD/pipeline/out/lombardy TEST_RUNNER_VELIX_GOLDEN_O
 | 8 | Stazione Centrale → Villa Reale, Monza | 45.4855,9.2035 → 45.5885,9.2740 | 15 km out of Milan (transit trigger later); park paths in Monza. |
 | 9 | Bovisa → Parco Nord | 45.5020,9.1590 → 45.5300,9.1960 | Off-road park network: Gravel/MTB go more off-road than Fastest. |
 | 10 | Bergamo FS → Città Alta | 45.6905,9.6750 → 45.7037,9.6625 | Steep: Max grade 6 % blocks Cargo; climbs for the others. |
+| 11 | Via Soave → Monza | 45.447767,9.1963936 → 45.5845,9.2744 | Filippo's 19 km ride (25 Nov): City takes the inner ring and Corso Buenos Aires, not Via Ripamonti's rails and setts nor a back-street zig-zag. |
 
 ## What every case must satisfy (robust to monthly OSM changes)
 
 - A route exists (`noRoute` fails the test).
 - **Cargo / kids** (strict): either Best meets every active rule, or the result is *No route meets your Cargo / kids rules* for a rule listed as an expected block below.
-- **Other ride types** (soft rules, design: City Best keeps 70 m of cobbles with *No cobbles* on): never blocked, and Best scores no worse than Fastest on time + rule penalty.
+- **Other ride types** (soft rules, design: City Best keeps 70 m of cobbles with *No cobbles* on): never blocked, and Best scores no worse than Fastest on the planner's score (time + rule penalty; for City also lane-less main roads and turns, `RoutePlanner.score`).
 - Fastest is never slower than Best. A separate Fastest card only when it is ≥ 5 % quicker; otherwise one *Best and fastest* card with its line.
-- Road: ≤ 200 m unpaved. Gravel/MTB on trips 7 and 9: at least as off-road as Fastest. City trip 2: < 500 m on Viale Fulvio Testi. City: no steps except at the doorstep.
+- Road: ≤ 200 m unpaved. City trip 11: < 50 m on Via Giuseppe Ripamonti, ≥ 1 km on Corso Buenos Aires, ≥ 800 m on the inner ring (Caldara, Regina Margherita, Bianca Maria, Majno), turns ≤ Fastest's + 10. Gravel/MTB on trips 7 and 9: at least as off-road as Fastest. City trip 2: < 500 m on Viale Fulvio Testi. City: no steps except at the doorstep.
 - Planning finishes in < 5 s on the simulator (phone budget 1.5 s, measured on the iPhone 11 separately).
 
 **Expected Cargo / kids blocks** (data, not bugs): trip 3 and 7 *Never along tram rails* (tram corridors around Darsena); trip 4 *No cobbles* (cobbled destination); trip 5 any rule (cobbled, pedestrian centre); trip 8 *No steps or narrow gaps* (cycle barrier on the way into Monza, OSM n2704536133); trip 10 *Max grade 6%* (Città Alta).

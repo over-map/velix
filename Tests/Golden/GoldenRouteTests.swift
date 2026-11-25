@@ -24,6 +24,7 @@ struct GoldenTrip: Sendable, CustomStringConvertible {
         .init(id: 8, name: "Stazione Centrale → Villa Reale, Monza", from: .init(lat: 45.4855, lon: 9.2035), to: .init(lat: 45.5885, lon: 9.2740)),
         .init(id: 9, name: "Bovisa → Parco Nord", from: .init(lat: 45.5020, lon: 9.1590), to: .init(lat: 45.5300, lon: 9.1960)),
         .init(id: 10, name: "Bergamo FS → Città Alta", from: .init(lat: 45.6905, lon: 9.6750), to: .init(lat: 45.7037, lon: 9.6625)),
+        .init(id: 11, name: "Via Soave → Monza", from: .init(lat: 45.447767, lon: 9.1963936), to: .init(lat: 45.5845, lon: 9.2744)),
     ]
 }
 
@@ -107,9 +108,10 @@ struct GoldenRouteTests {
             if type == .cargo {
                 #expect(RuleChecker.hardViolations(bestV, rideType: .cargo).isEmpty, "Cargo Best breaks \(bestV.map(\.rule.title))")
             } else {
-                // Rules are soft for the other types: Best is never worse than Fastest on time + rule penalty.
+                // Rules are soft for the other types: Best is never worse than Fastest on the planner's score (time + rule
+                // penalty, + lane-less main roads and turns for City).
                 func cost(_ seconds: Double, _ a: RouteAnalysis) -> Double {
-                    seconds + RuleChecker.violations(of: rules.active, in: a).reduce(0) { $0 + RoutePlanner.weight($1.rule) * $1.meters }
+                    RoutePlanner.score(seconds: seconds, analysis: a, rules: rules)
                 }
                 #expect(cost(o.best.seconds, o.best.analysis) <= cost(o.fastestSeconds, o.fastestAnalysis) + 1,
                         "\(trip) \(type): Best scores worse than Fastest")
@@ -167,6 +169,16 @@ enum GoldenExpectations {
         }
         if trip == 2, type == .city {
             #expect((best.busyByName["Viale Fulvio Testi"] ?? 0) < 500, "City Best on Viale Fulvio Testi")
+        }
+        if trip == 11, type == .city {
+            // Filippo, 25 Nov: the inner ring to Porta Venezia, then Corso Buenos Aires; not Via Ripamonti's rails and
+            // setts, no back-street zig-zag through Porta Romana and Porta Vittoria.
+            func on(_ names: [String]) -> Double { best.edges.filter { names.contains($0.name ?? "") }.reduce(0) { $0 + $1.meters } }
+            #expect(on(["Via Giuseppe Ripamonti"]) < 50, "City Best on Via Ripamonti: \(Int(on(["Via Giuseppe Ripamonti"]))) m")
+            #expect(on(["Corso Buenos Aires"]) >= 1000, "City Best on Corso Buenos Aires: \(Int(on(["Corso Buenos Aires"]))) m")
+            let ring = ["Viale Emilio Caldara", "Viale Regina Margherita", "Viale Bianca Maria", "Viale Luigi Majno"]
+            #expect(on(ring) >= 800, "City Best on the inner ring: \(Int(on(ring))) m")
+            #expect(best.turns <= fastest.turns + 10, "City Best turns \(best.turns), Fastest \(fastest.turns)")
         }
         if type == .city {
             #expect(best.hazardCount(.steps) == 0 || best.hazards.filter { $0.type == .steps }.allSatisfy { $0.distanceAlong < 50 })

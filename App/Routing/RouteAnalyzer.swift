@@ -44,6 +44,14 @@ enum RouteAnalyzer {
 
     static let calmSpeed = 30
 
+    static let mainClasses: Set<String> = ["motorway", "trunk", "primary", "secondary", "tertiary"]
+
+    /// A main road ridden in traffic: no painted or separated lane. By road class only: `trace_attributes` gives
+    /// `edge.speed` as the cycling speed (15–25 km/h), not the road's, so it can't tell a 30 zone.
+    static func isLanelessMainRoad(_ e: RouteEdge) -> Bool {
+        e.use == "road" && mainClasses.contains(e.roadClass) && e.cycleLane != "dedicated" && e.cycleLane != "separated"
+    }
+
     static func analyze(shape: [LatLon], edges: [RouteEdge], hazards source: some HazardSource) -> RouteAnalysis {
         var a = RouteAnalysis(shape: shape, edges: edges)
         let along = cumulative(shape)
@@ -64,6 +72,7 @@ enum RouteAnalyzer {
             a.mix[cat, default: 0] += edge.meters
             a.metersByWay[edge.wayId, default: 0] += edge.meters
             if pathUses.contains(edge.use) { a.pathMeters += edge.meters }
+            if isLanelessMainRoad(edge) { a.busyMeters += edge.meters }
             if cat == .mixed {
                 run += edge.meters
                 a.longestMixedRun = max(a.longestMixedRun, run)
@@ -129,12 +138,42 @@ enum RouteAnalyzer {
             }
         }
         a.signalStops = junctions(lights)
+        a.turns = turns(shape: shape, edges: edges, along: along)
         a.profile = ElevationProfile(edges: edges)
         a.climbM = a.profile.climb
         a.maxGrade = Int(a.profile.maxGrade.rounded())
         a.hazards += steepStretches(a.profile, edges: edges, along: along)
         a.hazards.sort { $0.distanceAlong < $1.distanceAlong }
         return a
+    }
+
+    /// A turn: the direction changes by more than this between the 20 m before a junction and the 20 m after it.
+    static let turnAngle = 45.0
+    static let turnWindow = 20.0
+    /// Edges shorter than this are junction links: the turn is measured across them, once.
+    static let linkLength = 15.0
+    /// Two turns closer than this along the route count once (a dog-leg across a junction, a roundabout).
+    static let turnSpan = 30.0
+
+    /// Changes of direction at junctions (City counts them against needless zig-zags, see `RoutePlanner.score`).
+    static func turns(shape: [LatLon], edges: [RouteEdge], along: [Double]) -> Int {
+        guard shape.count > 1 else { return 0 }
+        let long = edges.filter { $0.meters >= linkLength }
+        var count = 0
+        var lastTurn = -Double.infinity
+        for (a, b) in zip(long, long.dropFirst()) {
+            guard let end = along[safe: a.endShapeIndex], let start = along[safe: b.beginShapeIndex] else { continue }
+            let p0 = RuleChecker.point(at: end - turnWindow, on: shape, along: along)
+            let p1 = RuleChecker.point(at: end, on: shape, along: along)
+            let q0 = RuleChecker.point(at: start, on: shape, along: along)
+            let q1 = RuleChecker.point(at: start + turnWindow, on: shape, along: along)
+            guard Geo.distance(p0, p1) > 1, Geo.distance(q0, q1) > 1 else { continue }
+            if Geo.angleBetween(Geo.bearing(p0, p1), Geo.bearing(q0, q1)) > turnAngle, start - lastTurn > turnSpan {
+                count += 1
+                lastTurn = start
+            }
+        }
+        return count
     }
 
     /// Signal nodes of one junction (a light per approach and crossing) are tagged within a few tens of metres.
