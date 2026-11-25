@@ -159,6 +159,10 @@ struct RouteAnalysis: Equatable, Sendable {
     var signalStops: [SignalStop] = []
     /// Metres on paths (cycleway, path, footway, track) — park paths for the scenic types.
     var pathMeters: Double = 0
+    /// Metres on main roads (tertiary and up) without a painted or separated bike lane.
+    var busyMeters: Double = 0
+    /// Changes of direction over 45° at junctions (``RouteAnalyzer/turns(shape:edges:along:)``).
+    var turns: Int = 0
 
     func meters(_ category: MixCategory) -> Double { mix[category] ?? 0 }
     func hazardMeters(_ type: HazardType) -> Double {
