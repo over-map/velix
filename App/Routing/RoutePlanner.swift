@@ -130,7 +130,7 @@ struct RoutePlanner: Sendable {
         // polygons: Valhalla in valhalla-mobile slows down sharply with many). Cobbles are mostly avoided by the
         // costing itself (pack retags them, see pipeline/stages/prepare_routing.py). Then choose (see `choose`).
         var candidates = [firstBest]
-        let firstViolations = RuleChecker.violations(of: rules.active, in: firstBest.analysis)
+        let firstViolations = Self.roundTargets(RuleChecker.violations(of: rules.active, in: firstBest.analysis), rules: rules)
         var rounds = 0
         let worthTrying = rules.rideType == .cargo ? !firstViolations.isEmpty : penalty(firstViolations) > minPenaltyWorthARound
         if worthTrying {
@@ -140,7 +140,7 @@ struct RoutePlanner: Sendable {
             let roundsAllowed = rules.rideType == .cargo ? maxRounds + 2 : maxRounds
             let budget = rules.rideType == .cargo ? roundBudget * 2 : roundBudget
             while rounds < roundsAllowed, Date().timeIntervalSince(started) < budget {
-                let remaining = RuleChecker.violations(of: rules.active, in: current.analysis)
+                let remaining = Self.roundTargets(RuleChecker.violations(of: rules.active, in: current.analysis), rules: rules)
                     .sorted { Self.weight($0.rule) * $0.meters > Self.weight($1.rule) * $1.meters }
                 // The worst stretches first, a point per offending segment (`exclude_locations`, ≈ 1 ms each; boxes
                 // cost 11–35 ms each, 20 Oct golden trace), at most `maxExcludedPoints` per request.
@@ -262,6 +262,14 @@ struct RoutePlanner: Sendable {
             unavoidable: remaining, rounds: rounds, milliseconds: Date().timeIntervalSince(started) * 1000))
     }
 
+
+    /// What Best's rounds box out. Cargo / kids leaves out mixed traffic within ``RuleChecker/bikeLanesTolerance``:
+    /// its points used up the request's budget and pushed the route onto cobbles and rails (golden trips 6 and 8,
+    /// 25 Nov). `choose` still prefers less of it.
+    static func roundTargets(_ violations: [RuleViolation], rules: RuleSet) -> [RuleViolation] {
+        guard rules.rideType == .cargo else { return violations }
+        return violations.filter { $0.rule != .bikeLanesOnly || $0.meters > RuleChecker.bikeLanesTolerance }
+    }
 
     /// Cargo / kids: the quickest candidate that meets every rule, or the rule that blocks.
     /// Other ride types: the lowest time + penalty (seconds per metre that breaks a rule); never blocked, and what

@@ -232,6 +232,25 @@ struct RuleCheckerTests {
         #expect(RuleChecker.violation(of: .noCobbles, in: a) == nil)
     }
 
+    /// Bike lanes only tolerates up to 1 km of mixed traffic for every type, Cargo / kids too (Filippo, 25 Nov): Milan
+    /// trips need some lane-less main road, and a strict rule left Cargo with no route on half the golden trips.
+    @Test(arguments: RideType.allCases)
+    func bikeLanesOnlyIsSoftUpToOneKilometre(_ type: RideType) {
+        let short = RuleViolation(rule: .bikeLanesOnly, meters: 1000, exclusions: [])
+        let long = RuleViolation(rule: .bikeLanesOnly, meters: 1001, exclusions: [])
+        #expect(RuleChecker.hardViolations([short], rideType: type).isEmpty)
+        #expect(RuleChecker.hardViolations([long], rideType: type) == [long])
+    }
+
+    /// Cargo's re-plan rounds skip mixed traffic within the tolerance, so its points don't crowd out cobbles and rails.
+    @Test func cargoRoundsSkipToleratedMixedTraffic() {
+        let lanes = RuleViolation(rule: .bikeLanesOnly, meters: 700, exclusions: [])
+        let longLanes = RuleViolation(rule: .bikeLanesOnly, meters: 1200, exclusions: [])
+        let cobbles = RuleViolation(rule: .noCobbles, meters: 40, exclusions: [])
+        #expect(RoutePlanner.roundTargets([lanes, cobbles, longLanes], rules: RuleSet(rideType: .cargo, enabled: [])) == [cobbles, longLanes])
+        #expect(RoutePlanner.roundTargets([lanes, cobbles], rules: RuleSet(rideType: .city, enabled: [])) == [lanes, cobbles])
+    }
+
     @Test func softToleranceAppliesToCityNotToCargo() {
         let v = RuleViolation(rule: .noCobbles, meters: 70, exclusions: [])
         #expect(RuleChecker.hardViolations([v], rideType: .city).isEmpty)

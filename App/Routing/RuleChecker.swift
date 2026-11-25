@@ -18,6 +18,8 @@ enum RuleChecker {
     static let unpavedTolerance = 50.0
     /// "Bike lanes only": mixed traffic is allowed only for short links and crossings.
     static let maxMixedRun = 150.0
+    /// "Bike lanes only": mixed traffic (in runs over ``maxMixedRun``) that may remain without blocking or re-planning.
+    static let bikeLanesTolerance = 1000.0
     static let maxGrade = 6
     static let gradeMinLength = 50.0
 
@@ -31,6 +33,10 @@ enum RuleChecker {
         // Passages are a preference for every type (a penalty in `choose`), never a reason to block or re-plan: the
         // tiles open them for all costings, and the rounds can't box out every footpath of a long Cargo trip.
         if rule == .noWalking { return .infinity }
+        // Mixed traffic: up to 1 km for every type, Cargo / kids too (Filippo, 25 Nov). Milan trips need some lane-less
+        // main road; a strict rule left Cargo with no route on half the golden trips once `category` stopped calling
+        // main roads quiet. What remains is listed as unavoidable, and the penalty in `score` still prefers less.
+        if rule == .bikeLanesOnly { return bikeLanesTolerance }
         guard rideType != .cargo else { return 0 }
         switch rule {
         case .noCobbles: return 100
