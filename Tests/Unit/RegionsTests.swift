@@ -129,6 +129,90 @@ struct RegionsTests {
         pack.cancel("lombardy")
     }
 
+    // MARK: The optional offline map (Filippo, 24 Nov)
+
+    @Test func theCatalogSizeLeavesTheMapOutUnlessItIsOn() throws {
+        let json = #"""
+        {"schema":2,"mirrors":[],"regions":[
+         {"id":"lombardy","name":"Lombardy","tag":"t","version":"2026.11","bbox":[0,0,1,1],"polygon":null,
+          "download_bytes":307000000,"map_bytes":154000000,"manifest":"https://example.invalid/m.json"},
+         {"id":"veneto","name":"Veneto","tag":"t","version":"2026.11","bbox":[0,0,1,1],"polygon":null,
+          "download_bytes":250000000,"manifest":"https://example.invalid/m.json"}]}
+        """#
+        let c = try RegionCatalog.decode(Data(json.utf8))
+        #expect(c.region("lombardy")?.downloadBytes(withMap: false) == 153_000_000)
+        #expect(c.region("lombardy")?.downloadBytes(withMap: true) == 307_000_000)
+        #expect(c.region("veneto")?.downloadBytes(withMap: false) == 250_000_000)   // index from before 24 Nov
+    }
+
+    @Test func aStoredChoiceWinsAndAPhoneWithAMapKeepsIt() {
+        #expect(AppState.offlineMap(stored: true, mapsInstalled: false))
+        #expect(!AppState.offlineMap(stored: false, mapsInstalled: true))
+        #expect(AppState.offlineMap(stored: nil, mapsInstalled: true))       // installed before 24 Nov: keeps its map
+        #expect(!AppState.offlineMap(stored: nil, mapsInstalled: false))     // new: routing only
+    }
+
+    @Test @MainActor func theMapSwitchAddsAndRemovesMaps() async throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "velix-mapswitch-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        // An installed pack with its map on disk.
+        let version = dir.appending(path: "lombardy/versions/2026.11")
+        try FileManager.default.createDirectory(at: version, withIntermediateDirectories: true)
+        let map = RegionPackManifest.File(name: "basemap.pmtiles", asset: "basemap.pmtiles.xz", role: .basemap, bytes: 40,
+                                          sha256: "", unpackedBytes: 5, unpackedSha256: "")
+        let tiles = RegionPackManifest.File(name: "valhalla_tiles.tar", asset: "valhalla_tiles.tar.xz", role: .routingTiles,
+                                            bytes: 60, sha256: "", unpackedBytes: 5, unpackedSha256: "")
+        let m = RegionPackManifest(schema: 1, pack: "lombardy", name: "Lombardy", version: "2026.11", built: "2026-11-01",
+                                   valhalla: "3.9.0", bbox: [0, 0, 1, 1], files: [map, tiles], downloadBytes: 100,
+                                   unpackedBytes: 10, budgetBytes: 1, sources: [])
+        try JSONEncoder.snake.encode(m).write(to: version.appending(path: "manifest.json"))
+        try Data("map!!".utf8).write(to: version.appending(path: "basemap.pmtiles"))
+        try Data("tile!".utf8).write(to: version.appending(path: "valhalla_tiles.tar"))
+        try Data("2026.11".utf8).write(to: dir.appending(path: "lombardy/current"))
+        let pack = PackService(base: dir, downloader: StalledDownloader(), catalog: { RegionCatalog(schema: 1, regions: []) })
+        pack.setCatalogForTesting(RegionCatalog(schema: 1, regions: [
+            .init(id: "lombardy", name: "Lombardy", tag: "pack-lombardy-2026.11", version: "2026.11", bbox: [0, 0, 1, 1],
+                  polygon: nil, downloadBytes: 100, manifest: URL(string: "https://example.invalid/m.json")!, mapBytes: 40)]))
+        pack.offlineMap = true
+        #expect(pack.hasMap("lombardy") && pack.downloading == nil)        // nothing to add
+        #expect(pack.mapBytes == 40)
+
+        pack.offlineMap = false
+        #expect(!pack.hasMap("lombardy"))
+        #expect(FileManager.default.fileExists(atPath: version.appending(path: "valhalla_tiles.tar").path))
+        #expect(pack.isInstalled("lombardy") && pack.bytes(of: "lombardy") == 60)
+        #expect(pack.mapBytes == 40)                                          // what turning it on would add
+
+        // A map left on the phone with the switch off (the app quit while removing it) goes at launch.
+        try Data("map!!".utf8).write(to: version.appending(path: "basemap.pmtiles"))
+        #expect(pack.hasMap("lombardy"))
+        pack.reconcileMaps()
+        #expect(!pack.hasMap("lombardy"))
+
+        pack.offlineMap = true                                                // fetched as an update: the pack serves meanwhile
+        #expect(pack.downloading == "lombardy" && !pack.isDownloading && pack.isInstalled("lombardy"))
+        pack.offlineMap = false                                               // changed its mind: stop, nothing to remove
+        try await Self.until { pack.downloading == nil }
+        #expect(!pack.hasMap("lombardy") && pack.isInstalled("lombardy"))
+    }
+
+    @Test func prefetchTakesTheTilesAlongTheRouteAtThreeZooms() {
+        // 3 km east along Milan's Viale Monza latitude.
+        let route = (0...30).map { LatLon(lat: 45.50, lon: 9.20 + Double($0) * 0.00128) }
+        let tiles = MapPrefetch.tiles(along: route)
+        #expect(Set(tiles.map(\.z)) == [12, 13, 14])
+        #expect(Set(tiles).count == tiles.count)
+        func tile(_ p: LatLon, _ z: Int) -> MapPrefetch.Tile {
+            let n = Double(1 << z), r = p.lat * .pi / 180
+            return .init(z: z, x: Int((p.lon + 180) / 360 * n), y: Int((1 - log(tan(r) + 1 / cos(r)) / .pi) / 2 * n))
+        }
+        #expect(tiles.contains(tile(route[0], 14)) && tiles.contains(tile(route[30], 14)))
+        // 500 m either side: the tile north of the line at z14 (about 1.7 km tall here) only when the line is near its edge.
+        #expect(tiles.filter { $0.z == 14 }.count <= 12)
+        #expect(tiles.first?.z == 14)                                         // riding zoom first
+        #expect(MapPrefetch.tiles(along: []).isEmpty)
+    }
+
     @MainActor private static func until(_ condition: () -> Bool) async throws {
         for _ in 0..<200 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
         #expect(condition())

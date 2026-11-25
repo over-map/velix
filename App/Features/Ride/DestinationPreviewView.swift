@@ -50,7 +50,7 @@ struct DestinationPreviewView: View {
             }
             Button("Not now", role: .cancel) {}
         } message: { r in
-            Text("Routes to \(place.name) need the \(r.name) map (\(r.downloadBytes / 1_000_000) MB).")
+            Text("Routes to \(place.name) need the \(r.name) map (\(app.pack.downloadBytes(of: r) / 1_000_000) MB).")
         }
         // A place tapped on the map knows only what it is: add its street and area (online).
         .task { if place.id.hasPrefix("tap-") { await app.describe(place) } }
@@ -87,7 +87,7 @@ struct DestinationPreviewView: View {
         if app.packContains(place.location) { return .routable }
         guard let r = app.pack.offer(at: place.location) else { return .notCovered }
         if app.pack.downloading == r.id { return .downloading(region: r.name, fraction: app.pack.fraction) }
-        return .needsDownload(region: r.name, megabytes: r.downloadBytes / 1_000_000)
+        return .needsDownload(region: r.name, megabytes: app.pack.downloadBytes(of: r) / 1_000_000)
     }
 
     private var distance: String? {

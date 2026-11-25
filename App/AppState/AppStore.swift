@@ -11,6 +11,9 @@ struct AppState: Codable, Equatable, Sendable {
     /// Newest first.
     var recents: [Place] = []
     var packAutoUpdate = true
+    /// You → Offline map: Map without signal. Off by default (Filippo, 24 Nov: routing only, the map online); `nil`
+    /// until chosen, see ``offlineMap(stored:mapsInstalled:)``.
+    var offlineMap: Bool?
     /// You → Routing: follow one-way restrictions (default off, Filippo 18 Oct).
     var respectOneways = false
     /// Map sheet: the map's light or dark style (Auto follows the phone).
@@ -28,9 +31,14 @@ struct AppState: Codable, Equatable, Sendable {
         work = try? c.decode(Place.self, forKey: .work)
         recents = (try? c.decode([Place].self, forKey: .recents)) ?? []
         packAutoUpdate = try c.decodeIfPresent(Bool.self, forKey: .packAutoUpdate) ?? true
+        offlineMap = try c.decodeIfPresent(Bool.self, forKey: .offlineMap)
         respectOneways = try c.decodeIfPresent(Bool.self, forKey: .respectOneways) ?? false
         mapAppearance = (try? c.decode(MapAppearance.self, forKey: .mapAppearance)) ?? .auto
     }
+
+    /// The map switch: the rider's choice, else on for a phone that already has a region's map (installed before the
+    /// map was optional: it isn't removed behind the rider's back), else off.
+    static func offlineMap(stored: Bool?, mapsInstalled: Bool) -> Bool { stored ?? mapsInstalled }
 
     static let recentsKept = 20
     static let recentsShown = 5

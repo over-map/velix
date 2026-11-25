@@ -37,15 +37,17 @@ final class ScreenSnapshotTests: XCTestCase {
 
     /// Lombardy and two neighbours, as boxes (the index ships simplified borders).
     static let catalog: RegionCatalog = {
-        func region(_ id: String, _ name: String, _ b: [Double], mb: Int64) -> RegionCatalog.Region {
+        // `map`: the optional offline map's share (24 Nov); offers show the routing-only size.
+        func region(_ id: String, _ name: String, _ b: [Double], mb: Int64, map: Int64) -> RegionCatalog.Region {
             .init(id: id, name: name, tag: "pack-\(id)-2026.11", version: "2026.11", bbox: b,
                   polygon: RegionShape(polygons: [[[[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]], [b[0], b[1]]]]]),
-                  downloadBytes: mb * 1_000_000, manifest: URL(string: "https://example.invalid/\(id)/manifest.json")!)
+                  downloadBytes: mb * 1_000_000, manifest: URL(string: "https://example.invalid/\(id)/manifest.json")!,
+                  mapBytes: map * 1_000_000)
         }
         return RegionCatalog(schema: 1, regions: [
-            region("lombardy", "Lombardy", RegionPackManifest.sideloaded.bbox, mb: 299),
-            region("piemonte", "Piedmont", [6.63, 44.06, 8.49, 46.46], mb: 222),
-            region("veneto", "Veneto", [10.62, 44.79, 13.10, 46.68], mb: 240)])
+            region("lombardy", "Lombardy", RegionPackManifest.sideloaded.bbox, mb: 299, map: 154),
+            region("piemonte", "Piedmont", [6.63, 44.06, 8.49, 46.46], mb: 222, map: 110),
+            region("veneto", "Veneto", [10.62, 44.79, 13.10, 46.68], mb: 240, map: 120)])
     }()
 
     static let ridesNow = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 29, hour: 18))!

@@ -178,6 +178,83 @@ struct RegionPackInstallerTests {
         #expect(!FileManager.default.fileExists(atPath: first.directory.path))
     }
 
+    // MARK: The optional offline map (Filippo, 24 Nov: routing only by default)
+
+    @Test func routingOnlyLeavesTheMapOutAndCountsOnlyWhatItFetches() async throws {
+        let release = tmp.appending(path: "release-routing")
+        try makeRelease(version: "2026.10", files: samplePack("a"), in: release)
+        let log = DownloadLog(), seen = DownloadLog()
+        let installed = try await installer(release: release, log: log)
+            .install(manifest: release.appending(path: "manifest.json"), skip: [.basemap]) { seen.add("\($0)") }
+        #expect(!log.all.contains("basemap.pmtiles.xz"))
+        #expect(log.all.contains("valhalla_tiles.tar.xz") && log.all.contains("overlays.pmtiles.xz"))
+        #expect(!FileManager.default.fileExists(atPath: try installed.file(.basemap).path))
+        #expect(!installed.hasMap)
+        #expect(try Data(contentsOf: installed.file(.routingTiles)) == samplePack("a")["valhalla_tiles.tar"])
+        // Progress runs to the end of the routing files, not to the map's share of the download.
+        let fractions = seen.all.compactMap(Double.init)
+        #expect(fractions.last == 1 && fractions.dropLast().allSatisfy { $0 <= 1 })
+        #expect(fractions.dropLast().contains { $0 > 0.9 })
+    }
+
+    @Test func turningTheMapOnFetchesOnlyTheMap() async throws {
+        let release = tmp.appending(path: "release-add")
+        try makeRelease(version: "2026.10", files: samplePack("a"), in: release)
+        let manifest = release.appending(path: "manifest.json")
+        _ = try await installer(release: release).install(manifest: manifest, skip: [.basemap])
+        let log = DownloadLog()
+        let installed = try await installer(release: release, log: log).install(manifest: manifest)
+        #expect(log.all.filter { $0.hasSuffix(".xz") } == ["basemap.pmtiles.xz"])
+        #expect(installed.hasMap)
+        #expect(try Data(contentsOf: installed.file(.basemap)) == samplePack("a")["basemap.pmtiles"])
+        #expect(try Data(contentsOf: installed.file(.hazards)) == samplePack("a")["hazards.sqlite"])
+        let current = try #require(RegionPackInstaller.current(root: tmp.appending(path: "RegionPack")))
+        #expect(current.directory == installed.directory)
+    }
+
+    @Test func anUpdateWithTheMapOffNeverFetchesIt() async throws {
+        let r1 = tmp.appending(path: "u1"), r2 = tmp.appending(path: "u2")
+        try makeRelease(version: "2026.10", files: samplePack("a"), in: r1)
+        var next = samplePack("b")
+        next["routes.sqlite"] = samplePack("a")["routes.sqlite"]          // unchanged this month
+        try makeRelease(version: "2026.11", files: next, in: r2)
+        _ = try await installer(release: r1).install(manifest: r1.appending(path: "manifest.json"), skip: [.basemap])
+        let log = DownloadLog()
+        let installed = try await installer(release: r2, log: log).install(manifest: r2.appending(path: "manifest.json"), skip: [.basemap])
+        let assets = log.all.filter { $0.hasSuffix(".xz") }
+        #expect(!assets.contains("basemap.pmtiles.xz"))
+        #expect(!assets.contains("routes.sqlite.xz"))                     // same bytes as the installed one: kept
+        #expect(assets.contains("valhalla_tiles.tar.xz"))
+        #expect(try Data(contentsOf: installed.file(.routes)) == samplePack("a")["routes.sqlite"])
+        #expect(installed.manifest.version == "2026.11" && !installed.hasMap)
+    }
+
+    @Test func aDamagedInstalledFileIsDownloadedAgainNotKept() async throws {
+        let release = tmp.appending(path: "release-damaged")
+        try makeRelease(version: "2026.10", files: samplePack("a"), in: release)
+        let manifest = release.appending(path: "manifest.json")
+        let first = try await installer(release: release).install(manifest: manifest, skip: [.basemap])
+        try Data("short".utf8).write(to: first.file(.hazards))
+        let log = DownloadLog()
+        let installed = try await installer(release: release, log: log).install(manifest: manifest)
+        #expect(Set(log.all.filter { $0.hasSuffix(".xz") }) == ["basemap.pmtiles.xz", "hazards.sqlite.xz"])
+        #expect(try Data(contentsOf: installed.file(.hazards)) == samplePack("a")["hazards.sqlite"])
+    }
+
+    @Test func theMapComesOffAndTheRestStays() async throws {
+        let release = tmp.appending(path: "release-remove")
+        try makeRelease(version: "2026.10", files: samplePack("a"), in: release)
+        let root = tmp.appending(path: "RegionPack")
+        let installed = try await installer(release: release).install(manifest: release.appending(path: "manifest.json"))
+        #expect(RegionPackInstaller.removeMap(root: root))
+        #expect(RegionPackInstaller.current(root: root)?.hasMap == false)
+        #expect(FileManager.default.fileExists(atPath: try installed.file(.routingTiles).path))
+        #expect(!RegionPackInstaller.removeMap(root: root))                // nothing left to remove
+        // On the phone: only what's there.
+        let left = try #require(RegionPackInstaller.current(root: root))
+        #expect(left.downloadedBytes == left.manifest.downloadBytes - left.manifest.file(.basemap)!.bytes)
+    }
+
     @Test func rejectsUnknownSchema() throws {
         let json = #"{"schema": 2, "pack": "x", "name": "x", "version": "2026.10", "built": "2026-10-13", "valhalla": "3.9.0", "bbox": [0,0,1,1], "polygon_sha256": "", "files": [], "download_bytes": 1, "unpacked_bytes": 1, "budget_bytes": 1, "sources": []}"#
         #expect(throws: RegionPackError.unsupportedSchema(2)) {

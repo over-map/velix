@@ -32,7 +32,7 @@ If two sources disagree, follow the higher one and log the conflict in `docs/DEC
 - **Commute = 2 taps** (open → Work → Start). Count taps in every flow you build.
 - **One place per setting**: ride type = chip on Ride (onboarding sets the default); rules + lit streets = You; voice/view = riding map controls; map style + overlays = Map button before riding.
 - Iteration 1 = own bike + bike & transit. **No bike-share, no accounts, no social.**
-- Bike routing is **offline only** (on-device Valhalla), behind a `RoutingProvider` protocol so an online provider can be added later with identical results. Bike + train moves to the Transitous API (online) in M11 PR 4.
+- Bike routing is **offline only** (on-device Valhalla), behind a `RoutingProvider` protocol so an online provider can be added later with identical results. Bike + train moves to the Transitous API (online) in M11 PR 4. The **map is optional offline** (24 Nov): a region downloads routing only by default and the map comes from OpenFreeMap online (cached, prefetched along a ride's route); You → Offline map → "Map without signal" adds it.
 - Velix is public, free, open source and non-commercial, for anyone in Europe (Filippo, 9 Nov 2026). Check every new data source or service against that.
 - English only. Copy comes from the design files; don't invent new copy without flagging it.
 

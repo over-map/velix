@@ -34,7 +34,7 @@ Competitors to study: Komoot, Bikemap, Geovelo, bbbike, Cyclers, Naviki, Google 
 ### Iteration 1 (phase 1, €0 showcase)
 - iPhone only (free Apple ID install) + demo video. Pilot: **Milan** (Lombardy region pack).
 - Six ride types; Best + Fastest; why-this-route; turn-by-turn with hazard alerts (EN voice, haptics, Live Activity); bike + transit (train + metro) as a suggestion; Routes tab (OSM cycle routes); ride history, GPX share (no Strava or Apple Health sync: dropped 6 Nov); map styles per ride type + overlays; lit-streets-only rule (manual, off at ride end).
-- Routing **offline only** on the phone; the region pack (~220 MB) downloads at first launch.
+- Routing **offline only** on the phone; the region pack (~220 MB) downloads at first launch. Since 24 Nov 2026 the pack's map is optional: routing only by default (about half the download), the map online; "Map without signal" in You adds it.
 
 ### Phase 2 (store fees only)
 - App Store, later Android. Online-first routing with offline fallback (same engine on a server). All of Italy, then Europe.
@@ -93,7 +93,7 @@ Competitors to study: Komoot, Bikemap, Geovelo, bbbike, Cyclers, Naviki, Google 
 | Riding with transit | Stages: Ride to station → On the train → Ride. Late → switch to fastest automatically with a notice of the cost. Still missing → next train automatically with a notice. On the train: get off in X min, stops, carriage position, buzz before the stop |
 | Ride summary | Shown once after a ride: km, moving time, climb, report a data issue, Share (GPX), Done |
 | Routes tab | OSM cycle routes near you; filters: Fits {ride type}, All, Paved, Gravel, MTB; "Search routes in this area"; Ride this route = plan to nearest point, then follow |
-| You | Ride types and rules; Lit streets only (switch; turns off when the ride ends); your rides; offline map (region, size, auto-update); privacy line |
+| You | Ride types and rules; Lit streets only (switch; turns off when the ride ends); your rides; offline map (region, size, map without signal, auto-update); privacy line |
 | Map styles | Follow the ride type, everywhere: City/Road/Cargo → Standard or Satellite; Gravel/MTB/E-bike → Outdoor or Satellite. First is default; choice remembered per type. Overlays: bike lanes, train & metro lines. Set only before riding. No traffic overlay |
 | Weather | None: no severe-weather notice and no overlay (removed 8 Nov 2026, Filippo) |
 | Data | Local only, no account. Voice English only |
