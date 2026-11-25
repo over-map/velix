@@ -90,9 +90,31 @@ struct RouteAnalyzerTests {
         #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, cycleLane: "dedicated", roadClass: "primary"), cobbleWays: none) == .painted)
         #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, roadClass: "residential"), cobbleWays: none) == .quiet)
         #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, roadClass: "primary"), cobbleWays: none) == .mixed)
-        #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, roadClass: "tertiary", speed: 30), cobbleWays: none) == .quiet)
+        #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, roadClass: "tertiary", speedLimit: 30), cobbleWays: none) == .quiet)
+        #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, roadClass: "tertiary", speedLimit: 50), cobbleWays: none) == .mixed)
         #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 7, lengthKm: 0.1), cobbleWays: [7]) == .cobbles)
         #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, use: "cycleway", unpaved: true), cobbleWays: none) == .unpaved)
+    }
+
+    /// `edge.speed` is Valhalla's cycling speed (15–25 km/h), never the road's: a main road ridden at 18 km/h is still mixed.
+    @Test func cyclingSpeedDoesNotMakeAMainRoadQuiet() {
+        let none: Set<Int64> = []
+        for road in ["secondary", "primary", "tertiary"] {
+            #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, roadClass: road, speed: 18), cobbleWays: none) == .mixed)
+            #expect(RouteAnalyzer.category(of: RouteEdge(wayId: 1, lengthKm: 0.1, roadClass: road, speed: 18, speedLimit: 50),
+                                           cobbleWays: none) == .mixed)
+        }
+    }
+
+    @Test func decodesTheTaggedSpeedLimit() throws {
+        let tagged = #"{"length":0.05,"road_class":"secondary","speed":18,"speed_limit":30,"speed_type":"tagged"}"#
+        let untagged = #"{"length":0.05,"road_class":"secondary","speed":18,"speed_type":"classified"}"#
+        let unlimited = #"{"length":0.05,"road_class":"motorway","speed":18,"speed_limit":"unlimited"}"#
+        let decode = { (s: String) in try JSONDecoder().decode(RouteEdge.self, from: Data(s.utf8)) }
+        #expect(try decode(tagged).speedLimit == 30)
+        #expect(try decode(tagged).speed == 18)
+        #expect(try decode(untagged).speedLimit == nil)
+        #expect(try decode(unlimited).speedLimit == nil)
     }
 
     @Test func railsBesideASeparatedTrackAreNotAHazard() {

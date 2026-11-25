@@ -435,7 +435,7 @@ struct RoutePlanner: Sendable {
     static func traceRequest(polyline: String, costing: RoutingProfile) throws -> String {
         let attributes = ["edge.way_id", "edge.length", "edge.use", "edge.cycle_lane", "edge.road_class", "edge.surface",
                           "edge.unpaved", "edge.max_upward_grade", "edge.max_downward_grade", "edge.weighted_grade", "edge.mean_elevation",
-                          "edge.names", "edge.speed", "edge.begin_shape_index", "edge.end_shape_index", "shape"]
+                          "edge.names", "edge.speed", "edge.speed_limit", "edge.begin_shape_index", "edge.end_shape_index", "shape"]
         let body: JSONValue = .object([
             "encoded_polyline": .string(polyline),
             "costing": .string(costing.costing),
