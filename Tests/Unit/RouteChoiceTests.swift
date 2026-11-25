@@ -85,6 +85,37 @@ struct RouteChoiceTests {
         #expect(extra < 120)  // a lane-less kilometre is worth less than a 2-min detour
     }
 
+    /// Filippo, 26 Nov: City Best is the fastest among routes with, in this order, no rails along, no big cobbles,
+    /// the fewest turns, the fewest lights, bike lanes, slow-flow roads.
+    @Test func cityWeighsItsCriteriaInFilipposOrder() {
+        func comfort(_ edit: (inout RouteAnalysis) -> Void) -> Double {
+            var a = RouteAnalysis(shape: [], edges: [])
+            edit(&a)
+            return RoutePlanner.comfort(a, rules: .defaults(for: .city))
+        }
+        let stop = SignalStop(distanceAlong: 0, location: LatLon(lat: 45.47, lon: 9.2))
+        let fiveTurns = comfort { $0.turns = 5 }
+        #expect(RoutePlanner.weight(.neverAlongTramRails) * 50 > fiveTurns)  // 1 rails along
+        #expect(RoutePlanner.weight(.noCobbles) * 50 > fiveTurns)  // 2 big cobbles
+        // 3 a turn over 4 a light, counting the light's average wait (in the riding time) and its effort
+        #expect(comfort { $0.turns = 1 } > comfort { $0.signalStops = [stop] } + RoutePlanner.signalWait)
+        #expect(comfort { $0.signalStops = [stop] } > comfort { $0.busyMeters = 100 })  // 4 over 5 lanes
+        #expect(comfort { $0.busyMeters = 100 } > comfort { $0.fastFlowMeters = 100 })  // 5 over 6 slow flow
+        #expect(comfort { $0.fastFlowMeters = 100 } > 0)
+    }
+
+    @Test func aLaneBesideFastTrafficCountsAsFastFlow() {
+        let (shape, edges) = legsRoute([(0, 100), (0, 100), (0, 100), (0, 100)]) { i, e in
+            e = RouteEdge(wayId: e.wayId, lengthKm: e.lengthKm, cycleLane: i == 3 ? "none" : "dedicated",
+                          roadClass: i == 1 ? "residential" : "secondary", speedLimit: [50, nil, 30, 50][i],
+                          beginShapeIndex: e.beginShapeIndex, endShapeIndex: e.endShapeIndex)
+        }
+        let a = RouteAnalyzer.analyze(shape: shape, edges: edges, hazards: FakeHazards())
+        // 50 km/h with a lane: yes; residential untagged: no; tagged 30: no; no lane: busy, not fast flow
+        #expect(abs(a.fastFlowMeters - 100) < 1)
+        #expect(abs(a.busyMeters - 100) < 1)
+    }
+
     @Test func otherRideTypesScoreTimeAndRulesOnly() {
         let zig = legsRoute((0 ..< 10).map { (($0 % 2 == 0) ? 0 : 90, 200) })
         let a = RouteAnalyzer.analyze(shape: zig.shape, edges: zig.edges, hazards: FakeHazards())

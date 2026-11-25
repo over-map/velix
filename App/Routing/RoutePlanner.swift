@@ -209,8 +209,7 @@ struct RoutePlanner: Sendable {
         }
         // City: the same costing with main roads allowed (`mainRoadsUseRoads`), its rule-breaking stretches left out.
         // Valhalla's City costing (use_roads 0.15) keeps off main roads even where a back-street zig-zag is slower and
-        // twistier (Via Soave → Monza took Corso Lodi and Via Corio, not the inner ring and Corso Buenos Aires); `score`
-        // decides, counting turns and lane-less main roads (Filippo, 25 Nov).
+        // twistier; `score` decides between them in Filippo's order (turns, lights, lanes; 25 and 26 Nov).
         if rules.rideType == .city {
             var options = profile.best.costingOptions
             options["use_roads"] = .number(Self.mainRoadsUseRoads)
@@ -327,21 +326,31 @@ struct RoutePlanner: Sendable {
     /// City's main-roads candidate: Valhalla `use_roads` (City's own is 0.15; 0.5 still zig-zags through back streets).
     static let mainRoadsUseRoads = 0.75
 
-    /// City: seconds a metre of main road (tertiary and up) without a bike lane is worth.
-    /// Light on purpose: City shouldn't strongly avoid main roads, and not at all those with a lane (Filippo, 25 Nov).
-    static let busyWeight = 0.06
-    /// City: seconds a turn at a junction is worth, against back-street zig-zags.
-    static let turnWeight = 8.0
+    // City's Best is the fastest route among those (Filippo, 26 Nov), in this order of weight: 1. no tram rails along,
+    // 2. no big cobbles (both rule penalties, 3 s/m: `weight(_:)`), 3. the fewest turns, 4. the fewest traffic lights
+    // (slowing down and starting again is the biggest effort), 5. on bike lanes, 6. on slow-flow roads. Each is worth
+    // seconds on top of the riding time (which already holds the lights' average wait, `signalWait`).
 
-    /// What `choose` minimises: time, plus the rules' penalties, plus for City the lane-less main roads and the turns.
+    /// City: seconds a turn over 45° at a junction is worth (rank 3). Above a light's wait + effort (22 s).
+    static let turnWeight = 25.0
+    /// City: effort seconds a junction with traffic lights is worth (rank 4), on top of its `signalWait`.
+    static let lightEffort = 12.0
+    /// City: seconds a metre of main road (tertiary and up) without a bike lane is worth (rank 5; 1 km ≈ 1.7 min).
+    static let busyWeight = 0.10
+    /// City: seconds a metre on a bike lane beside fast traffic (over 30 km/h) is worth (rank 6).
+    static let fastFlowWeight = 0.03
+
+    /// What `choose` minimises: time, plus the rules' penalties, plus City's comfort terms.
     static func score(seconds: Double, analysis a: RouteAnalysis, rules: RuleSet) -> Double {
         let rulePenalty = RuleChecker.violations(of: rules.active, in: a).reduce(0) { $0 + weight($1.rule) * $1.meters }
         return seconds + rulePenalty + comfort(a, rules: rules)
     }
 
-    /// City: lane-less main roads and turns, in seconds. Nothing for the other ride types.
+    /// City: turns, lights, lane-less main roads and fast-flow lanes, in seconds. Nothing for the other ride types.
     static func comfort(_ a: RouteAnalysis, rules: RuleSet) -> Double {
-        rules.rideType == .city ? a.busyMeters * busyWeight + Double(a.turns) * turnWeight : 0
+        guard rules.rideType == .city else { return 0 }
+        return Double(a.turns) * turnWeight + Double(a.signalStops.count) * lightEffort
+            + a.busyMeters * busyWeight + a.fastFlowMeters * fastFlowWeight
     }
 
     #if DEBUG

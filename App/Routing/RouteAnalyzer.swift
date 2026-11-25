@@ -56,6 +56,14 @@ enum RouteAnalyzer {
         e.use == "road" && mainClasses.contains(e.roadClass) && e.cycleLane != "dedicated" && e.cycleLane != "separated"
     }
 
+    /// A road ridden on its bike lane, with traffic beside it faster than ``calmSpeed`` (tagged, or a main road with no
+    /// limit tagged). Filippo's sixth City criterion, slow-flow roads (26 Nov).
+    static func isFastFlowWithLane(_ e: RouteEdge) -> Bool {
+        guard e.use == "road", e.cycleLane == "dedicated" || e.cycleLane == "separated" else { return false }
+        if let limit = e.speedLimit { return limit > calmSpeed }
+        return mainClasses.contains(e.roadClass)
+    }
+
     static func analyze(shape: [LatLon], edges: [RouteEdge], hazards source: some HazardSource) -> RouteAnalysis {
         var a = RouteAnalysis(shape: shape, edges: edges)
         let along = cumulative(shape)
@@ -77,6 +85,7 @@ enum RouteAnalyzer {
             a.metersByWay[edge.wayId, default: 0] += edge.meters
             if pathUses.contains(edge.use) { a.pathMeters += edge.meters }
             if isLanelessMainRoad(edge) { a.busyMeters += edge.meters }
+            if isFastFlowWithLane(edge) { a.fastFlowMeters += edge.meters }
             if cat == .mixed {
                 run += edge.meters
                 a.longestMixedRun = max(a.longestMixedRun, run)
