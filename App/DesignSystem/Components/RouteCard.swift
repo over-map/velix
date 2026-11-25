@@ -32,6 +32,8 @@ struct RouteCard: View {
                         .lineLimit(1)
                 }
                 ComfortMixBar(mix: model.mix, size: model.selected ? .large : .compact)
+                // The selected card names each colour (Filippo, 26 Nov: unexplained colours can't be read).
+                if model.selected { ComfortMixLegend(meters: model.mix) }
                 if let line = model.line { DifferenceLine(text: line) }
             }
             .padding(.horizontal, 14).padding(.vertical, CGFloat.velix.s)
@@ -87,13 +89,13 @@ struct RouteCardSkeleton: View {
 extension RouteCard.Model {
     /// Sample data from P2 (illustrative).
     static let sampleBest = RouteCard.Model(name: "Calmest for city", distance: "5.4 km", minutes: 23,
-                                            mix: [.protected: 45, .painted: 25, .quiet: 25, .mixed: 5],
+                                            mix: [.protected: 2400, .painted: 1400, .quiet: 1300, .mixed: 300],
                                             line: "**+5 min** · avoids 420 m cobbles, 3 rail crossings", selected: true)
     static let sampleFastest = RouteCard.Model(name: "Fastest", distance: "4.6 km", minutes: 18,
-                                               mix: [.protected: 15, .painted: 20, .quiet: 10, .mixed: 40, .cobbles: 15],
+                                               mix: [.protected: 700, .painted: 900, .quiet: 500, .mixed: 1800, .cobbles: 700],
                                                line: nil, selected: false)
     static let sampleSingle = RouteCard.Model(name: "Best and fastest", distance: "3.1 km", minutes: 12,
-                                              mix: [.protected: 60, .painted: 30, .quiet: 10],
+                                              mix: [.protected: 1900, .painted: 900, .quiet: 300],
                                               line: "Calmest for city, and the quickest", selected: true)
 }
 
