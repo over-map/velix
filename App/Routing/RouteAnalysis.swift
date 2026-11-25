@@ -22,8 +22,11 @@ struct RouteEdge: Decodable, Sendable, Equatable {
     let weightedGrade: Double
     let meanElevation: Double?
     let names: [String]
-    /// Valhalla's speed for the edge (km/h): maxspeed if tagged, else a default for the road class.
+    /// Valhalla's cycling speed on the edge (km/h, bicycle costing: about 15–25, lower on rough surfaces and grades).
+    /// Not the road's speed: use ``speedLimit`` for that.
     let speed: Int
+    /// The road's posted limit (km/h) when OSM tags `maxspeed`; nil when untagged or unlimited.
+    let speedLimit: Int?
     let beginShapeIndex: Int
     let endShapeIndex: Int
 
@@ -34,18 +37,20 @@ struct RouteEdge: Decodable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case wayId = "way_id", lengthKm = "length", use, cycleLane = "cycle_lane", roadClass = "road_class", surface,
              unpaved, maxUpwardGrade = "max_upward_grade", maxDownwardGrade = "max_downward_grade",
-             weightedGrade = "weighted_grade", meanElevation = "mean_elevation", names, speed, beginShapeIndex = "begin_shape_index",
+             weightedGrade = "weighted_grade", meanElevation = "mean_elevation", names, speed, speedLimit = "speed_limit",
+             beginShapeIndex = "begin_shape_index",
              endShapeIndex = "end_shape_index"
     }
 
     init(wayId: Int64, lengthKm: Double, use: String = "road", cycleLane: String = "none",
          roadClass: String = "residential", surface: String = "paved_smooth", unpaved: Bool = false,
          maxUpwardGrade: Int = 0, maxDownwardGrade: Int = 0, weightedGrade: Double = 0, meanElevation: Double? = nil,
-         names: [String] = [], speed: Int = 50, beginShapeIndex: Int = 0, endShapeIndex: Int = 0) {
+         names: [String] = [], speed: Int = 50, speedLimit: Int? = nil, beginShapeIndex: Int = 0, endShapeIndex: Int = 0) {
         self.wayId = wayId; self.lengthKm = lengthKm; self.use = use; self.cycleLane = cycleLane
         self.roadClass = roadClass; self.surface = surface; self.unpaved = unpaved
         self.maxUpwardGrade = maxUpwardGrade; self.maxDownwardGrade = maxDownwardGrade; self.weightedGrade = weightedGrade
         self.meanElevation = meanElevation; self.names = names; self.speed = speed
+        self.speedLimit = speedLimit
         self.beginShapeIndex = beginShapeIndex; self.endShapeIndex = endShapeIndex
     }
 
@@ -64,6 +69,8 @@ struct RouteEdge: Decodable, Sendable, Equatable {
         meanElevation = try c.decodeIfPresent(Double.self, forKey: .meanElevation)
         names = try c.decodeIfPresent([String].self, forKey: .names) ?? []
         speed = try c.decodeIfPresent(Int.self, forKey: .speed) ?? 50
+        // An Int when tagged, absent when untagged; anything else (a string such as "unlimited") reads as no limit.
+        speedLimit = (try? c.decodeIfPresent(Int.self, forKey: .speedLimit)).flatMap { $0 > 0 ? $0 : nil }
         beginShapeIndex = try c.decodeIfPresent(Int.self, forKey: .beginShapeIndex) ?? 0
         endShapeIndex = try c.decodeIfPresent(Int.self, forKey: .endShapeIndex) ?? 0
     }

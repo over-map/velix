@@ -38,16 +38,20 @@ enum RouteAnalyzer {
         case "dedicated": return .painted
         default: break
         }
-        // Quiet: residential-type streets, or any road at 30 km/h or less (Zona 30, 20 mph zones).
-        return quietClasses.contains(edge.roadClass) || edge.speed <= calmSpeed ? .quiet : .mixed
+        // Quiet: residential-type streets, or any road tagged 30 km/h or less (Zona 30, 20 mph zones). By the road's
+        // limit, never `edge.speed`: that is the cycling speed (15–25 km/h), which made almost every main road quiet.
+        if quietClasses.contains(edge.roadClass) { return .quiet }
+        if let limit = edge.speedLimit, limit <= calmSpeed { return .quiet }
+        return .mixed
     }
 
+    /// Posted limit (km/h) at or under which a road counts as quiet.
     static let calmSpeed = 30
 
     static let mainClasses: Set<String> = ["motorway", "trunk", "primary", "secondary", "tertiary"]
 
-    /// A main road ridden in traffic: no painted or separated lane. By road class only: `trace_attributes` gives
-    /// `edge.speed` as the cycling speed (15–25 km/h), not the road's, so it can't tell a 30 zone.
+    /// A main road ridden in traffic: no painted or separated lane. By road class only (City scoring, PR #76), so a
+    /// main road in a 30 zone still counts here though ``category(of:cobbleWays:)`` calls it quiet.
     static func isLanelessMainRoad(_ e: RouteEdge) -> Bool {
         e.use == "road" && mainClasses.contains(e.roadClass) && e.cycleLane != "dedicated" && e.cycleLane != "separated"
     }
