@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 PIPELINE = Path(__file__).resolve().parents[1]
-# Lombardy: hand config, timetables, cross-border coverage, golden tests. Luxembourg: smallest, four countries' rules.
+# Lombardy: hand config, cross-border coverage, golden tests. Luxembourg: smallest, four countries' rules.
 # Paris and around: a split leaf, a group, a big city.
 SAMPLE = ["lombardy", "luxembourg", "paris-and-around"]
 MAX_JOBS = 256            # GitHub's matrix limit

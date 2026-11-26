@@ -2,7 +2,7 @@
 # Stage 1: take the Geofabrik extracts the region needs (the run's slices, else downloaded, md5-checked) and clip them to the region plus its border
 # buffer. Sources: the catalogue's leaves (regions/europe.json: every leaf the border + buffer touches, across national
 # borders, merged here), else the config's `osm.url`.
-# Outputs: out/<region>/region.osm.pbf (coverage: routing, hazards, routes, timetable), map.osm.pbf (the exact border:
+# Outputs: out/<region>/region.osm.pbf (coverage: routing, hazards, routes), map.osm.pbf (the exact border:
 # basemap and overlays, the map tiles of neighbouring packs join at the border), region.geojson, coverage.geojson,
 # city.geojson, country.osm.pbf, sources/osm.json
 set -euo pipefail

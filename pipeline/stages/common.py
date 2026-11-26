@@ -52,7 +52,7 @@ def catalogue_polygon(entry: dict):
 
 def load_config(region: str | None = None) -> dict:
     """config/_base.yml (what every region shares), then the region's catalogue entry (generated), then
-    config/<region>.yml when one exists (hand-written: Italy's timetables, smoke checks, pinned borders)."""
+    config/<region>.yml when one exists (hand-written: smoke checks, pinned borders)."""
     region = region or os.environ.get("REGION", "lombardy")
     with open(PIPELINE / "config" / "_base.yml") as f:
         cfg = yaml.safe_load(f)

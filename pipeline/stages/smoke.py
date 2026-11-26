@@ -1,6 +1,5 @@
 """Stage 9b: smoke tests on the built pack. Expectations per region: config `smoke` and config/smoke_trips/<region>.txt
 (the golden route tests run on Lombardy in CI)."""
-import datetime as dt
 import json
 import sqlite3
 import sys
@@ -75,33 +74,6 @@ def main() -> int:
         check(n in ev, f"EuroVelo {n} present (found EV {sorted(ev)})")
     n_routes = rt.execute("SELECT count(*) FROM routes").fetchone()[0]
     check(n_routes >= sm.get("routes", 1), f"cycle routes: {n_routes} (≥ {sm.get('routes', 1)})")
-
-    tr = sqlite3.connect(out / "transit.sqlite")
-    cols = {r[1] for r in tr.execute("PRAGMA table_info(trips)")}
-    check("bikes_allowed" in cols, "trips carry the GTFS bikes_allowed flag column")
-    if cfg["transit"]["feeds"]:
-        start_date = dt.date.fromisoformat(tr.execute("SELECT value FROM meta WHERE key='window_start'").fetchone()[0])
-        start = int(start_date.strftime("%Y%m%d"))
-        week_end = int((start_date + dt.timedelta(days=7)).strftime("%Y%m%d"))
-        for t in sm.get("trains", []):
-            pair = tr.execute("""
-                SELECT count(DISTINCT a.trip) FROM stop_times a
-                JOIN stops sa ON sa.id = a.stop JOIN stop_times b ON b.trip = a.trip AND b.seq > a.seq
-                JOIN stops sb ON sb.id = b.stop JOIN trips t ON t.id = a.trip
-                JOIN service_dates d ON d.service = t.service AND d.date BETWEEN ? AND ?
-                WHERE sa.name LIKE ? AND sb.name LIKE ?""", (start, week_end, t["from"] + "%", t["to"] + "%")).fetchone()[0]
-            check(pair > 0, f"trains {t['from']} → {t['to']} in the first week: {pair}")
-        for route, minimum in sm.get("metro_stops", {}).items():
-            n = tr.execute("""SELECT count(DISTINCT st.stop) FROM stop_times st JOIN trips t ON t.id = st.trip
-                              WHERE t.route = ?""", (route,)).fetchone()[0]
-            check(n >= minimum, f"metro {route} stops: {n} (≥ {minimum})")
-        if feed := sm.get("metro_feed"):
-            month_in = int((start_date + dt.timedelta(days=30)).strftime("%Y%m%d"))
-            later = tr.execute("SELECT count(*) FROM service_dates WHERE service LIKE ? AND date >= ?",
-                               (f"{feed}:%", month_in)).fetchone()[0]
-            check(later > 0, f"metro service still covered a month in: {later} service-days")
-        rules = dict(tr.execute("SELECT operator, count(*) FROM bike_rules GROUP BY operator"))
-        check(all(rules.get(o, 0) > 0 for o in sm.get("bike_rule_operators", [])), f"bike rules per operator: {rules}")
 
     # City area (M8 "destination outside the city" trigger).
     from shapely.geometry import Point, shape

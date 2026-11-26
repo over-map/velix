@@ -96,9 +96,8 @@ jobs:
             gh release download "${{ steps.pack.outputs.tag }}" -D build/pack -p 'basemap.pmtiles.xz' -p 'overlays.pmtiles.xz' --clobber || true
             xz -d -T0 build/pack/*.xz
           fi
-          # Timetable and city area (M8 transit golden test): cached packs from before M8 lack them.
-          if [ ! -f build/pack/transit.sqlite ]; then
-            gh release download "${{ steps.pack.outputs.tag }}" -D build/pack -p 'transit.sqlite.xz' --clobber || true
+          # City area (bike + transit golden test): cached packs from before M8 lack it. Timetables left the packs (M11 PR 4b).
+          if [ ! -f build/pack/city.geojson ]; then
             gh release download "${{ steps.pack.outputs.tag }}" -D build/pack -p 'city.geojson.xz' --clobber || true
             ls build/pack/*.xz >/dev/null 2>&1 && xz -d -T0 build/pack/*.xz
           fi

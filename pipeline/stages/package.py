@@ -11,9 +11,10 @@ from common import load_config, log, out_dir, sha256, write_json
 from coverage import index_outline, manifest_polygon
 
 FILES = [("valhalla_tiles.tar", "routing_tiles"), ("hazards.sqlite", "hazards"),
-         ("routes.sqlite", "routes"), ("transit.sqlite", "transit"),
+         ("routes.sqlite", "routes"),
          ("basemap.pmtiles", "basemap"), ("overlays.pmtiles", "overlays"),
-         # The city area (config region.city_area_relation): the "destination outside the city" transit trigger (M8).
+         # The city area (config region.city_area_relation): the "destination outside the city" bike + transit trigger (M8).
+         # Timetables left the packs in M11 PR 4b: bike + train comes from Transitous (online).
          ("city.geojson", "city")]
 
 

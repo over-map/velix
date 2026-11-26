@@ -20,7 +20,7 @@
     "country": {"type": "string", "pattern": "^[A-Z]{2}$", "description": "ISO 3166-1 alpha-2 of the region's country"},
     "coverage": {
       "type": "object", "additionalProperties": false, "required": ["buffer_km", "bbox", "polygon"],
-      "description": "Where the pack's routing, hazards, routes and timetable reach: the border plus buffer_km",
+      "description": "Where the pack's routing, hazards and routes reach: the border plus buffer_km",
       "properties": {
         "buffer_km": {"type": "number", "minimum": 0},
         "bbox": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
@@ -39,7 +39,7 @@
         "properties": {
           "name": {"type": "string"},
           "asset": {"type": "string", "pattern": "\\.xz$"},
-          "role": {"enum": ["routing_tiles", "hazards", "routes", "transit", "basemap", "overlays", "city"]},
+          "role": {"enum": ["routing_tiles", "hazards", "routes", "basemap", "overlays", "city"]},
           "bytes": {"type": "integer", "minimum": 1},
           "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "unpacked_bytes": {"type": "integer", "minimum": 1},

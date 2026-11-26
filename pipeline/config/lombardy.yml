@@ -6,44 +6,6 @@ region:
   timezone: Europe/Rome
   country: {name: Italia, iso: IT, osm_relation: 2000365331}   # synthetic relation over the pack coverage, see stages/country_admin.py
   city_area_relation: 44915    # Comune di Milano (admin_level=8): "destination outside the city area" transit trigger
-transit:
-  feeds:
-    - id: trenitalia
-      name: Trenitalia (NeTEx, Italy's National Access Point)
-      operator: Trenitalia
-      format: netex
-      nap: {dataset: 1077621, asset: TRENITALIA}
-      modes: [rail]
-      lines: [REG, RV, SFM, MET, DIR, IC]     # regional and Intercity: Frecce and night trains take no ordinary bikes
-      licence: No licence, no contract (NAP MMTIS, EU 2017/1926)
-      attribution: Trenitalia, via the National Access Point (CCISS, MIT)
-    - id: trenord
-      name: Trenord (NeTEx, Italy's National Access Point)
-      operator: Trenord
-      format: netex
-      nap: {dataset: 5486, asset: TRENORD}
-      modes: [rail]
-      licence: No licence, no contract (NAP MMTIS, EU 2017/1926)
-      attribution: Trenord, Regione Lombardia, via the National Access Point (CCISS, MIT)
-    - id: atm
-      name: ATM Milano (NeTEx, Italy's National Access Point)
-      operator: ATM
-      ticket: https://www.atm.it/it/ViaggiaConNoi/Biglietti/Pagine/default.aspx
-      format: netex
-      nap: {dataset: 5486, asset: -ATM_}
-      modes: [metro]
-      licence: No licence, no contract (NAP MMTIS, EU 2017/1926)
-      attribution: ATM, Regione Lombardia, via the National Access Point (CCISS, MIT)
-    - id: brescia
-      name: Brescia Mobilità metro (NeTEx, Italy's National Access Point)
-      operator: Brescia Mobilità
-      ticket: https://www.bresciamobilita.it/biglietti-e-abbonamenti
-      format: netex
-      nap: {dataset: 5486, asset: BRESCIATRASP}
-      modes: [metro]
-      renames: {METRO: M1}
-      licence: No licence, no contract (NAP MMTIS, EU 2017/1926)
-      attribution: Brescia Trasporti, Regione Lombardia, via the National Access Point (CCISS, MIT)
 smoke:
   hazards: {tram: 500, along: 200, cobbles: 1000, steps: 1000, gap: 1000, lane: 1000, dismount: 1000, door: 1}
   hazards_near:
@@ -56,9 +18,5 @@ smoke:
   routes: 100
   eurovelo: [5]
   metro_families: {STIBM: {M1: red, M2: green, M3: yellow, M4: blue, M5: purple}}
-  trains: [{from: Milano Centrale, to: Monza}]
-  metro_stops: {"atm:M1": 30}
-  metro_feed: atm
-  bike_rule_operators: [atm, trenord]
   city_in: [9.2050, 45.4746]     # Porta Venezia
   city_out: [9.2740, 45.5885]    # Villa Reale, Monza
