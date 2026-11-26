@@ -184,7 +184,7 @@ final class RouteOptionsModel {
         if let follow {
             // S7d: "3.8 km + 33 km", "2 h 20".
             return [RouteCard.Model(name: o.bestName, distance: "\(Format.km(approachMeters)) + \(Format.km(follow.meters))",
-                                    minutes: max(1, Int((o.best.seconds / 60).rounded())), mix: o.best.analysis.mix,
+                                    minutes: max(1, Int((o.best.seconds / 60).rounded())),
                                     line: o.bestLine, selected: true, time: RouteRide.duration(o.best.seconds))]
         }
         var out = [Self.card(name: o.bestName, option: o.best, line: o.bestLine, selected: !fastestSelected)]
@@ -194,7 +194,7 @@ final class RouteOptionsModel {
 
     static func card(name: String, option: RouteOption, line: String?, selected: Bool) -> RouteCard.Model {
         RouteCard.Model(name: name, distance: Format.km(option.meters), minutes: max(1, Int((option.seconds / 60).rounded())),
-                        mix: option.analysis.mix, line: line.map(DifferenceCopy.markup), selected: selected)
+                        line: line.map(DifferenceCopy.markup), selected: selected)
     }
 
     /// WhyThisRoute "On your route": hazards of the chosen route, grouped by type, with streets and how many.
