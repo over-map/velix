@@ -33,6 +33,13 @@ echo "[extract] ${#FILES[@]} sources, $N_SLICES from slices"
 if [ ${#FILES[@]} -gt 1 ]; then
   # Neighbouring leaves overlap at their borders: merge keeps one copy of each object.
   osmium merge "${FILES[@]}" -o "$OUT/source.osm.pbf" --overwrite
+  # Leaves from different Geofabrik days hold two versions of an object edited in between (26 Nov 2026: Belgium and
+  # Lorraine from the 24th, the rest from the 25th, 21 objects), and extract stops on "Node ID twice". Keep the newest.
+  if [ "$(osmium fileinfo -e -g data.multiple_versions "$OUT/source.osm.pbf")" = yes ]; then
+    echo "[extract] sources from different days: keeping the newest version of each object"
+    osmium time-filter "$OUT/source.osm.pbf" -o "$OUT/source.newest.osm.pbf" --overwrite
+    mv "$OUT/source.newest.osm.pbf" "$OUT/source.osm.pbf"
+  fi
   SRC="$OUT/source.osm.pbf"
 else
   SRC="${FILES[0]}"
