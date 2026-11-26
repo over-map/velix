@@ -298,7 +298,7 @@ struct AboutView: View {
                             Text(attribution).velixType(.rowSubtitle).foregroundStyle(Color.velix.ink2)
                         }
                     }
-                    // Transitous's policy: a visible link to its sources page (M11 PR 4; copy to approve, 26 Nov).
+                    // Transitous's policy: a visible link to its sources page (M11 PR 4; copy approved by Filippo, 26 Nov).
                     Link(destination: TransitousSource.sources) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Trains and metro").velixType(.rowTitle).foregroundStyle(Color.velix.ink)

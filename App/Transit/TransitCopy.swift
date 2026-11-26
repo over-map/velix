@@ -67,7 +67,7 @@ enum TransitCopy {
     }
 
     /// Replaces P4's "Illustrative timetable": live times where the operator publishes them (Transitous names the
-    /// source, its policy; the link is in You → About). New copy, 26 Nov: Filippo to approve.
+    /// source, its policy; the link is in You → About). New copy, approved by Filippo 26 Nov.
     static func footnote(_ p: TransitPlan) -> String {
         p.departure.realTime ? "Live · Transitous" : "Timetable · Transitous"
     }
