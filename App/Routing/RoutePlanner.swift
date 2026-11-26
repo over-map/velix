@@ -333,20 +333,20 @@ struct RoutePlanner: Sendable {
     static let mainRoadsUseRoads = 0.75
 
     // City's Best (Filippo, 26 Nov): at most `cityTimeCap` slower than Fastest; within that, the fewest big cobbles,
-    // then the fewest tram rails along the way, the fewest turns (60° and more), the fewest traffic lights, and the
-    // most bike lane, in this order of weight. Riding time only breaks ties (`cityTimeWeight`).
+    // then the fewest turns (60° and more) and traffic lights ("more important than tram rails"), then the fewest
+    // tram rails along the way, then the most bike lane, in this order of weight. Riding time only breaks ties.
 
     /// City Best may be this share slower than Fastest, never more.
     static let cityTimeCap = 0.20
     static func cityLimit(fastestSeconds: Double) -> Double { fastestSeconds * (1 + cityTimeCap) + 1 }
     /// City: a metre of big cobbles (rank 1).
     static let bigCobbleWeight = 3.0
-    /// City: a metre of tram rails along the way (rank 2).
-    static let railsAlongWeight = 2.5
-    /// City: a turn of 60° or more at a junction (rank 3).
+    /// City: a turn of 60° or more at a junction (rank 2).
     static let turnWeight = 25.0
-    /// City: a junction with traffic lights (rank 4).
+    /// City: a junction with traffic lights (rank 3).
     static let lightWeight = 15.0
+    /// City: a metre of tram rails along the way (rank 4; 100 m = 12, under a light).
+    static let railsAlongWeight = 0.12
     /// City: a metre not on a bike lane or path (rank 5; 1 km ≈ 2 turns).
     static let offLaneWeight = 0.05
     /// City: what a second of riding time is worth within the cap (a minute = 12, under a light).
@@ -363,12 +363,12 @@ struct RoutePlanner: Sendable {
         return seconds * cityTimeWeight + comfort(a, rules: rules) + others.reduce(0) { $0 + weight($1.rule) * $1.meters }
     }
 
-    /// City: big cobbles, rails along, turns, lights and metres off a lane, in score points. 0 for the other types.
+    /// City: big cobbles, turns, lights, rails along and metres off a lane, in score points. 0 for the other types.
     static func comfort(_ a: RouteAnalysis, rules: RuleSet) -> Double {
         guard rules.rideType == .city else { return 0 }
         let rails = RuleChecker.violations(of: [.neverAlongTramRails], in: a).reduce(0) { $0 + $1.meters }
-        return a.bigCobbleMeters * bigCobbleWeight + rails * railsAlongWeight + Double(a.turns) * turnWeight
-            + Double(a.signalStops.count) * lightWeight + offLaneMeters(a) * offLaneWeight
+        return a.bigCobbleMeters * bigCobbleWeight + Double(a.turns) * turnWeight
+            + Double(a.signalStops.count) * lightWeight + rails * railsAlongWeight + offLaneMeters(a) * offLaneWeight
     }
 
     static func offLaneMeters(_ a: RouteAnalysis) -> Double { max(0, a.lengthM - a.meters(.protected) - a.meters(.painted)) }

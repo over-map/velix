@@ -85,8 +85,8 @@ struct RouteChoiceTests {
         #expect(extra < 120)  // a lane-less kilometre is worth less than a 2-min detour
     }
 
-    /// Filippo, 26 Nov: City Best is at most 20 % slower than Fastest; within that, the fewest big cobbles, rails along,
-    /// turns, lights, and the most bike lane, in that order.
+    /// Filippo, 26 Nov: City Best is at most 20 % slower than Fastest; within that, the fewest big cobbles, turns,
+    /// lights, rails along, and the most bike lane, in that order.
     @Test func cityWeighsItsCriteriaInFilipposOrder() {
         func comfort(_ edit: (inout RouteAnalysis) -> Void) -> Double {
             var a = RouteAnalysis(shape: [], edges: [])
@@ -94,10 +94,10 @@ struct RouteChoiceTests {
             return RoutePlanner.comfort(a, rules: .defaults(for: .city))
         }
         let stop = SignalStop(distanceAlong: 0, location: LatLon(lat: 45.47, lon: 9.2))
-        #expect(comfort { $0.bigCobbleMeters = 10 } > RoutePlanner.railsAlongWeight * 10)  // 1 big cobbles over 2 rails
-        #expect(RoutePlanner.railsAlongWeight * 20 > comfort { $0.turns = 1 })  // 2 rails over 3 turns
-        #expect(comfort { $0.turns = 1 } > comfort { $0.signalStops = [stop] })  // 3 turns over 4 lights
-        #expect(comfort { $0.signalStops = [stop] } > comfort { $0.lengthM = 200 })  // 4 lights over 5 off a lane
+        #expect(comfort { $0.bigCobbleMeters = 10 } > comfort { $0.turns = 1 })  // 1 big cobbles over 2 turns
+        #expect(comfort { $0.turns = 1 } > comfort { $0.signalStops = [stop] })  // 2 turns over 3 lights
+        #expect(comfort { $0.signalStops = [stop] } > RoutePlanner.railsAlongWeight * 100)  // 3 lights over 4 rails
+        #expect(RoutePlanner.railsAlongWeight * 100 > comfort { $0.lengthM = 100 })  // 4 rails over 5 off a lane
         #expect(comfort { $0.lengthM = 200; $0.mix = [.painted: 200] } == 0)  // on a lane all the way
         // Riding time breaks ties only: a minute is worth less than a light.
         #expect(RoutePlanner.cityTimeWeight * 60 < RoutePlanner.lightWeight)
