@@ -171,14 +171,21 @@ enum GoldenExpectations {
             #expect((best.busyByName["Viale Fulvio Testi"] ?? 0) < 500, "City Best on Viale Fulvio Testi")
         }
         if trip == 11, type == .city {
-            // Filippo, 25 Nov: the inner ring to Porta Venezia, then Corso Buenos Aires; not Via Ripamonti's rails and
-            // setts, no back-street zig-zag through Porta Romana and Porta Vittoria.
+            // Filippo, 26 Nov: the quiet back streets parallel to the Bastioni (Corio, Vasari, Morosini, Poerio, Melzo) up
+            // to Corso Buenos Aires; not the Bastioni's lane-less 50 km/h ring, nor Via Ripamonti's rails and setts.
             func on(_ names: [String]) -> Double { best.edges.filter { names.contains($0.name ?? "") }.reduce(0) { $0 + $1.meters } }
             #expect(on(["Via Giuseppe Ripamonti"]) < 50, "City Best on Via Ripamonti: \(Int(on(["Via Giuseppe Ripamonti"]))) m")
-            #expect(on(["Corso Buenos Aires"]) >= 1000, "City Best on Corso Buenos Aires: \(Int(on(["Corso Buenos Aires"]))) m")
             let ring = ["Viale Emilio Caldara", "Viale Regina Margherita", "Viale Bianca Maria", "Viale Luigi Majno"]
-            #expect(on(ring) >= 800, "City Best on the inner ring: \(Int(on(ring))) m")
-            #expect(best.turns <= fastest.turns + 10, "City Best turns \(best.turns), Fastest \(fastest.turns)")
+            #expect(on(ring) < 200, "City Best on the Bastioni: \(Int(on(ring))) m")
+            let back = ["Via Bernardino Corio", "Via Giorgio Vasari", "Via Emilio Morosini", "Via Carlo Poerio", "Via Melzo"]
+            #expect(on(back) >= 1000, "City Best on the back streets: \(Int(on(back))) m")
+            #expect(on(["Corso Buenos Aires"]) >= 500, "City Best on Corso Buenos Aires: \(Int(on(["Corso Buenos Aires"]))) m")
+            #expect(best.busyMeters < 2500, "City Best on lane-less main roads: \(Int(best.busyMeters)) m")
+            #expect(best.turns <= fastest.turns + 12, "City Best turns \(best.turns), Fastest \(fastest.turns)")
+        }
+        if type == .city, let f = o.fastest {
+            #expect(o.best.seconds <= RoutePlanner.cityLimit(fastestSeconds: f.seconds),
+                    "\(trip) City Best \(Int(o.best.seconds)) s, over Fastest \(Int(f.seconds)) s + \(Int(RoutePlanner.cityTimeCap * 100)) %")
         }
         if type == .city {
             #expect(best.hazardCount(.steps) == 0 || best.hazards.filter { $0.type == .steps }.allSatisfy { $0.distanceAlong < 50 })
@@ -225,6 +232,20 @@ enum GoldenReport {
             summary["timingsFastest"] = (o.fastest ?? o.best).timings.mapValues { Int($0) }
             summary["mix"] = Dictionary(uniqueKeysWithValues: MixCategory.allCases.map { ($0.rawValue, Int(o.best.analysis.meters($0))) })
             summary["unavoidable"] = o.unavoidable.map { "\($0.rule.title) \(Int($0.meters)) m" }
+            // City's criteria in Filippo's order (26 Nov), for before/after comparisons.
+            let ba = o.best.analysis
+            summary["bestTurns"] = ba.turns
+            summary["bestLights"] = ba.signalStops.count
+            summary["bestBusyM"] = Int(ba.busyMeters)
+            summary["bestBigCobblesM"] = Int(ba.bigCobbleMeters)
+            summary["bestOffLaneM"] = Int(RoutePlanner.offLaneMeters(ba))
+            summary["bestRailsAlongM"] = Int(ba.hazardMeters(.along))
+            summary["bestCobblesM"] = Int(ba.meters(.cobbles))
+            var streets: [String] = []
+            for e in ba.edges where e.meters >= 20 {
+                if let n = e.name, streets.last != n { streets.append(n) }
+            }
+            summary["bestStreets"] = streets
             if let f = o.fastest { features.append(line(f.analysis.shape, ["role": "fastest"])) }
             features.append(line(o.best.analysis.shape, ["role": "best"]))
             for a in o.avoided { features.append(line(a.shape, ["role": "avoided", "name": a.name, "reason": a.reason])) }

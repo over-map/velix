@@ -65,6 +65,9 @@ enum RouteAnalyzer {
         // Line hazards by way id.
         let lines = Dictionary(grouping: source.lineHazards(onWays: wayIDs), by: { $0.wayId ?? -1 })
         let cobbleWays = Set(lines.compactMap { way, hz in hz.contains { $0.type == .cobbles } ? way : nil })
+        let bigCobbleWays = Set(lines.compactMap { way, hz in
+            hz.contains { $0.type == .cobbles && !$0.detail.hasSuffix("mild") } ? way : nil
+        })
         let lighting = source.lighting(ofWays: wayIDs)
         let walk = source.walkWays(among: wayIDs)
         a.walkEdges = edges.filter { walk.contains($0.wayId) }
@@ -77,6 +80,7 @@ enum RouteAnalyzer {
             a.metersByWay[edge.wayId, default: 0] += edge.meters
             if pathUses.contains(edge.use) { a.pathMeters += edge.meters }
             if isLanelessMainRoad(edge) { a.busyMeters += edge.meters }
+            if bigCobbleWays.contains(edge.wayId) { a.bigCobbleMeters += edge.meters }
             if cat == .mixed {
                 run += edge.meters
                 a.longestMixedRun = max(a.longestMixedRun, run)
@@ -152,7 +156,8 @@ enum RouteAnalyzer {
     }
 
     /// A turn: the direction changes by more than this between the 20 m before a junction and the 20 m after it.
-    static let turnAngle = 45.0
+    /// 60°: right-angle turns and the like, where you slow down (Filippo, 26 Nov: "90 degrees or similar").
+    static let turnAngle = 60.0
     static let turnWindow = 20.0
     /// Edges shorter than this are junction links: the turn is measured across them, once.
     static let linkLength = 15.0

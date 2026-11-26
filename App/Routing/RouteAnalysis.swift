@@ -168,6 +168,8 @@ struct RouteAnalysis: Equatable, Sendable {
     var pathMeters: Double = 0
     /// Metres on main roads (tertiary and up) without a painted or separated bike lane.
     var busyMeters: Double = 0
+    /// Metres on big cobbles: cobbled ways without the pack's "· mild" detail (City's smoothest choice, 26 Nov).
+    var bigCobbleMeters: Double = 0
     /// Changes of direction over 45° at junctions (``RouteAnalyzer/turns(shape:edges:along:)``).
     var turns: Int = 0
 

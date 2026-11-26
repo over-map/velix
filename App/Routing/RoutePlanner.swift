@@ -175,7 +175,7 @@ struct RoutePlanner: Sendable {
         // Points leave out one segment each; where the route only slid onto the next cobbled or railed street, one
         // round of boxes (which also take the short links at nearby junctions) finishes the job. Boxes cost 11–35 ms
         // each, so only here and at most `maxFinishingBoxes` (trip 4 Centrale → Brera: 84 → 0 m of cobbles).
-        let afterPoints = choose(candidates, rules: rules).option
+        let afterPoints = choose(candidates, rules: rules, fastest: fastest).option
         let leftover = RuleChecker.violations(of: rules.active, in: afterPoints.analysis)
         if penalty(rules.rideType == .cargo ? RuleChecker.hardViolations(leftover, rideType: .cargo)
                    : RuleChecker.hardViolations(leftover, rideType: rules.rideType)) > minPenaltyWorthARound {
@@ -192,7 +192,7 @@ struct RoutePlanner: Sendable {
         // Fewer lights: Valhalla prefers lanes across busy signalised junctions over quiet streets that cross fewer.
         // Box out the lights of the leading candidate that Fastest doesn't also cross (those are on the direct line)
         // away from both ends; `choose` keeps it only if it's quicker once the waits count.
-        let lead = choose(candidates, rules: rules).option
+        let lead = choose(candidates, rules: rules, fastest: fastest).option
         let shared = fastest?.analysis.signalStops.map(\.location) ?? []
         let avoidable = lead.analysis.signalStops.filter { s in
             s.distanceAlong > Self.lightsEndMargin && s.distanceAlong < lead.analysis.lengthM - Self.lightsEndMargin
@@ -209,8 +209,7 @@ struct RoutePlanner: Sendable {
         }
         // City: the same costing with main roads allowed (`mainRoadsUseRoads`), its rule-breaking stretches left out.
         // Valhalla's City costing (use_roads 0.15) keeps off main roads even where a back-street zig-zag is slower and
-        // twistier (Via Soave → Monza took Corso Lodi and Via Corio, not the inner ring and Corso Buenos Aires); `score`
-        // decides, counting turns and lane-less main roads (Filippo, 25 Nov).
+        // twistier; `score` decides between them in Filippo's order (turns, lights, lanes; 25 and 26 Nov).
         if rules.rideType == .city {
             var options = profile.best.costingOptions
             options["use_roads"] = .number(Self.mainRoadsUseRoads)
@@ -220,7 +219,7 @@ struct RoutePlanner: Sendable {
                 candidates.append(main)
                 // Leaving stretches out only adds time: skip it when even a clean `main` couldn't beat the lead (planning time).
                 let lead = candidates.map { Self.score(seconds: $0.seconds, analysis: $0.analysis, rules: rules) }.min() ?? .infinity
-                if main.seconds + Self.comfort(main.analysis, rules: rules) < lead {
+                if Self.scoreFloor(seconds: main.seconds, analysis: main.analysis, rules: rules) < lead {
                     candidates += try await cleaned(main, costing: costing, from: origin, to: destination, heading: heading,
                                                     rules: rules, phase: tag + "main-roads-clean")
                 }
@@ -228,7 +227,7 @@ struct RoutePlanner: Sendable {
         }
         // Fastest is a candidate too for the soft types: Best is never worse than Fastest on the same score.
         if let fastest, rules.rideType != .cargo { candidates.append(fastest) }
-        let choice = choose(candidates, rules: rules)
+        let choice = choose(candidates, rules: rules, fastest: fastest)
         if let blocking = choice.blocking {
             return .noRouteMeetsRules(blocking, rules.rideType, closest: choice.option,
                                       remaining: RuleChecker.violations(of: rules.active, in: choice.option.analysis))
@@ -272,9 +271,15 @@ struct RoutePlanner: Sendable {
     }
 
     /// Cargo / kids: the quickest candidate that meets every rule, or the rule that blocks.
+    /// City: among the candidates at most `cityTimeCap` slower than Fastest, the lowest `score` (see there).
     /// Other ride types: the lowest time + penalty (seconds per metre that breaks a rule); never blocked, and what
     /// remains is shown on the route (the design's City Best keeps 70 m of cobbles with "No cobbles" on).
-    private func choose(_ candidates: [RouteOption], rules: RuleSet) -> (option: RouteOption, blocking: Rule?) {
+    private func choose(_ candidates: [RouteOption], rules: RuleSet, fastest: RouteOption?) -> (option: RouteOption, blocking: Rule?) {
+        var candidates = candidates
+        if rules.rideType == .city, let fastest {
+            let within = candidates.filter { $0.seconds <= Self.cityLimit(fastestSeconds: fastest.seconds) }
+            candidates = within.isEmpty ? [fastest] : within
+        }
         let scored = candidates.map { c in (c, RuleChecker.violations(of: rules.active, in: c.analysis)) }
         if rules.rideType == .cargo {
             if let ok = scored.filter({ RuleChecker.hardViolations($0.1, rideType: .cargo).isEmpty })
@@ -327,21 +332,53 @@ struct RoutePlanner: Sendable {
     /// City's main-roads candidate: Valhalla `use_roads` (City's own is 0.15; 0.5 still zig-zags through back streets).
     static let mainRoadsUseRoads = 0.75
 
-    /// City: seconds a metre of main road (tertiary and up) without a bike lane is worth.
-    /// Light on purpose: City shouldn't strongly avoid main roads, and not at all those with a lane (Filippo, 25 Nov).
-    static let busyWeight = 0.06
-    /// City: seconds a turn at a junction is worth, against back-street zig-zags.
-    static let turnWeight = 8.0
+    // City's Best (Filippo, 26 Nov): at most `cityTimeCap` slower than Fastest; within that, the fewest big cobbles,
+    // then the fewest turns (60° and more) and traffic lights ("more important than tram rails"), then the fewest
+    // tram rails along the way, then the most bike lane, in this order of weight. Riding time only breaks ties.
 
-    /// What `choose` minimises: time, plus the rules' penalties, plus for City the lane-less main roads and the turns.
+    /// City Best may be this share slower than Fastest, never more.
+    static let cityTimeCap = 0.20
+    static func cityLimit(fastestSeconds: Double) -> Double { fastestSeconds * (1 + cityTimeCap) + 1 }
+    /// City: a metre of big cobbles (rank 1).
+    static let bigCobbleWeight = 3.0
+    /// City: a turn of 60° or more at a junction (rank 2).
+    static let turnWeight = 25.0
+    /// City: a junction with traffic lights (rank 3).
+    static let lightWeight = 15.0
+    /// City: a metre of tram rails along the way (rank 4; 100 m = 12, under a light).
+    static let railsAlongWeight = 0.12
+    /// City: a metre not on a bike lane or path (rank 5; 1 km ≈ 2 turns).
+    static let offLaneWeight = 0.05
+    /// City: what a second of riding time is worth within the cap (a minute = 12, under a light).
+    static let cityTimeWeight = 0.2
+
+    /// What `choose` minimises. City: its criteria (`comfort`), the other active rules' penalties, and a little time.
+    /// Other ride types: time plus the rules' penalties (seconds per metre that breaks a rule).
     static func score(seconds: Double, analysis a: RouteAnalysis, rules: RuleSet) -> Double {
-        let rulePenalty = RuleChecker.violations(of: rules.active, in: a).reduce(0) { $0 + weight($1.rule) * $1.meters }
-        return seconds + rulePenalty + comfort(a, rules: rules)
+        guard rules.rideType == .city else {
+            return seconds + RuleChecker.violations(of: rules.active, in: a).reduce(0) { $0 + weight($1.rule) * $1.meters }
+        }
+        // Cobbles and rails are City's own criteria (counted in `comfort` whether or not their rule is on).
+        let others = RuleChecker.violations(of: rules.active.filter { $0 != .noCobbles && $0 != .neverAlongTramRails }, in: a)
+        return seconds * cityTimeWeight + comfort(a, rules: rules) + others.reduce(0) { $0 + weight($1.rule) * $1.meters }
     }
 
-    /// City: lane-less main roads and turns, in seconds. Nothing for the other ride types.
+    /// City: big cobbles, turns, lights, rails along and metres off a lane, in score points. 0 for the other types.
     static func comfort(_ a: RouteAnalysis, rules: RuleSet) -> Double {
-        rules.rideType == .city ? a.busyMeters * busyWeight + Double(a.turns) * turnWeight : 0
+        guard rules.rideType == .city else { return 0 }
+        let rails = RuleChecker.violations(of: [.neverAlongTramRails], in: a).reduce(0) { $0 + $1.meters }
+        return a.bigCobbleMeters * bigCobbleWeight + Double(a.turns) * turnWeight
+            + Double(a.signalStops.count) * lightWeight + rails * railsAlongWeight + offLaneMeters(a) * offLaneWeight
+    }
+
+    static func offLaneMeters(_ a: RouteAnalysis) -> Double { max(0, a.lengthM - a.meters(.protected) - a.meters(.painted)) }
+
+    /// The least `score` a route could reach once its rule-breaking stretches are left out (City's main-roads
+    /// candidate is cleaned only when this beats the lead; planning time).
+    static func scoreFloor(seconds: Double, analysis a: RouteAnalysis, rules: RuleSet) -> Double {
+        guard rules.rideType == .city else { return seconds }
+        return seconds * cityTimeWeight + Double(a.turns) * turnWeight + Double(a.signalStops.count) * lightWeight
+            + offLaneMeters(a) * offLaneWeight
     }
 
     #if DEBUG
