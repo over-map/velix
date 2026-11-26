@@ -73,8 +73,7 @@ enum RegionPack {
         if !packs.isEmpty { return packs }
         return sideloaded.basemap != nil || sideloaded.overlays != nil ? [sideloaded] : []
     }
-    /// Bike + transit (M8): the active region's timetable, and the city area.
-    static var transit: URL? { packFile(.transit, sideloaded: "transit.sqlite") }
+    /// Bike + transit (M8): the city area ("destination outside the city"). Runs come from Transitous since M11 PR 4.
     static var city: URL? { packFile(.city, sideloaded: "city.geojson") }
     /// Routes tab (M9): OSM cycle-route relations.
     static var routes: URL? { packFile(.routes, sideloaded: "routes.sqlite") }

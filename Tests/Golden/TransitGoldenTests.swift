@@ -2,23 +2,22 @@ import Foundation
 import Testing
 @testable import Velix
 
-/// The M8 Monza scenario on the real pack: Porta Venezia → Villa Reale on a weekday morning suggests riding to
-/// Centrale, a Trenord train to Monza and riding into the park (P4 S3d; times from the pack, not P6's sample).
-@Suite(.enabled(if: GoldenPack.available && TransitGolden.store != nil, "Needs a pack with transit.sqlite"), .serialized)
+/// The M8 Monza scenario on the real pack: Porta Venezia → Villa Reale on a weekday morning suggests riding to a
+/// Milan station, a Trenord train to Monza and riding into the park (P4 S3d). Runs: Transitous's recorded answer for
+/// Thursday 3 Dec 2026 (`Tests/Unit/Fixtures`); bike legs: the pack.
+@Suite(.enabled(if: GoldenPack.available, "Needs a region pack"), .serialized)
 struct TransitGoldenTests {
     @Test func monzaSuggestsTheTrainToMonza() async throws {
         await GoldenPack.warmUp.value
         let planner = try #require(GoldenPack.planner).get()
-        let store = try #require(TransitGolden.store)
         let from = AppSamples.portaVenezia, to = GoldenTrip.all[7].to
         let rules = RuleSet.defaults(for: .city)
-        // A Thursday inside the pack's 60-day timetable window (a fixed date broke with each monthly pack).
         let now = TransitGolden.thursday(8, 5)
 
         guard case let .options(bike) = try await planner.plan(from: from, to: to, rules: rules) else {
             Issue.record("no bike route"); return
         }
-        let transit = TransitPlanner(store: store, planner: planner)
+        let transit = TransitPlanner(source: FixedTransitSource(connections: try TransitGolden.runs("monza")), planner: planner)
         var t0 = Date()
         let plan = try #require(await transit.plan(from: from, to: to, rules: rules, at: now))
         var ms = Date().timeIntervalSince(t0) * 1000
@@ -31,7 +30,7 @@ struct TransitGoldenTests {
         }
 
         #expect(plan.departure.route.mode == .rail)
-        #expect(plan.departure.board.name == "Milano Centrale")
+        #expect(plan.departure.board.name.hasPrefix("Milano"))
         #expect(plan.departure.alight.name.hasPrefix("Monza"))
         #expect(plan.departure.departs >= now.addingTimeInterval(plan.rideIn.seconds))
         #expect(plan.stops.count >= 2)
@@ -39,60 +38,78 @@ struct TransitGoldenTests {
         #expect(TransitTrigger.shows(bike: .init(seconds: bike.best.seconds, meters: bike.best.meters, climb: bike.best.analysis.climbM),
                                      transit: plan, destinationOutsideCity: outside))
         #expect(ms < 4000, "transit plan took \(Int(ms)) ms")
-        if store.hasTrack {
-            // The train is drawn on the rails: every hop of the run has its track, close to the straight distance.
-            #expect(plan.track.count == plan.stops.count - 1 && plan.track.allSatisfy { $0 != nil })
-            let rails = plan.track.compactMap { $0 }.reduce(0) { $0 + Geo.length($1) }
-            let straight = Geo.distance(plan.departure.board.location, plan.departure.alight.location)
-            #expect(rails > straight && rails < 1.6 * straight)
-        }
+        // The train is drawn on the rails: every hop of the run has its track, close to the straight distance.
+        #expect(plan.track.count == plan.stops.count - 1 && plan.track.allSatisfy { $0 != nil })
+        let rails = plan.track.compactMap { $0 }.reduce(0) { $0 + Geo.length($1) }
+        let straight = Geo.distance(plan.departure.board.location, plan.departure.alight.location)
+        #expect(rails > straight && rails < 1.6 * straight)
         print("Monza: \(plan.departure.name) \(plan.departure.departs) → \(plan.departure.alight.name), " +
               "\(Int(plan.seconds / 60)) min vs bike \(Int(bike.best.seconds / 60)) min, ride \(Int(plan.bikeSeconds / 60)) min, \(Int(ms)) ms")
     }
 
-    /// 8 Nov: from south Milan no train was found at any time, because the 6 nearest Trenord stations have
-    /// almost no Monza trains. With every railway station within 5 km, Garibaldi or Centrale take the bike to Monza.
+    /// 8 Nov: from south Milan no train was found at any time. Transitous finds the S9 from Scalo Romana.
     @Test func southMilanFindsATrainToMonza() async throws {
         await GoldenPack.warmUp.value
         let planner = try #require(GoldenPack.planner).get()
-        let store = try #require(TransitGolden.store)
         let from = LatLon(lat: 45.448, lon: 9.196), to = GoldenTrip.all[7].to
         let rules = RuleSet.defaults(for: .city)
         let now = TransitGolden.thursday(8, 5)
         guard case let .options(bike) = try await planner.plan(from: from, to: to, rules: rules) else {
             Issue.record("no bike route"); return
         }
-        let t0 = Date()
-        let plan = try #require(await TransitPlanner(store: store, planner: planner).plan(from: from, to: to, rules: rules, at: now))
-        let ms = Date().timeIntervalSince(t0) * 1000
+        let transit = TransitPlanner(source: FixedTransitSource(connections: try TransitGolden.runs("south-milan")), planner: planner)
+        let plan = try #require(await transit.plan(from: from, to: to, rules: rules, at: now))
         #expect(plan.departure.route.mode == .rail)
         #expect(plan.departure.alight.name.hasPrefix("Monza"))
         let outside = TransitGolden.city.map { !$0.contains(to) } ?? true
         #expect(TransitTrigger.shows(bike: .init(seconds: bike.best.seconds, meters: bike.best.meters, climb: bike.best.analysis.climbM),
                                      transit: plan, destinationOutsideCity: outside))
         print("south Milan → Monza: \(plan.departure.name) from \(plan.departure.board.name) \(plan.departure.departs), " +
-              "\(Int(plan.seconds / 60)) min vs bike \(Int(bike.best.seconds / 60)) min, \(Int(ms)) ms")
+              "\(Int(plan.seconds / 60)) min vs bike \(Int(bike.best.seconds / 60)) min")
+    }
+}
+
+/// The real Transitous API (M11 PR 4 acceptance: Monza, Munich and Amsterdam plan with a train). Opt-in, 3 requests:
+/// `TEST_RUNNER_VELIX_TRANSITOUS=1`.
+@Suite(.enabled(if: ProcessInfo.processInfo.environment["VELIX_TRANSITOUS"] == "1", "Set TEST_RUNNER_VELIX_TRANSITOUS=1"))
+struct TransitousLiveTests {
+    /// Next Thursday 10:05 local (outside the rush hours that keep bikes off the S-Bahn and NS).
+    static func nextThursday(_ zone: String) -> Date {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: zone)!
+        var day = c.startOfDay(for: Date().addingTimeInterval(86_400))
+        while c.component(.weekday, from: day) != 5 { day = c.date(byAdding: .day, value: 1, to: day)! }
+        return c.date(bySettingHour: 10, minute: 5, second: 0, of: day)!
+    }
+
+    @Test(arguments: [("Monza", 45.4746, 9.2050, 45.5885, 9.2740, "Europe/Rome"),
+                      ("Munich", 48.1374, 11.5755, 48.4029, 11.7488, "Europe/Berlin"),
+                      ("Amsterdam", 52.3791, 4.9003, 52.3812, 4.6366, "Europe/Amsterdam")])
+    func plansWithATrain(_ name: String, _ aLat: Double, _ aLon: Double, _ bLat: Double, _ bLon: Double, _ zone: String) async throws {
+        let from = LatLon(lat: aLat, lon: aLon), to = LatLon(lat: bLat, lon: bLon), now = Self.nextThursday(zone)
+        let runs = try await TransitousSource().connections(from: from, to: to, at: now)
+        let c = DirectPlanner.candidates(runs, rules: .bundled, from: from, to: to, at: now)
+        let first = try #require(c.first, "\(name): no direct run with bikes")
+        #expect(first.departure.route.mode == .rail)
+        print("\(name): \(first.departure.name) \(first.departure.board.name) → \(first.departure.alight.name) " +
+              "\(TransitCopy.clock(first.departure.departs, first.departure.timeZone)), \(runs.count) runs")
     }
 }
 
 enum TransitGolden {
-    static func rome(_ y: Int, _ mo: Int, _ d: Int, _ h: Int, _ m: Int) -> Date {
-        var c = Calendar(identifier: .gregorian)
-        c.timeZone = TimeZone(identifier: "Europe/Rome")!
-        return c.date(from: DateComponents(year: y, month: mo, day: d, hour: h, minute: m))!
-    }
-
-    /// h:m on the first Thursday at least two days into the pack's timetable window, Rome time.
+    /// h:m on Thursday 3 Dec 2026 (the recorded answers' day), Rome time.
     static func thursday(_ h: Int, _ m: Int) -> Date {
         var c = Calendar(identifier: .gregorian)
         c.timeZone = TimeZone(identifier: "Europe/Rome")!
-        let parts = (store?.windowStartDay ?? "2026-11-02").split(separator: "-").compactMap { Int($0) }
-        var day = c.date(byAdding: .day, value: 2, to: c.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))!)!
-        while c.component(.weekday, from: day) != 5 { day = c.date(byAdding: .day, value: 1, to: day)! }
-        return c.date(bySettingHour: h, minute: m, second: 0, of: day)!
+        return c.date(from: DateComponents(year: 2026, month: 12, day: 3, hour: h, minute: m))!
     }
 
-    static let store: TransitStore? = GoldenPack.directory.flatMap { try? TransitStore(path: $0.appending(path: "transit.sqlite")) }
+    /// A recorded Transitous answer from the unit tests' fixtures.
+    static func runs(_ name: String) throws -> [TransitConnection] {
+        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        return try TransitousSource.connections(plan: Data(contentsOf: repo.appending(path: "Tests/Unit/Fixtures/transitous-plan-\(name).json")))
+    }
+
     static let city: CityArea? = GoldenPack.directory.flatMap { try? Data(contentsOf: $0.appending(path: "city.geojson")) }
         .flatMap { try? CityArea(geoJSON: $0) }
 }

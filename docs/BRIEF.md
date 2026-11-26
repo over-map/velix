@@ -56,7 +56,7 @@ Competitors to study: Komoot, Bikemap, Geovelo, bbbike, Cyclers, Naviki, Google 
 | Hazard layer | Sidecar file in the region pack (tram rails, crossings, steps, barriers, cobbles, dismount zones) from OSM | Drives alerts, tubes and "why" |
 | Comfort score | On device from Valhalla edge attributes + hazard layer | Used to rank and to write the difference line |
 | Elevation | Copernicus GLO-30 | Contours/hillshade for Outdoor style too |
-| Transit | Transitous API (online, keyless, non-commercial) everywhere from M11 + Velix's curated bikes-allowed rules; until then Italy's National Access Point timetables in the packs (Filippo, 9 Nov 2026) | Platforms are "planned" only |
+| Transit | Transitous API (online, keyless, non-commercial) everywhere since M11 PR 4 (26 Nov 2026), live delays where operators publish them, + Velix's curated bikes-allowed rules in the app (Filippo, 9 Nov 2026) | Platforms are "planned" only |
 | Search | Photon (public instance) | Self-host later |
 | Satellite | EOX Sentinel-2 cloudless (CC BY-NC-SA 4.0), online only; Esri dropped 9 Nov 2026 | Velix is non-commercial |
 | Storage | SwiftData on device, iCloud backup | No account |

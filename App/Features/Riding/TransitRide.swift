@@ -5,7 +5,8 @@ import Observation
 /// A bike + transit ride (P6 S5): ride to the station, one train or metro run, ride on. One ``RideSession`` carries
 /// the whole trip (one log, one Live Activity, one summary); this coordinator moves it through the stages, checks
 /// the train in stage 1 (``TrainCatch``: late → Fastest, missed → the next run, time again → Best) and times stage 2
-/// from the timetable (the 2-minute buzz, the stop).
+/// from the timetable (the 2-minute buzz, the stop). Heading to the station it refreshes the run from Transitous (live
+/// delays; a cancelled run counts as missed).
 @MainActor
 @Observable
 final class TransitRide {
@@ -67,6 +68,7 @@ final class TransitRide {
     private func fixed(_ fix: CLLocation) {
         guard stage == .toStation else { return }
         let now = AppClock.now
+        refreshIfDue(now: now)
         let eta = riderETA(now: now)
         let mode = plan.departure.route.mode
         let spare = TrainCatch.spare(departs: plan.departure.departs, now: now, eta: eta, boarding: DirectPlanner.boarding(mode))
@@ -87,7 +89,7 @@ final class TransitRide {
         case .switchToFastest:
             guard let r = routes, let fastest = r.fastest else { return }
             session.switchRoute(to: fastest, choice: .fastest)
-            session.log?.event(.transit("late: fastest to catch \(TransitCopy.clock(plan.departure.departs))"))
+            session.log?.event(.transit("late: fastest to catch \(TransitCopy.clock(plan.departure.departs, plan.zone))"))
             let copy = TransitCopy.late(plan.departure, cost: TransitCopy.lateCost(best: r.best.analysis, fastest: fastest.analysis))
             show(.late, copy.title, copy.message, short: copy.short, voice: TransitCopy.lateVoice)
         case .nextTrain:
@@ -135,19 +137,61 @@ final class TransitRide {
         }
     }
 
-    /// Missed: the next run of the same pair, still from this station, with its own stops (S5c).
+    /// Missed (or cancelled): the next run of the same pair, still from this station, with its own stops (S5c).
     private func nextTrain() {
-        guard let planner else { return }
+        guard let planner, let next = Self.next(after: plan, rules: planner.rules) else { return }
         let old = plan.departure
-        guard let d = DirectPlanner.later(planner.store, than: old, count: 1).first else { return }
-        let stops = planner.store.stopTimes(of: d)
-        var next = TransitPlan(rideIn: plan.rideIn, departure: d, rule: planner.store.bikeRule(for: d), stops: stops,
-                               rideOut: plan.rideOut, planned: plan.planned)
-        next.track = planner.store.track(of: stops)
         plan = next
-        session.log?.event(.transit("missed \(TransitCopy.clock(old.departs)): next \(TransitCopy.clock(d.departs))"))
+        session.log?.event(.transit("missed \(TransitCopy.clock(old.departs, old.timeZone)): next \(TransitCopy.clock(next.departure.departs, next.zone))"))
         let copy = TransitCopy.missed(old, next: next)
         show(.missed, copy.title, copy.message, short: copy.message, voice: TransitCopy.missedVoice(next))
+    }
+
+    /// The next run of the plan's pair that takes bikes, from the runs it was planned with.
+    nonisolated static func next(after p: TransitPlan, rules: BikeRules) -> TransitPlan? {
+        guard let c = DirectPlanner.later(p.runs, rules: rules, than: p.departure, count: 1).first else { return nil }
+        return TransitPlanner.plan(c, rules: rules, rideIn: p.rideIn, rideOut: p.rideOut, planned: p.planned, runs: p.runs)
+    }
+
+    // MARK: Live times (Transitous)
+
+    /// Refreshed at most this often, and only this close to the departure (DECISIONS 26 Nov: ≤ 15 requests a ride).
+    static let refreshEvery: TimeInterval = 2 * 60
+    static let refreshWithin: TimeInterval = 30 * 60
+    private var refreshed: Date?
+    private var refreshing = false
+
+    enum Live: Equatable { case same, moved(TransitPlan.Moved), cancelled }
+
+    /// What a refreshed run means for the plan: a minute or more later or earlier moves it, nil (gone) is cancelled.
+    nonisolated static func live(_ fresh: TransitDeparture?, for p: TransitPlan) -> Live {
+        guard let fresh else { return .cancelled }
+        guard abs(fresh.departs.timeIntervalSince(p.departure.departs)) >= 60
+                || abs(fresh.arrives.timeIntervalSince(p.departure.arrives)) >= 60 else { return .same }
+        return .moved(.init(departs: fresh.departs, arrives: fresh.arrives, realTime: fresh.realTime))
+    }
+
+    private func refreshIfDue(now: Date) {
+        guard let planner, !refreshing, AppClock.isReal,
+              plan.departure.departs.timeIntervalSince(now) <= Self.refreshWithin,
+              refreshed.map({ now.timeIntervalSince($0) >= Self.refreshEvery }) ?? true else { return }
+        refreshing = true
+        refreshed = now
+        let d = plan.departure
+        Task {
+            defer { refreshing = false }
+            guard let fresh = try? await planner.source.refresh(d), plan.departure.trip == d.trip else { return }
+            switch Self.live(fresh, for: plan) {
+            case .same: break
+            case .cancelled:
+                session.log?.event(.transit("live: \(TransitCopy.clock(d.departs, d.timeZone)) cancelled"))
+                nextTrain()
+            case let .moved(m):
+                session.log?.event(.transit("live: \(TransitCopy.clock(d.departs, d.timeZone)) → \(TransitCopy.clock(m.departs, d.timeZone))"))
+                plan = plan.moved(m)
+                session.updateActivity()
+            }
+        }
     }
 
     private func show(_ kind: TransitNotice.Kind, _ title: String, _ message: String, short: String, voice: String) {
@@ -160,7 +204,7 @@ final class TransitRide {
 
     private func boarded() {
         stage = .onTrain
-        session.log?.event(.transit("at the station, train \(TransitCopy.clock(plan.departure.departs))"))
+        session.log?.event(.transit("at the station, train \(TransitCopy.clock(plan.departure.departs, plan.zone))"))
         notice = nil
         #if DEBUG
         if RideLocationProvider.simulates {
@@ -255,7 +299,7 @@ final class TransitRide {
         let now = AppClock.now
         if stage == .onTrain {
             state.train = TransitCopy.trainActivity(plan, now: now)
-            state.arrival = TransitCopy.clock(plan.arrival)
+            state.arrival = TransitCopy.clock(plan.arrival, plan.zone)
             return
         }
         if stage == .toStation, case let .transit(_, _, _, spare, _) = TransitCopy.stationEta(plan, now: now, eta: riderETA(now: now)) {

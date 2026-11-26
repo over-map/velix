@@ -208,7 +208,7 @@ final class PackService {
                 if !update { self.states[region] = .downloading(received: 0, total: total) }
                 let installed = try await self.installerFor(region).install(manifest: entry.manifest,
                                                                              mirrors: self.catalog.assetMirrors,
-                                                                             skip: withMap ? [] : [.basemap]) { fraction in
+                                                                             skip: withMap ? [.transit] : [.basemap, .transit]) { fraction in
                     Task { @MainActor in self.progress(region, fraction, total: total) }
                 }
                 self.states[region] = .ready(installed.manifest)
