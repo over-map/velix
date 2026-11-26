@@ -140,7 +140,7 @@ struct RouteOptionsView: View {
             if let text = model.bikeOnlyText { BikeOnlyRow(text: text) { model.transitSelected = false } }
             if let card = model.transitCard, let p = model.transitPlan {
                 TransitCard(model: card, selectedDeparture: $model.departureIndex) {
-                    let ticket = TransitCopy.ticket(p)
+                    guard let ticket = TransitCopy.ticket(p) else { return }
                     // The app when it's installed, else its App Store page (or the operator's site).
                     if let app = ticket.app {
                         openURL(app) { opened in if !opened { openURL(ticket.fallback) } }

@@ -26,6 +26,9 @@ enum AppClock {
         return 0
     }()
 
+    /// Real time, not `-fake-time` or `-time-scale` (live data only makes sense on the real clock).
+    static var isReal: Bool { offset == 0 && scale == 1 }
+
     static let rome = TimeZone(identifier: "Europe/Rome")!
 
     /// "08:05" (today) or "2026-11-05T08:05", Rome time.

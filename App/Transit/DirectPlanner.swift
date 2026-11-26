@@ -52,23 +52,19 @@ struct CityArea: Sendable {
 
 /// A direct connection before the bike legs are planned: ride in and out are estimates.
 struct TransitCandidate: Hashable, Sendable {
-    let departure: TransitDeparture
+    let connection: TransitConnection
     let rule: BikeRule
     /// Estimated ride to the boarding stop and from the alighting stop.
     let rideIn: TimeInterval
     let rideOut: TimeInterval
     let arrival: Date
+
+    var departure: TransitDeparture { connection.departure }
 }
 
 /// Direct connections only (BUILD_PLAN M8, iteration 1): ride to a station, one train or metro run that takes bikes,
-/// ride on. No changes. Static timetable from the pack; no live delays.
+/// ride on. No changes. From Transitous since M11 PR 4 (``TransitSource``), live times where operators publish them.
 enum DirectPlanner {
-    /// Stops considered at each end: every railway station within 5 km, and the 6 nearest metro stops per operator
-    /// (metro stops are dense: uncapped they'd crowd the query). 8 Nov: with the 6 nearest of every operator within
-    /// 4 km, south Milan → Monza found no train: its 6 nearest Trenord stations have almost none, and Rogoredo (11th),
-    /// Centrale and Garibaldi (4.3 km) were left out.
-    static let stationRadius = 5000.0
-    static let stationsPerEnd = 6
     /// How far ahead departures are searched.
     static let window: TimeInterval = 90 * 60
     /// Bike estimate before the real legs: straight line × detour at city speed (15 km/h).
@@ -83,43 +79,54 @@ enum DirectPlanner {
 
     static func estimate(_ a: LatLon, _ b: LatLon) -> TimeInterval { Geo.distance(a, b) * detour / estimateSpeed }
 
-    /// Direct connections catchable from `origin` at `now`, earliest arrival at `destination` first.
-    static func candidates(_ store: TransitStore, from origin: LatLon, to destination: LatLon, at now: Date) -> [TransitCandidate] {
-        let boards = nearby(store, origin), alights = nearby(store, destination)
-        let rideIn = Dictionary(uniqueKeysWithValues: boards.map { ($0.stop.id, estimate(origin, $0.stop.location)) })
-        let rideOut = Dictionary(uniqueKeysWithValues: alights.map { ($0.stop.id, estimate($0.stop.location, destination)) })
-        let earliest = now.addingTimeInterval((rideIn.values.min() ?? 0) + 2 * 60)
-        let runs = store.departures(from: boards.map(\.stop.id), to: alights.map(\.stop.id),
-                                    after: earliest, before: earliest.addingTimeInterval(window))
+    /// Direct connections catchable from `origin` at `now` that take bikes, earliest arrival at `destination` first.
+    static func candidates(_ runs: [TransitConnection], rules: BikeRules, from origin: LatLon, to destination: LatLon,
+                           at now: Date) -> [TransitCandidate] {
         var best: [String: TransitCandidate] = [:]   // per run: its best board/alight pair
-        for d in runs {
-            guard let tin = rideIn[d.board.id], let tout = rideOut[d.alight.id],
-                  Geo.distance(d.board.location, d.alight.location) >= minimumHop,
+        for c in runs {
+            let d = c.departure
+            let tin = estimate(origin, d.board.location), tout = estimate(d.alight.location, destination)
+            guard Geo.distance(d.board.location, d.alight.location) >= minimumHop,
                   d.departs >= now.addingTimeInterval(tin + boarding(d.route.mode)) else { continue }
-            let rule = store.bikeRule(for: d)
+            let rule = rules.rule(for: d, feedAllowsBikes: c.feedAllowsBikes)
             guard rule.offered else { continue }
-            let c = TransitCandidate(departure: d, rule: rule, rideIn: tin, rideOut: tout,
-                                     arrival: d.arrives.addingTimeInterval(outOfStation + tout))
-            if let old = best[d.trip], old.arrival <= c.arrival { continue }
-            best[d.trip] = c
+            let candidate = TransitCandidate(connection: c, rule: rule, rideIn: tin, rideOut: tout,
+                                             arrival: d.arrives.addingTimeInterval(outOfStation + tout))
+            if let old = best[d.trip], old.arrival <= candidate.arrival { continue }
+            best[d.trip] = candidate
         }
         return best.values.sorted { $0.arrival < $1.arrival }
     }
 
-    static func nearby(_ store: TransitStore, _ p: LatLon) -> [(stop: TransitStop, meters: Double)] {
-        let all = store.stops(near: p, within: stationRadius, limit: .max)
-        let rail = all.filter { !store.isMetro($0.stop) }
-        let metro = Dictionary(grouping: all.filter { store.isMetro($0.stop) }, by: \.stop.feed).values
-            .flatMap { $0.prefix(stationsPerEnd) }
-        return (rail + metro).sorted { $0.meters < $1.meters }
+    /// The next runs between the same two stops after `d` that take bikes (the "Next trains" chips, a missed train).
+    static func later(_ runs: [TransitConnection], rules: BikeRules, than d: TransitDeparture, count: Int) -> [TransitConnection] {
+        var seen = Set<String>()
+        return runs.filter { c in
+            c.departure.board.id == d.board.id && c.departure.alight.id == d.alight.id && c.departure.departs > d.departs
+                && rules.rule(for: c.departure, feedAllowsBikes: c.feedAllowsBikes).offered && seen.insert(c.departure.trip).inserted
+        }
+        .sorted { $0.departure.departs < $1.departure.departs }
+        .prefix(count).map { $0 }
     }
 
-    /// The next runs between the same two stops after `d` (the "Next trains" chips).
-    static func later(_ store: TransitStore, than d: TransitDeparture, count: Int) -> [TransitDeparture] {
-        let runs = store.departures(from: [d.board.id], to: [d.alight.id], after: d.departs.addingTimeInterval(1),
-                                    before: d.departs.addingTimeInterval(window))
-        var seen = Set<String>()
-        return runs.filter { store.bikeRule(for: $0).offered && seen.insert($0.trip).inserted }.prefix(count).map { $0 }
+    /// The leg's line cut at each stop (nearest point, in order), so the map draws it hop by hop
+    /// (``TransitPlan/legLines(straightGaps:)``); nil where the line is missing.
+    static func hops(_ line: [LatLon], stops: [TransitStopTime]) -> [[LatLon]?] {
+        guard line.count > 1, stops.count > 1 else { return Array(repeating: nil, count: max(0, stops.count - 1)) }
+        var cuts: [Int] = []
+        var from = 0
+        for (i, s) in stops.enumerated() {
+            if i == 0 { cuts.append(0); continue }
+            if i == stops.count - 1 { cuts.append(line.count - 1); continue }
+            var bestIndex = from, bestDistance = Double.infinity
+            for j in from ..< line.count {
+                let m = Geo.distance(line[j], s.stop.location)
+                if m < bestDistance { bestDistance = m; bestIndex = j }
+            }
+            cuts.append(bestIndex)
+            from = bestIndex
+        }
+        return zip(cuts, cuts.dropFirst()).map { a, b in b > a ? Array(line[a ... b]) : nil }
     }
 }
 
@@ -132,8 +139,10 @@ struct TransitPlan: Sendable {
     let rideOut: RouteOption
     /// When the plan was made (the rider leaves now).
     let planned: Date
-    /// The track between consecutive stops (``TransitStore/track(of:)``), nil where unknown.
+    /// The track between consecutive stops (``DirectPlanner/hops(_:stops:)``), nil where unknown.
     var track: [[LatLon]?] = []
+    /// The other runs the plan was made from (a missed train takes the next one of the same pair).
+    var runs: [TransitConnection] = []
 
     /// The leg as drawn: on the track where known. `straightGaps` joins the stops with straight lines where it isn't
     /// (overviews: the leg reads as one); else those stretches are left out (riding: no line across the city).
@@ -164,38 +173,68 @@ struct TransitPlan: Sendable {
     /// Waiting at the boarding stop, boarding time included (TripBar "Wait").
     var wait: TimeInterval { max(0, departure.departs.timeIntervalSince(planned) - rideIn.seconds) }
     var onBoard: TimeInterval { departure.arrives.timeIntervalSince(departure.departs) }
+    /// The run's time zone (times on screen).
+    var zone: TimeZone { departure.timeZone }
+
+    /// A live update's times for the run.
+    struct Moved: Equatable, Sendable { let departs: Date; let arrives: Date; let realTime: Bool }
+
+    /// The plan with the run at its live times: the stops shift by the delay (Transitous gives the delay per stop
+    /// only in the whole trip; the shift keeps the timeline consistent).
+    func moved(_ m: Moved) -> TransitPlan {
+        let delay = m.departs.timeIntervalSince(departure.departs)
+        let shifted = stops.enumerated().map { i, s in
+            i == stops.count - 1 ? TransitStopTime(stop: s.stop, arrives: m.arrives, departs: m.arrives)
+                : TransitStopTime(stop: s.stop, arrives: s.arrives.addingTimeInterval(delay), departs: s.departs.addingTimeInterval(delay))
+        }
+        var p = TransitPlan(rideIn: rideIn, departure: departure.moved(departs: m.departs, arrives: m.arrives, realTime: m.realTime),
+                            rule: rule, stops: shifted, rideOut: rideOut, planned: planned)
+        p.track = track
+        p.runs = runs
+        return p
+    }
 }
 
 /// Bike legs for the best direct connection, with the ride's rules (two ordinary plans, run in the background after
 /// the bike-only options).
 struct TransitPlanner: Sendable {
-    let store: TransitStore
+    let source: TransitSource
+    var rules: BikeRules = .bundled
     let planner: RoutePlanner
 
     /// Candidates tried with real bike legs before giving up.
     static let tries = 2
 
     /// The best connection: the first run still caught after the real ride in, then the next runs of the same pair
-    /// (S3e "Next trains": up to three choices). Empty when no direct connection with bikes works.
-    func plans(from origin: LatLon, to destination: LatLon, rules: RuleSet, at now: Date) async -> [TransitPlan] {
-        let candidates = DirectPlanner.candidates(store, from: origin, to: destination, at: now)
+    /// (S3e "Next trains": up to three choices). Empty when no direct connection with bikes works, or offline.
+    func plans(from origin: LatLon, to destination: LatLon, rules ride: RuleSet, at now: Date) async -> [TransitPlan] {
+        guard let runs = try? await source.connections(from: origin, to: destination, at: now) else { return [] }
+        let candidates = DirectPlanner.candidates(runs, rules: rules, from: origin, to: destination, at: now)
         for c in candidates.prefix(Self.tries) {
-            guard let rideIn = try? await Self.best(planner.plan(from: origin, to: c.departure.board.location, heading: nil, rules: rules)),
-                  let rideOut = try? await Self.best(planner.plan(from: c.departure.alight.location, to: destination, heading: nil, rules: rules))
+            guard let rideIn = try? await Self.best(planner.plan(from: origin, to: c.departure.board.location, heading: nil, rules: ride)),
+                  let rideOut = try? await Self.best(planner.plan(from: c.departure.alight.location, to: destination, heading: nil, rules: ride))
             else { continue }
             // The real ride in may be longer than the estimate: take the first run of the same pair still caught.
             let ready = now.addingTimeInterval(rideIn.seconds + DirectPlanner.boarding(c.departure.route.mode))
-            let runs = ([c.departure] + DirectPlanner.later(store, than: c.departure, count: 4)).filter { $0.departs >= ready }
-            guard !runs.isEmpty else { continue }
-            return runs.prefix(Self.choices).map { d in
-                let stops = store.stopTimes(of: d)
-                var plan = TransitPlan(rideIn: rideIn, departure: d, rule: store.bikeRule(for: d), stops: stops, rideOut: rideOut,
-                                       planned: now)
-                plan.track = store.track(of: stops)
-                return plan
-            }
+            let choices = ([c.connection] + DirectPlanner.later(runs, rules: rules, than: c.departure, count: 4))
+                .filter { $0.departure.departs >= ready }
+            guard !choices.isEmpty else { continue }
+            return choices.prefix(Self.choices).map { plan($0, rideIn: rideIn, rideOut: rideOut, planned: now, runs: runs) }
         }
         return []
+    }
+
+    func plan(_ c: TransitConnection, rideIn: RouteOption, rideOut: RouteOption, planned: Date, runs: [TransitConnection]) -> TransitPlan {
+        Self.plan(c, rules: rules, rideIn: rideIn, rideOut: rideOut, planned: planned, runs: runs)
+    }
+
+    static func plan(_ c: TransitConnection, rules: BikeRules, rideIn: RouteOption, rideOut: RouteOption, planned: Date,
+                     runs: [TransitConnection]) -> TransitPlan {
+        var p = TransitPlan(rideIn: rideIn, departure: c.departure, rule: rules.rule(for: c.departure, feedAllowsBikes: c.feedAllowsBikes),
+                            stops: c.stops, rideOut: rideOut, planned: planned)
+        p.track = DirectPlanner.hops(c.line, stops: c.stops)
+        p.runs = runs
+        return p
     }
 
     static let choices = 3

@@ -456,7 +456,7 @@ extension TransitCard.Model {
         departures: ["08:16", "08:46", "09:16"],
         train: "Trenord R 10834 · 08:16 → Monza 08:27",
         detail: "Ride 7 min to Centrale · platform planned: check the board · bikes allowed · ride 6 min into the park",
-        ticketsLabel: "Ticket · Trenitalia app", footnote: TransitCopy.footnote)
+        ticketsLabel: "Ticket · Trenitalia app", footnote: "Timetable · Transitous")
 }
 
 #Preview {
