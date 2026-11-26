@@ -35,5 +35,21 @@ class Budget(unittest.TestCase):
         self.assertEqual(budget_errors(m), ["over budget: 295.0 MB > 280 MB"])
 
 
+class Schema(unittest.TestCase):
+    def test_the_schema_expects_exactly_the_files_package_writes(self):
+        # M11 PR 4b dropped transit.sqlite: the schema's minItems 7 failed every pack until it followed.
+        import json
+        try:
+            from package import FILES
+        except ImportError:  # pragma: no cover
+            self.skipTest("run in the tools image")
+        from validate import ROLES
+        schema = json.loads((Path(__file__).resolve().parents[1] / "schema" / "manifest.schema.json").read_text())
+        files = schema["properties"]["files"]
+        self.assertEqual(files["minItems"], len(FILES))
+        self.assertEqual(set(files["items"]["properties"]["role"]["enum"]), ROLES)
+        self.assertEqual({role for _, role in FILES}, ROLES)
+
+
 if __name__ == "__main__":
     unittest.main()

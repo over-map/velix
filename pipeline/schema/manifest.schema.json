@@ -32,7 +32,7 @@
     "budget_bytes": {"type": "integer", "minimum": 1, "description": "The routing part's budget: every file but the basemap"},
     "map_budget_bytes": {"type": "integer", "minimum": 1, "description": "The optional map's budget (basemap.pmtiles), 24 Nov 2026"},
     "files": {
-      "type": "array", "minItems": 7,
+      "type": "array", "minItems": 6,
       "items": {
         "type": "object", "additionalProperties": false,
         "required": ["name", "asset", "role", "bytes", "sha256", "unpacked_bytes", "unpacked_sha256"],
