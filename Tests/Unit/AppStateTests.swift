@@ -192,10 +192,8 @@ struct SpokenLabelTests {
 
     @Test func aRouteCardReadsAsOneSentence() {
         let card = RouteCard.Model(name: "Calmest for city", distance: "5.4 km", minutes: 23,
-                                   mix: [.protected: 0.6, .quiet: 0.3, .mixed: 0.1],
                                    line: "**5 min slower** than fastest: avoids 300 m of cobbles", selected: true)
-        #expect(card.spoken == "Calmest for city. 23 minutes, 5.4 kilometres. 5 minutes slower than fastest: avoids 300 metres of cobbles. "
-                + "Mostly protected lanes, then quiet streets.")
+        #expect(card.spoken == "Calmest for city. 23 minutes, 5.4 kilometres. 5 minutes slower than fastest: avoids 300 metres of cobbles.")
         #expect(ComfortMixBar.spokenSummary([.quiet: 0.4, .painted: 0.35, .cobbles: 0.25]) == "Quiet streets and painted lanes.")
         #expect(ComfortMixBar.spokenSummary([:]) == nil)
     }
