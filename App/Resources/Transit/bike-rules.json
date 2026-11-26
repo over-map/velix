@@ -1,0 +1,47 @@
+[
+  {
+    "agency": "ATM", "routes": ["M1", "M2", "M3"], "weekdays": "1111111", "from": "00:00", "until": "30:00", "status": "allowed",
+    "carriage": "2nd or 5th carriage (doors with the bike sign), max 4 bikes per door",
+    "note": "Walk the bike in stations; lifts and stairs only, no escalators.",
+    "source": "ATM, Bici sui mezzi (Nov 2024) §2.1–2.2: https://atm.it/it/ViaggiaConNoi/Documents/BICI%20SUI%20MEZZI.pdf",
+    "checked": "2026-10-14"
+  },
+  {
+    "agency": "ATM", "routes": ["M4", "M5"], "weekdays": "1111111", "from": "00:00", "until": "30:00", "status": "allowed",
+    "carriage": "First or last carriage (first or last door), max 3 bikes each",
+    "note": "Walk the bike in stations; lifts and stairs only, no escalators.",
+    "source": "ATM, Bici sui mezzi (Nov 2024) §2.2: https://atm.it/it/ViaggiaConNoi/Documents/BICI%20SUI%20MEZZI.pdf",
+    "checked": "2026-10-14"
+  },
+  {
+    "agency": "Trenord", "routes": ["*"], "weekdays": "1111111", "from": "00:00", "until": "30:00", "status": "check",
+    "carriage": "Carriage with the bike area",
+    "note": "Free inside Lombardy. Only specific trains and lines take non-folding bikes; the Trenord app shows it per train. The GTFS feed has no per-train flag. Guard may refuse when crowded.",
+    "source": "Trenord, Trasporto biciclette: https://www.trenord.it/biglietti/agevolazioni-e-supplementi/trasporto-biciclette/",
+    "checked": "2026-10-14"
+  },
+  {
+    "agency": "NS", "routes": ["*"], "weekdays": "1111100", "from": "06:30", "until": "09:00", "status": "not_allowed",
+    "carriage": null, "note": "No bikes on weekdays 06:30–09:00 and 16:30–18:00 (allowed all day in July and August).",
+    "source": "NS, Bicycle on the train: https://www.ns.nl/en/travel-information/bicycle/bicycle-on-the-train.html",
+    "checked": "2026-11-26"
+  },
+  {
+    "agency": "NS", "routes": ["*"], "weekdays": "1111100", "from": "16:30", "until": "18:00", "status": "not_allowed",
+    "carriage": null, "note": "No bikes on weekdays 06:30–09:00 and 16:30–18:00 (allowed all day in July and August).",
+    "source": "NS, Bicycle on the train: https://www.ns.nl/en/travel-information/bicycle/bicycle-on-the-train.html",
+    "checked": "2026-11-26"
+  },
+  {
+    "agency": "DB Regio AG S-Bahn München", "routes": ["*"], "weekdays": "1111100", "from": "06:00", "until": "09:00", "status": "not_allowed",
+    "carriage": null, "note": "No bikes on weekdays 06:00–09:00 and 16:00–18:00.",
+    "source": "S-Bahn München, Fahrradmitnahme: https://www.s-bahn-muenchen.de/s_muenchen/view/service/fahrrad.shtml",
+    "checked": "2026-11-26"
+  },
+  {
+    "agency": "DB Regio AG S-Bahn München", "routes": ["*"], "weekdays": "1111100", "from": "16:00", "until": "18:00", "status": "not_allowed",
+    "carriage": null, "note": "No bikes on weekdays 06:00–09:00 and 16:00–18:00.",
+    "source": "S-Bahn München, Fahrradmitnahme: https://www.s-bahn-muenchen.de/s_muenchen/view/service/fahrrad.shtml",
+    "checked": "2026-11-26"
+  }
+]

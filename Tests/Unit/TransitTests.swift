@@ -1,178 +1,227 @@
 import CoreLocation
 import Foundation
-import SQLite3
 import Testing
 @testable import Velix
 
-/// A small `transit.sqlite` in the pipeline's schema 1: the Monza trains of a weekday, a Sunday run, an M1 run and a
-/// line that refuses bikes.
+/// Recorded Transitous answers (`Fixtures/transitous-*.json`, 26 Nov 2026, for Thursday 3 Dec 2026): Porta Venezia →
+/// Villa Reale (Monza) at 08:05, Marienplatz → Freising and Amsterdam Centraal → Haarlem at 10:05 and at 08:05 (rush
+/// hour, when the S-Bahn München and NS take no bikes).
 enum TransitFixture {
     static let rome = TimeZone(identifier: "Europe/Rome")!
     static let portaVenezia = LatLon(lat: 45.4746, lon: 9.2050)
     static let villaReale = LatLon(lat: 45.5885, lon: 9.2740)
+    static let marienplatz = LatLon(lat: 48.1374, lon: 11.5755)
+    static let freising = LatLon(lat: 48.4029, lon: 11.7488)
+    static let amsterdam = LatLon(lat: 52.3791, lon: 4.9003)
+    static let haarlem = LatLon(lat: 52.3812, lon: 4.6366)
 
-    /// Thursday 22 Oct 2026 (weekday service) at hh:mm, Rome time.
-    static func thursday(_ h: Int, _ m: Int) -> Date { date(2026, 10, 22, h, m) }
-    static func sunday(_ h: Int, _ m: Int) -> Date { date(2026, 10, 25, h, m) }
-
-    static func date(_ y: Int, _ mo: Int, _ d: Int, _ h: Int, _ m: Int) -> Date {
+    /// Thursday 3 Dec 2026 at hh:mm, in `zone` (Rome by default).
+    static func thursday(_ h: Int, _ m: Int, _ zone: String = "Europe/Rome") -> Date {
         var c = Calendar(identifier: .gregorian)
-        c.timeZone = rome
-        return c.date(from: DateComponents(year: y, month: mo, day: d, hour: h, minute: m))!
+        c.timeZone = TimeZone(identifier: zone)!
+        return c.date(from: DateComponents(year: 2026, month: 12, day: 3, hour: h, minute: m))!
     }
 
-    /// South Milan: Centrale is 4.4 km away, with small stations much nearer.
-    static let southMilan = LatLon(lat: 45.448, lon: 9.196)
+    private final class Token {}
 
-    /// `extra`: more SQL after the base fixture (decoy stops in the station tests).
-    static func store(extra: String = "") throws -> TransitStore {
-        let url = FileManager.default.temporaryDirectory.appending(path: "transit-\(UUID().uuidString).sqlite")
-        var db: OpaquePointer?
-        sqlite3_open(url.path, &db)
-        defer { sqlite3_close(db) }
-        let t = { (h: Int, m: Int) in h * 3600 + m * 60 }
-        var sql = """
-            CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            CREATE TABLE routes (id TEXT PRIMARY KEY, feed TEXT NOT NULL, short_name TEXT, long_name TEXT, mode TEXT NOT NULL, color TEXT);
-            CREATE TABLE stops (id TEXT PRIMARY KEY, feed TEXT NOT NULL, name TEXT NOT NULL, lat REAL, lon REAL, parent TEXT, is_station INTEGER NOT NULL);
-            CREATE TABLE trips (id TEXT PRIMARY KEY, feed TEXT NOT NULL, route TEXT NOT NULL, service TEXT NOT NULL, headsign TEXT,
-                                short_name TEXT, direction INTEGER, bikes_allowed INTEGER NOT NULL);
-            CREATE TABLE stop_times (trip TEXT NOT NULL, seq INTEGER NOT NULL, stop TEXT NOT NULL, arr INTEGER NOT NULL, dep INTEGER NOT NULL);
-            CREATE TABLE service_dates (service TEXT NOT NULL, date INTEGER NOT NULL, projected INTEGER NOT NULL);
-            CREATE TABLE bike_rules (id INTEGER PRIMARY KEY, operator TEXT NOT NULL, routes TEXT NOT NULL, weekdays TEXT NOT NULL,
-                                     start INTEGER NOT NULL, "end" INTEGER NOT NULL, status TEXT NOT NULL, carriage TEXT, note TEXT,
-                                     source TEXT NOT NULL, checked TEXT NOT NULL);
-            INSERT INTO meta VALUES ('schema','1'), ('timezone','Europe/Rome');
-            INSERT INTO routes VALUES ('trenord:RE8','trenord','RE8','Milano-Monza-Lecco','rail','94C120'),
-                                      ('trenord:S9','trenord','S9','Saronno-Albairate','rail','94C120'),
-                                      ('atm:M1','atm','M1','Sesto - Rho','metro','E1001B');
-            INSERT INTO stops VALUES ('trenord:S01700','trenord','Milano Centrale',45.487012,9.20329,NULL,0),
-                                     ('trenord:S01650','trenord','Sesto San Giovanni',45.5367,9.2385,NULL,0),
-                                     ('trenord:S01322','trenord','Monza',45.578009,9.272752,NULL,0),
-                                     ('atm:P.TA VENEZIA','atm','P.TA VENEZIA',45.4745,9.2048,NULL,0),
-                                     ('atm:SESTO 1 MAGGIO FS','atm','SESTO 1 MAGGIO FS',45.5422,9.2385,NULL,0);
-            INSERT INTO service_dates VALUES ('WK',20261022,0), ('SUN',20261025,0);
-            INSERT INTO bike_rules VALUES
-              (1,'atm','["M1", "M2", "M3"]','1111111',0,108000,'allowed','2nd or 5th carriage (doors with the bike sign), max 4 bikes per door','','atm','2026-10-14'),
-              (2,'trenord','["S9"]','1111111',0,108000,'not_allowed',NULL,NULL,'test','2026-10-23'),
-              (3,'trenord','["*"]','1111111',0,108000,'check','Carriage with the bike area','Only some trains','trenord','2026-10-14');
-            """
-        // Weekday Monza trains (the real pack's 22 Oct runs), a Sunday one, an S9 that refuses bikes, an M1 run.
-        let runs: [(String, String, String, String, String, [(String, Int)])] = [
-            ("trenord:2816", "trenord:RE8", "WK", "2816", "Lecco", [("trenord:S01700", t(8, 20)), ("trenord:S01650", t(8, 27)), ("trenord:S01322", t(8, 31))]),
-            ("trenord:25510", "trenord:RE8", "WK", "25510", "Monza", [("trenord:S01700", t(8, 43)), ("trenord:S01322", t(8, 52))]),
-            ("trenord:2860", "trenord:RE8", "WK", "2860", "Lecco", [("trenord:S01700", t(9, 20)), ("trenord:S01322", t(9, 31))]),
-            ("trenord:9001", "trenord:RE8", "SUN", "9001", "Lecco", [("trenord:S01700", t(10, 0)), ("trenord:S01322", t(10, 12))]),
-            ("trenord:7001", "trenord:S9", "WK", "7001", "Monza", [("trenord:S01700", t(8, 18)), ("trenord:S01322", t(8, 26))]),
-            ("atm:m1-1", "atm:M1", "WK", "", "Sesto 1 Maggio", [("atm:P.TA VENEZIA", t(8, 10)), ("atm:SESTO 1 MAGGIO FS", t(8, 24))]),
-        ]
-        for (id, route, service, name, head, calls) in runs {
-            sql += "INSERT INTO trips VALUES ('\(id)','\(id.split(separator: ":")[0])','\(route)','\(service)','\(head)','\(name)',0,0);\n"
-            for (i, c) in calls.enumerated() { sql += "INSERT INTO stop_times VALUES ('\(id)',\(i + 1),'\(c.0)',\(c.1),\(c.1));\n" }
-        }
-        sqlite3_exec(db, sql + extra, nil, nil, nil)
-        return try TransitStore(path: url)
+    static func data(_ name: String) throws -> Data {
+        let url = try #require(Bundle(for: Token.self).url(forResource: "transitous-\(name)", withExtension: "json"))
+        return try Data(contentsOf: url)
+    }
+
+    static func runs(_ name: String) throws -> [TransitConnection] { try TransitousSource.connections(plan: data("plan-\(name)")) }
+}
+
+struct TransitousDecodingTests {
+    @Test func monzaRunsFromThePlan() throws {
+        let runs = try TransitFixture.runs("monza")
+        #expect(runs.count == 11)
+        let re8 = try #require(runs.first)
+        #expect(re8.departure.name == "Trenord RE8 2816")
+        #expect(re8.departure.board.name == "Milano Centrale" && re8.departure.alight.name == "Monza")
+        #expect(re8.departure.departs == TransitFixture.thursday(8, 20))
+        #expect(re8.departure.scheduledDeparts == TransitFixture.thursday(8, 20) && !re8.departure.realTime)
+        #expect(re8.departure.timeZone.identifier == "Europe/Rome" && re8.departure.inItaly)
+        #expect(re8.departure.route.mode == .rail && re8.departure.route.color == "e40314")
+        #expect(re8.stops.count == 2 && re8.stops.first?.departs == re8.departure.departs)
+        #expect(re8.line.count > 10)                                   // precision 6, the track to Monza
+        #expect(abs(re8.line.first!.lat - re8.departure.board.location.lat) < 0.01)
+        #expect(!re8.feedAllowsBikes)                                  // Transitous: Italian trains "bikes: false"
+        let s8 = runs[1]
+        #expect(s8.departure.route.shortName == "S8" && s8.stops.count == 4)   // two calls between Garibaldi and Monza
+    }
+
+    @Test func munichAndAmsterdam() throws {
+        let munich = try #require(try TransitFixture.runs("munich").first)
+        #expect(munich.departure.route.shortName == "S1" && munich.departure.board.name == "Marienplatz")
+        #expect(munich.departure.timeZone.identifier == "Europe/Berlin" && !munich.departure.inItaly)
+        #expect(munich.departure.route.operatorLabel == "DB Regio")
+        let ns = try #require(try TransitFixture.runs("amsterdam").first)
+        #expect(ns.departure.route.operatorName == "NS" && ns.feedAllowsBikes)
+        #expect(TransitCopy.clock(ns.departure.departs, ns.departure.timeZone) == "10:11")
+    }
+
+    @Test func polylineAtItsPrecision() {
+        // Google's example, precision 5.
+        let p = Polyline.decode("_p~iF~ps|U_ulLnnqC_mqNvxq`@", precision: 5)
+        #expect(p.count == 3)
+        #expect(abs(p[0].lat - 38.5) < 1e-6 && abs(p[0].lon + 120.2) < 1e-6)
+        #expect(abs(p[2].lat - 43.252) < 1e-6 && abs(p[2].lon + 126.453) < 1e-6)
+    }
+
+    @Test func theQueryAsksForDirectRunsWithABikeAtEachEnd() {
+        let q = Dictionary(uniqueKeysWithValues: TransitousSource.planQuery(from: TransitFixture.portaVenezia, to: TransitFixture.villaReale,
+                                                                             at: TransitFixture.thursday(8, 5)).map { ($0.name, $0.value ?? "") })
+        #expect(q["maxTransfers"] == "0" && q["preTransitModes"] == "BIKE" && q["postTransitModes"] == "BIKE")
+        #expect(q["transitModes"] == "RAIL,SUBURBAN,SUBWAY" && q["time"] == "2026-12-03T07:05:00Z")
+        #expect(TransitousSource.userAgent.hasPrefix("Velix/") && TransitousSource.userAgent.contains("github.com/over-map/velix"))
+    }
+
+    @Test func aRefreshedRunTakesItsLiveTimes() throws {
+        let re8 = try #require(try TransitFixture.runs("monza").first).departure
+        let fresh = try #require(try TransitousSource.refreshed(re8, trip: TransitFixture.data("trip-monza")))
+        #expect(fresh.departs == re8.departs && fresh.arrives == re8.arrives && fresh.trip == re8.trip)
+        // A run that no longer calls at the boarding stop is gone.
+        let elsewhere = TransitDeparture(trip: re8.trip, route: re8.route, tripName: nil, headsign: nil,
+                                         board: TransitStop(id: "nowhere", feed: "trenord", name: "X", location: re8.board.location),
+                                         alight: re8.alight, departs: re8.departs, arrives: re8.arrives, boardSeq: 0, alightSeq: 1)
+        #expect(try TransitousSource.refreshed(elsewhere, trip: TransitFixture.data("trip-monza")) == nil)
     }
 }
 
-struct TransitStoreTests {
-    @Test func namesAndRules() throws {
-        let s = try TransitFixture.store()
-        #expect(TransitStore.displayName("CENTRALE FS", feed: "atm") == "Centrale FS")
-        #expect(TransitStore.displayName("P.TA VENEZIA", feed: "atm") == "P.ta Venezia")
-        #expect(TransitStore.displayName("Milano Centrale", feed: "trenord") == "Milano Centrale")
-        #expect(TransitStore.trainNumber("RE_80 - 25510") == "25510")
-        #expect(TransitStore.trainNumber("") == nil)
-        let runs = s.departures(from: ["atm:P.TA VENEZIA"], to: ["atm:SESTO 1 MAGGIO FS"],
-                                after: TransitFixture.thursday(8, 0), before: TransitFixture.thursday(9, 0))
-        #expect(runs.map(\.name) == ["M1"])
-        #expect(s.bikeRule(for: runs[0]).status == .allowed)
-        #expect(s.bikeRule(for: runs[0]).carriage?.hasPrefix("2nd or 5th carriage") == true)
+struct TransitOnlineTests {
+    @Test func onlyOnlineAndFromFiveKilometres() {
+        #expect(RouteOptionsModel.asksTransit(online: true, bikeMeters: 18_800))
+        #expect(!RouteOptionsModel.asksTransit(online: false, bikeMeters: 18_800))
+        #expect(!RouteOptionsModel.asksTransit(online: true, bikeMeters: 4_900))
     }
 
-    @Test func departuresKeepToTheServiceDay() throws {
-        let s = try TransitFixture.store()
-        let weekday = s.departures(from: ["trenord:S01700"], to: ["trenord:S01322"],
-                                   after: TransitFixture.thursday(8, 0), before: TransitFixture.thursday(11, 0))
-        #expect(weekday.map(\.tripName) == ["7001", "2816", "25510", "2860"])
-        #expect(weekday[1].name == "Trenord RE8 2816")
-        let sunday = s.departures(from: ["trenord:S01700"], to: ["trenord:S01322"],
-                                  after: TransitFixture.sunday(8, 0), before: TransitFixture.sunday(11, 0))
-        #expect(sunday.map(\.tripName) == ["9001"])
-        #expect(s.stopTimes(of: weekday[1]).map(\.stop.name) == ["Milano Centrale", "Sesto San Giovanni", "Monza"])
+    @Test func offlineGivesNoPlan() async throws {
+        let source = FixedTransitSource(connections: try TransitFixture.runs("monza"), offline: true)
+        await #expect(throws: TransitSourceError.offline) {
+            try await source.connections(from: TransitFixture.portaVenezia, to: TransitFixture.villaReale, at: TransitFixture.thursday(8, 5))
+        }
+    }
+}
+
+struct BikeRulesTests {
+    let rules = BikeRules.bundled
+
+    @Test func theBundledRules() throws {
+        #expect(rules.entries.count == 7)
+        let runs = try TransitFixture.runs("monza")
+        let trenord = rules.rule(for: runs[0].departure)
+        #expect(trenord.status == .check && trenord.offered)          // Trenord "check": offered (23 Oct)
+        #expect(trenord.carriage == "Carriage with the bike area")
+        var m1 = TransitRoute(id: "atm:1", feed: "atm", shortName: "M1", longName: "", mode: .metro, color: nil)
+        m1.operatorName = "ATM"
+        let d = TransitDeparture(trip: "m1", route: m1, tripName: nil, headsign: nil, board: runs[0].departure.board,
+                                 alight: runs[0].departure.alight, departs: TransitFixture.thursday(8, 10),
+                                 arrives: TransitFixture.thursday(8, 24), boardSeq: 0, alightSeq: 1)
+        #expect(rules.rule(for: d).status == .allowed)
+        #expect(rules.rule(for: d).carriage?.hasPrefix("2nd or 5th carriage") == true)
+    }
+
+    @Test func rushHourKeepsBikesOffTheSBahnAndNS() throws {
+        let sbahnRush = try TransitFixture.runs("munich-rush").filter {
+            $0.departure.route.shortName == "S1" && $0.departure.departs < TransitFixture.thursday(9, 0, "Europe/Berlin")
+        }
+        #expect(!sbahnRush.isEmpty && sbahnRush.allSatisfy { !rules.rule(for: $0.departure).offered })
+        let sbahn = try TransitFixture.runs("munich").filter { $0.departure.route.shortName == "S1" }
+        #expect(sbahn.allSatisfy { rules.rule(for: $0.departure).status == .check })
+        let nsRush = try TransitFixture.runs("amsterdam-rush").filter { $0.departure.departs < TransitFixture.thursday(9, 0, "Europe/Amsterdam") }
+        #expect(!nsRush.isEmpty && nsRush.allSatisfy { !rules.rule(for: $0.departure, feedAllowsBikes: $0.feedAllowsBikes).offered })
+        // Off peak the feed's own flag (the Netherlands) means allowed.
+        let ns = try TransitFixture.runs("amsterdam")
+        #expect(ns.allSatisfy { rules.rule(for: $0.departure, feedAllowsBikes: $0.feedAllowsBikes).status == .allowed })
+    }
+
+    @Test func noRuleAndNoFlagIsCheck() {
+        let route = TransitRoute(id: "x", feed: "other", shortName: "R1", longName: "", mode: .rail, color: nil)
+        let stop = TransitStop(id: "a", feed: "other", name: "A", location: TransitFixture.portaVenezia)
+        let d = TransitDeparture(trip: "t", route: route, tripName: nil, headsign: nil, board: stop, alight: stop,
+                                 departs: TransitFixture.thursday(12, 0), arrives: TransitFixture.thursday(12, 30), boardSeq: 0, alightSeq: 1)
+        #expect(rules.rule(for: d).status == .check)
+        #expect(rules.rule(for: d, feedAllowsBikes: true).status == .allowed)
     }
 }
 
 struct DirectPlannerTests {
+    let rules = BikeRules.bundled
+
     @Test func monzaTakesTheFirstCatchableTrainWithBikes() throws {
-        let s = try TransitFixture.store()
-        // 08:05 at Porta Venezia: Centrale is ≈ 7 min away plus 3 to board, so the 08:20 RE8 (the 08:18 S9 refuses bikes).
-        let c = DirectPlanner.candidates(s, from: TransitFixture.portaVenezia, to: TransitFixture.villaReale, at: TransitFixture.thursday(8, 5))
-        #expect(c.first?.departure.name == "Trenord RE8 2816")
-        #expect(c.first?.departure.board.name == "Milano Centrale" && c.first?.departure.alight.name == "Monza")
-        #expect(!c.contains { $0.departure.route.shortName == "S9" })
-        #expect(c.first?.rule.offered == true)                       // Trenord "check": offered (23 Oct)
-        // Ten minutes later the 08:20 is gone.
-        let late = DirectPlanner.candidates(s, from: TransitFixture.portaVenezia, to: TransitFixture.villaReale, at: TransitFixture.thursday(8, 14))
-        #expect(late.first?.departure.tripName == "25510")
+        let runs = try TransitFixture.runs("monza")
+        let c = DirectPlanner.candidates(runs, rules: rules, from: TransitFixture.portaVenezia, to: TransitFixture.villaReale,
+                                         at: TransitFixture.thursday(8, 5))
+        let first = try #require(c.first)
+        #expect(first.departure.alight.name == "Monza")
+        #expect(first.departure.departs >= TransitFixture.thursday(8, 5).addingTimeInterval(first.rideIn + 3 * 60))
+        #expect(c.map(\.arrival) == c.map(\.arrival).sorted())
+        // Ten minutes later the 08:20 RE8 can't be caught.
+        let late = DirectPlanner.candidates(runs, rules: rules, from: TransitFixture.portaVenezia, to: TransitFixture.villaReale,
+                                            at: TransitFixture.thursday(8, 14))
+        #expect(!late.contains { $0.departure.departs == TransitFixture.thursday(8, 20) && $0.departure.route.shortName == "RE8" })
     }
 
-    /// 7 small railway stations and 8 metro stops within 1.3 km of south Milan, none with a Monza train (as Scalo Romana,
-    /// Tibaldi, Romolo… on 8 Nov: no bike + train from there).
-    static let decoys: String = {
-        var sql = ""
-        for i in 0..<7 {
-            sql += "INSERT INTO stops VALUES ('trenord:D\(i)','trenord','Small station \(i)',\(45.4478 + Double(i) * 0.0015),9.2050,NULL,0);\n"
-        }
-        for i in 0..<8 {
-            sql += "INSERT INTO stops VALUES ('atm:D\(i)','atm','METRO \(i)',\(45.4500 + Double(i) * 0.001),9.1900,NULL,0);\n"
-        }
-        return sql
-    }()
-
-    @Test func everyRailStationWithin5km() throws {
-        // 08:05 at south Milan: Centrale (4.4 km, ≈ 23 min) is the only station with Monza trains, behind 7 nearer ones.
-        let s = try TransitFixture.store(extra: Self.decoys)
-        let c = DirectPlanner.candidates(s, from: TransitFixture.southMilan, to: TransitFixture.villaReale, at: TransitFixture.thursday(8, 5))
-        #expect(c.first?.departure.board.name == "Milano Centrale")
-        #expect(c.first?.departure.tripName == "25510")             // the 08:20 leaves before he gets there
-    }
-
-    @Test func metroStopsStayCappedPerFeed() throws {
-        let s = try TransitFixture.store(extra: Self.decoys)
-        let near = DirectPlanner.nearby(s, TransitFixture.southMilan)
-        #expect(near.filter { $0.stop.feed == "atm" }.count == DirectPlanner.stationsPerEnd)
-        #expect(near.filter { $0.stop.feed == "trenord" }.count == 8)      // the 7 small ones and Centrale
-        #expect(near.allSatisfy { $0.meters <= DirectPlanner.stationRadius })
-        #expect(s.isMetro(near.first { $0.stop.feed == "atm" }!.stop))
-        #expect(!s.isMetro(near.first { $0.stop.feed == "trenord" }!.stop))
-    }
-
-    /// 8 Nov: 5 Trenord runs in the Lombardy pack go out and back with the return's times restarting at 00:00 (S2 22624:
-    /// Seveso → Rogoredo 09:07, then Porta Vittoria 00:00 → Affori 00:24). Read as Centrale 08:25 → Monza 00:10 it is a
-    /// trip of minus 8 hours, which every trigger takes for a saving.
-    @Test func runsWhoseTimesGoBackwardsAreSkipped() throws {
-        let t = { (h: Int, m: Int) in h * 3600 + m * 60 }
-        let loop = """
-            INSERT INTO trips VALUES ('trenord:loop','trenord','trenord:RE8','WK','Loop','99999',0,0);
-            INSERT INTO stop_times VALUES ('trenord:loop',1,'trenord:S01700',\(t(8, 25)),\(t(8, 25))),
-                                          ('trenord:loop',2,'trenord:S01650',\(t(8, 32)),\(t(8, 32))),
-                                          ('trenord:loop',3,'trenord:S01322',\(t(0, 10)),\(t(0, 10)));
-            """
-        let s = try TransitFixture.store(extra: loop)
-        let runs = s.departures(from: ["trenord:S01700"], to: ["trenord:S01322"],
-                                after: TransitFixture.thursday(8, 0), before: TransitFixture.thursday(9, 0))
-        #expect(!runs.contains { $0.tripName == "99999" })
-        #expect(runs.allSatisfy { $0.arrives >= $0.departs })
-        let c = DirectPlanner.candidates(s, from: TransitFixture.portaVenezia, to: TransitFixture.villaReale, at: TransitFixture.thursday(8, 5))
-        #expect(c.first?.departure.tripName == "2816")
+    @Test func rushHourLeavesNoTrainInAmsterdam() throws {
+        let rush = DirectPlanner.candidates(try TransitFixture.runs("amsterdam-rush"), rules: rules, from: TransitFixture.amsterdam,
+                                            to: TransitFixture.haarlem, at: TransitFixture.thursday(8, 5, "Europe/Amsterdam"))
+        #expect(rush.allSatisfy { $0.departure.departs >= TransitFixture.thursday(9, 0, "Europe/Amsterdam") })
+        let calm = DirectPlanner.candidates(try TransitFixture.runs("amsterdam"), rules: rules, from: TransitFixture.amsterdam,
+                                            to: TransitFixture.haarlem, at: TransitFixture.thursday(10, 5, "Europe/Amsterdam"))
+        #expect(calm.first?.departure.alight.name == "Haarlem")
     }
 
     @Test func nextTrainsOfThePair() throws {
-        let s = try TransitFixture.store()
-        let first = try #require(DirectPlanner.candidates(s, from: TransitFixture.portaVenezia, to: TransitFixture.villaReale,
-                                                          at: TransitFixture.thursday(8, 5)).first)
-        #expect(DirectPlanner.later(s, than: first.departure, count: 2).map(\.tripName) == ["25510", "2860"])
+        let runs = try TransitFixture.runs("munich")
+        let first = try #require(DirectPlanner.candidates(runs, rules: rules, from: TransitFixture.marienplatz, to: TransitFixture.freising,
+                                                          at: TransitFixture.thursday(10, 5, "Europe/Berlin")).first)
+        let next = DirectPlanner.later(runs, rules: rules, than: first.departure, count: 2)
+        #expect(next.count == 2)
+        #expect(next.allSatisfy { $0.departure.board.id == first.departure.board.id && $0.departure.departs > first.departure.departs })
+        #expect(next[0].departure.departs.timeIntervalSince(first.departure.departs) == 20 * 60)   // the S1 every 20 min
+    }
+
+    @Test func theLineIsCutAtEachStop() throws {
+        let s8 = try TransitFixture.runs("monza")[1]
+        let hops = DirectPlanner.hops(s8.line, stops: s8.stops)
+        #expect(hops.count == s8.stops.count - 1 && hops.allSatisfy { $0 != nil })
+        for (h, pair) in zip(hops, zip(s8.stops, s8.stops.dropFirst())) {
+            #expect(Geo.distance(h!.last!, pair.1.stop.location) < 300)
+            #expect(Geo.distance(h!.first!, pair.0.stop.location) < 300)
+        }
+        #expect(DirectPlanner.hops([], stops: s8.stops).allSatisfy { $0 == nil })
+    }
+}
+
+@MainActor
+struct TransitLiveTests {
+    @Test func aDelayMovesThePlanAndACancellationMissesIt() throws {
+        let p = try #require(AppSamples.monzaTransit().first)
+        #expect(TransitRide.live(p.departure, for: p) == .same)
+        let late = p.departure.moved(departs: p.departure.departs.addingTimeInterval(5 * 60),
+                                     arrives: p.departure.arrives.addingTimeInterval(4 * 60), realTime: true)
+        guard case let .moved(m) = TransitRide.live(late, for: p) else { Issue.record("not moved"); return }
+        let moved = p.moved(m)
+        #expect(moved.departure.departs == late.departs && moved.departure.realTime)
+        #expect(moved.stops.first?.departs == late.departs && moved.stops.last?.arrives == late.arrives)
+        #expect(moved.arrival == p.arrival.addingTimeInterval(4 * 60))
+        #expect(TransitCopy.footnote(moved) == "Live · Transitous")
+        #expect(TransitCopy.footnote(p) == "Timetable · Transitous")
+        #expect(TransitRide.live(nil, for: p) == .cancelled)
+        // Under a minute is noise.
+        let ontime = p.departure.moved(departs: p.departure.departs.addingTimeInterval(30), arrives: p.departure.arrives, realTime: true)
+        #expect(TransitRide.live(ontime, for: p) == .same)
+    }
+
+    @Test func aMissedTrainTakesTheNextRunOfThePair() throws {
+        let runs = try TransitFixture.runs("munich")
+        let p0 = try #require(AppSamples.monzaTransit().first)
+        let first = TransitPlanner.plan(runs[0], rules: .bundled, rideIn: p0.rideIn, rideOut: p0.rideOut,
+                                        planned: TransitFixture.thursday(10, 5, "Europe/Berlin"), runs: runs)
+        let next = try #require(TransitRide.next(after: first, rules: .bundled))
+        #expect(next.departure.departs == first.departure.departs.addingTimeInterval(20 * 60))
+        #expect(next.track.count == next.stops.count - 1)
     }
 }
 
@@ -217,8 +266,8 @@ struct TransitCopyTests {
                 == "Ride 7 min to Centrale · platform planned: check the board · bikes allowed · ride 6 min into the park")
         #expect(TransitCopy.bikeOnly(best: 52 * 60, fastest: 45 * 60) == "Bike only · **52 min** Best · 45 min Fastest")
         #expect(TransitCopy.segments(p).map(\.label) == ["Ride 7", "Train 11", "Ride 6"])               // bike and train only
-        #expect(TransitCopy.ticket(p).label == "Ticket · Trenitalia app")
-        #expect(TransitCopy.ticket(p).app?.scheme == "trenitalia")
+        #expect(TransitCopy.ticket(p)?.label == "Ticket · Trenitalia app")
+        #expect(TransitCopy.ticket(p)?.app?.scheme == "trenitalia")
         #expect(TransitCopy.minutes(p.seconds) == 31)
     }
 
@@ -342,18 +391,30 @@ struct RidingWithTransitCopyTests {
         #expect(BikeCarriages.note([false, true, false, false, true, false]) == "Bikes in the 2nd and 5th carriage")
     }
 
-    /// Packs from Nov 2026 name the operator and the metro's ticket page; older packs mean Trenord and ATM.
-    @Test func theOperatorComesFromThePack() {
+    /// Transitous names the operator; outside Italy the ticket link is the operator's site, none when it has none.
+    @Test func theOperatorAndTicketComeFromTransitous() throws {
         var reg = TransitRoute(id: "trenitalia:REG", feed: "trenitalia", shortName: "REG", longName: "Regionale", mode: .rail, color: nil)
         #expect(reg.operatorLabel == "Trenord")
         reg.operatorName = "Trenitalia"
         #expect(reg.operatorLabel == "Trenitalia")
-        #expect(TransitStore.displayName("TORINO PORTA NUOVA", feed: "trenitalia") == "Torino Porta Nuova")
-        #expect(TransitStore.displayName("Milano Centrale", feed: "trenord") == "Milano Centrale")
+        #expect(TransitNames.displayName("TORINO PORTA NUOVA") == "Torino Porta Nuova")
+        #expect(TransitNames.displayName("CENTRALE FS") == "Centrale FS")
+        #expect(TransitNames.displayName("P.TA VENEZIA") == "P.ta Venezia")
+        #expect(TransitNames.displayName("Milano Centrale") == "Milano Centrale")
+        #expect(TransitNames.trainNumber("RE_80 - 25510") == "25510" && TransitNames.trainNumber("") == nil)
+        #expect(TransitNames.metroLine("1") == "M1" && TransitNames.metroLine("U3") == "U3")
         var gtt = TransitRoute(id: "gtt:M1", feed: "gtt", shortName: "M1", longName: "", mode: .metro, color: nil)
         gtt.operatorName = "GTT"
-        gtt.ticket = URL(string: "https://www.gtt.to.it/cms/biglietti-abbonamenti")
         #expect(BikeCarriages.positions(gtt) == nil)
+        let p0 = try #require(AppSamples.monzaTransit().first)
+        let ns = try #require(try TransitFixture.runs("amsterdam").first)
+        let nsPlan = TransitPlan(rideIn: p0.rideIn, departure: ns.departure, rule: p0.rule, stops: ns.stops, rideOut: p0.rideOut, planned: p0.planned)
+        #expect(TransitCopy.ticket(nsPlan) == .init(label: "Ticket · NS", app: nil, fallback: URL(string: "http://www.ns.nl")!))
+        let munich = try #require(try TransitFixture.runs("munich").first)
+        let mPlan = TransitPlan(rideIn: p0.rideIn, departure: munich.departure, rule: p0.rule, stops: munich.stops, rideOut: p0.rideOut,
+                                planned: p0.planned)
+        #expect(TransitCopy.ticket(mPlan) == nil)                               // the feed has no operator site
+        #expect(TransitCopy.trainLine(mPlan).contains("→ Freising"))
     }
 }
 

@@ -126,7 +126,9 @@ final class RouteOptionsModel {
         transit = []
         transitSelected = false
         departureIndex = 0
-        guard let planner = try? await app.engine.transitPlanner() else { return }
+        // Online only (Transitous), one request per plan, and only when a train could matter (never under 5 km).
+        guard Self.asksTransit(online: app.pack.isOnline, bikeMeters: bike.best.meters),
+              let planner = try? await app.engine.transitPlanner() else { return }
         let plans = await planner.plans(from: origin, to: destination.location, rules: app.rules, at: AppClock.now)
         #if DEBUG
         NSLog("[plan] transit: %@", plans.first.map { "\($0.departure.name) \($0.departure.board.name) → \($0.departure.alight.name), " +
@@ -143,6 +145,9 @@ final class RouteOptionsModel {
 
     // MARK: Bike + transit (P4 S3d, S3e)
 
+    /// Transitous is asked only online and when a train could matter (the trigger's 5 km floor): one request a plan.
+    nonisolated static func asksTransit(online: Bool, bikeMeters: Double) -> Bool { online && bikeMeters >= TransitTrigger.minimumTrip }
+
     var transitPlan: TransitPlan? { transit.indices.contains(departureIndex) ? transit[departureIndex] : transit.first }
 
     var transitRow: (mode: TransitMode, title: String, subtitle: String)? {
@@ -155,9 +160,9 @@ final class RouteOptionsModel {
         let ticket = TransitCopy.ticket(p)
         return TransitCard.Model(title: TransitCopy.cardTitle(p), subtitle: TransitCopy.cardSubtitle(p),
                                  minutes: TransitCopy.minutes(p.seconds), segments: TransitCopy.segments(p),
-                                 departures: transit.map { TransitCopy.clock($0.departure.departs) },
+                                 departures: transit.map { TransitCopy.clock($0.departure.departs, $0.departure.timeZone) },
                                  train: TransitCopy.trainLine(p), detail: TransitCopy.detail(p, destination: destination),
-                                 ticketsLabel: ticket.label, footnote: TransitCopy.footnote)
+                                 ticketsLabel: ticket?.label, footnote: TransitCopy.footnote(p))
     }
 
     var bikeOnlyText: String? {

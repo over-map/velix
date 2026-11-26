@@ -27,12 +27,12 @@ enum TransitCopy {
 
     /// "13 min by bike · arrive 08:36"
     static func cardSubtitle(_ p: TransitPlan) -> String {
-        "\(minutes(p.bikeSeconds)) min by bike · arrive \(clock(p.arrival))"
+        "\(minutes(p.bikeSeconds)) min by bike · arrive \(clock(p.arrival, p.zone))"
     }
 
     /// "Trenord RE80 25510 · 08:43 → Monza 08:52"
     static func trainLine(_ p: TransitPlan) -> String {
-        "\(p.departure.name) · \(clock(p.departure.departs)) → \(short(p.departure.alight)) \(clock(p.departure.arrives))"
+        "\(p.departure.name) · \(clock(p.departure.departs, p.zone)) → \(short(p.departure.alight)) \(clock(p.departure.arrives, p.zone))"
     }
 
     /// "Ride 7 min to Centrale · platform planned: check the board · bikes allowed · ride 6 min into the park"
@@ -46,26 +46,31 @@ enum TransitCopy {
         return parts.joined(separator: " · ")
     }
 
-    /// Where to buy the ticket (one link, BRIEF §8). Trains: the Trenitalia app, which sells regional tickets
-    /// across Italy (Filippo, 29 Oct 2026; outside Italy this changes): its URL scheme first, its App Store page
-    /// otherwise (with Open when installed). A metro: its operator's ticket page (the pack's `feeds.ticket`).
+    /// Where to buy the ticket (one link, BRIEF §8). Trains in Italy: the Trenitalia app, which sells regional tickets
+    /// across Italy (Filippo, 29 Oct 2026): its URL scheme first, its App Store page otherwise (with Open when
+    /// installed). A metro: its operator's ticket page (ATM's, else the operator's site).
     struct Ticket: Equatable, Sendable {
         let label: String
         let app: URL?
         let fallback: URL
     }
 
-    static func ticket(_ p: TransitPlan) -> Ticket {
+    /// Outside Italy (M11 PR 4): the operator's site from Transitous, nil when it publishes none (no link).
+    static func ticket(_ p: TransitPlan) -> Ticket? {
         let r = p.departure.route
-        if r.mode == .metro, let page = r.ticket ?? (r.feed == "atm" ? URL(string: "https://www.atm.it/it/ViaggiaConNoi/Biglietti/Pagine/default.aspx") : nil) {
+        if r.mode == .metro, let page = r.feed == "atm" ? URL(string: "https://www.atm.it/it/ViaggiaConNoi/Biglietti/Pagine/default.aspx") : r.ticket {
             return Ticket(label: "Ticket · \(r.operatorLabel)", app: nil, fallback: page)
         }
+        guard p.departure.inItaly else { return r.ticket.map { Ticket(label: "Ticket · \(r.operatorLabel)", app: nil, fallback: $0) } }
         return Ticket(label: "Ticket · Trenitalia app", app: URL(string: "trenitalia://"),
                       fallback: URL(string: "https://apps.apple.com/it/app/trenitalia/id331050847")!)
     }
 
-    /// Replaces P4's "Illustrative timetable": the times are the static GTFS, no live delays.
-    static let footnote = "Timetable as planned, no live delays"
+    /// Replaces P4's "Illustrative timetable": live times where the operator publishes them (Transitous names the
+    /// source, its policy; the link is in You → About). New copy, approved by Filippo 26 Nov.
+    static func footnote(_ p: TransitPlan) -> String {
+        p.departure.realTime ? "Live · Transitous" : "Timetable · Transitous"
+    }
 
     /// "Bike only · **52 min** Best · 45 min Fastest"
     static func bikeOnly(best: TimeInterval, fastest: TimeInterval?) -> String {
@@ -104,25 +109,25 @@ enum TransitCopy {
 
     /// S5b: "Running late" / "Switched to the fastest route to catch the 08:16. It adds 120 m of cobbles."
     static func late(_ d: TransitDeparture, cost: String?) -> (title: String, message: String, short: String) {
-        let catchIt = "catch the \(clock(d.departs))"
+        let catchIt = "catch the \(clock(d.departs, d.timeZone))"
         return ("Running late", "Switched to the fastest route to \(catchIt)." + (cost.map { " It adds \($0)." } ?? ""),
                 "Fastest route to \(catchIt)." + (cost.map { " +\($0.replacingOccurrences(of: " of ", with: " "))." } ?? ""))
     }
 
     /// S5c: "You’d miss the 08:16" / "Moved you to the 08:46. Arrival 09:05."
     static func missed(_ old: TransitDeparture, next: TransitPlan) -> (title: String, message: String) {
-        ("You’d miss the \(clock(old.departs))", "Moved you to the \(clock(next.departure.departs)). Arrival \(clock(next.arrival)).")
+        ("You’d miss the \(clock(old.departs, old.timeZone))", "Moved you to the \(clock(next.departure.departs, next.zone)). Arrival \(clock(next.arrival, next.zone)).")
     }
 
     static let lateVoice = "Running late. Taking the fastest route."
-    static func missedVoice(_ next: TransitPlan) -> String { "New train: \(clock(next.departure.departs))." }
+    static func missedVoice(_ next: TransitPlan) -> String { "New train: \(clock(next.departure.departs, next.zone))." }
 
     /// The stage-1 ETA bar (P6 S5a): "08:12" "Centrale" "08:16 ·" "4 min to spare" (tight under 3 min).
     static func stationEta(_ p: TransitPlan, now: Date, eta: TimeInterval) -> EtaBar.State {
         let spare = TrainCatch.spare(departs: p.departure.departs, now: now, eta: eta, boarding: DirectPlanner.boarding(p.departure.route.mode))
         let mins = Int((spare / 60).rounded(.down))
-        return .transit(arrival: clock(now.addingTimeInterval(eta)), at: short(p.departure.board),
-                        train: "\(clock(p.departure.departs)) ·", spare: spare >= 0 ? "\(mins) min to spare" : "Late", tight: spare < 3 * 60)
+        return .transit(arrival: clock(now.addingTimeInterval(eta), p.zone), at: short(p.departure.board),
+                        train: "\(clock(p.departure.departs, p.zone)) ·", spare: spare >= 0 ? "\(mins) min to spare" : "Late", tight: spare < 3 * 60)
     }
 
     /// S5d: the on-train sheet at `now`.
@@ -133,16 +138,16 @@ enum TransitCopy {
         let metro = d.route.mode == .metro
         let stops: [OnTrainCard.Stop] = p.stops.enumerated().map { i, st in
             let state: OnTrainCard.Stop.State = i == p.stops.count - 1 ? .end : st.departs <= now ? .departed : .next
-            return .init(name: st.stop.name, time: clock(i == 0 ? st.departs : st.arrives), state: state)
+            return .init(name: st.stop.name, time: clock(i == 0 ? st.departs : st.arrives, p.zone), state: state)
         }
         let positions = BikeCarriages.positions(d.route)
         return OnTrainCard(train: "\(d.name) to \(short(d.alight))", getOff: "Get off at \(short(d.alight))",
-                           stopsLeft: now < d.departs ? "Leaves at \(clock(d.departs))"
+                           stopsLeft: now < d.departs ? "Leaves at \(clock(d.departs, p.zone))"
                                : left == 0 ? "Next stop" : left == 1 ? "1 stop before yours" : "\(left) stops before yours",
                            minutes: max(0, Int((d.arrives.timeIntervalSince(now) / 60).rounded(.up))),
                            stops: Array(stops.suffix(4)), carriages: positions,
                            carriageNote: positions == nil ? (p.rule.carriage ?? "Carriage with the bike area") : BikeCarriages.note(positions!),
-                           arrival: "\(destination.name) \(clock(p.arrival))", metro: metro)
+                           arrival: "\(destination.name) \(clock(p.arrival, p.zone))", metro: metro)
     }
 
     /// The lock screen on the train (P6 L3).
@@ -152,15 +157,16 @@ enum TransitCopy {
         return .init(station: short(p.departure.alight), next: next.map { "Next: \($0.stop.name)" } ?? "Next stop",
                      minutes: "\(max(0, Int((p.departure.arrives.timeIntervalSince(now) / 60).rounded(.up))))",
                      carriage: positions.map(BikeCarriages.note) ?? p.rule.carriage ?? "Carriage with the bike area",
-                     arrival: clock(p.arrival), metro: p.departure.route.mode == .metro)
+                     arrival: clock(p.arrival, p.zone), metro: p.departure.route.mode == .metro)
     }
 
     static func getOffVoice(_ p: TransitPlan) -> String { "Get ready. \(short(p.departure.alight)) in 2 minutes." }
 
     static func minutes(_ s: TimeInterval) -> Int { max(1, Int((s / 60).rounded())) }
 
-    static func clock(_ d: Date) -> String {
-        d.formatted(Date.FormatStyle(timeZone: TimeZone(identifier: "Europe/Rome")!).hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
+    /// "08:16" in the run's time zone (Rome until a plan says otherwise).
+    static func clock(_ d: Date, _ zone: TimeZone = AppClock.rome) -> String {
+        d.formatted(Date.FormatStyle(timeZone: zone).hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
     }
 }
 

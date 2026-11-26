@@ -9,7 +9,8 @@ final class EngineHost {
     private var engine: ValhallaOnDeviceProvider?
     private var hazards: HazardStore?
     private var loading: Task<RoutePlanner, Error>?
-    private var transit: TransitStore?
+    /// Where bike + train runs come from (Transitous; tests swap it).
+    var transitSource: TransitSource = TransitousSource()
     private var city: CityArea?
 
     enum Failure: Error {
@@ -57,19 +58,14 @@ final class EngineHost {
         return RoutePlanner(engine: engine, hazards: hazards)
     }
 
-    /// Bike + transit (M8): the timetable and the bike planner, or nil when the pack has no timetable.
+    /// Bike + transit (M8; Transitous since M11 PR 4): the run source and the bike planner.
     func transitPlanner() async throws -> TransitPlanner? {
-        let planner = try await planner()
-        if transit == nil, let url = RegionPack.transit {
-            transit = try await Task.detached(priority: .userInitiated) { try TransitStore(path: url) }.value
-        }
-        return transit.map { TransitPlanner(store: $0, planner: planner) }
+        TransitPlanner(source: transitSource, planner: try await planner())
     }
 
     /// The transit planner, once loaded (a bike + transit ride starts from a planned suggestion, so it is).
     var loadedTransitPlanner: TransitPlanner? {
-        guard let planner = loadedPlanner, let transit else { return nil }
-        return TransitPlanner(store: transit, planner: planner)
+        loadedPlanner.map { TransitPlanner(source: transitSource, planner: $0) }
     }
 
     /// The city area (destination outside it: suggest transit), or nil when the pack has none.
@@ -83,7 +79,6 @@ final class EngineHost {
         region = nil
         engine = nil
         hazards = nil
-        transit = nil
         city = nil
         loading?.cancel()
         loading = nil
