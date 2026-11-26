@@ -56,14 +56,6 @@ enum RouteAnalyzer {
         e.use == "road" && mainClasses.contains(e.roadClass) && e.cycleLane != "dedicated" && e.cycleLane != "separated"
     }
 
-    /// A road ridden on its bike lane, with traffic beside it faster than ``calmSpeed`` (tagged, or a main road with no
-    /// limit tagged). Filippo's sixth City criterion, slow-flow roads (26 Nov).
-    static func isFastFlowWithLane(_ e: RouteEdge) -> Bool {
-        guard e.use == "road", e.cycleLane == "dedicated" || e.cycleLane == "separated" else { return false }
-        if let limit = e.speedLimit { return limit > calmSpeed }
-        return mainClasses.contains(e.roadClass)
-    }
-
     static func analyze(shape: [LatLon], edges: [RouteEdge], hazards source: some HazardSource) -> RouteAnalysis {
         var a = RouteAnalysis(shape: shape, edges: edges)
         let along = cumulative(shape)
@@ -73,6 +65,9 @@ enum RouteAnalyzer {
         // Line hazards by way id.
         let lines = Dictionary(grouping: source.lineHazards(onWays: wayIDs), by: { $0.wayId ?? -1 })
         let cobbleWays = Set(lines.compactMap { way, hz in hz.contains { $0.type == .cobbles } ? way : nil })
+        let bigCobbleWays = Set(lines.compactMap { way, hz in
+            hz.contains { $0.type == .cobbles && !$0.detail.hasSuffix("mild") } ? way : nil
+        })
         let lighting = source.lighting(ofWays: wayIDs)
         let walk = source.walkWays(among: wayIDs)
         a.walkEdges = edges.filter { walk.contains($0.wayId) }
@@ -85,7 +80,7 @@ enum RouteAnalyzer {
             a.metersByWay[edge.wayId, default: 0] += edge.meters
             if pathUses.contains(edge.use) { a.pathMeters += edge.meters }
             if isLanelessMainRoad(edge) { a.busyMeters += edge.meters }
-            if isFastFlowWithLane(edge) { a.fastFlowMeters += edge.meters }
+            if bigCobbleWays.contains(edge.wayId) { a.bigCobbleMeters += edge.meters }
             if cat == .mixed {
                 run += edge.meters
                 a.longestMixedRun = max(a.longestMixedRun, run)
@@ -161,7 +156,8 @@ enum RouteAnalyzer {
     }
 
     /// A turn: the direction changes by more than this between the 20 m before a junction and the 20 m after it.
-    static let turnAngle = 45.0
+    /// 60°: right-angle turns and the like, where you slow down (Filippo, 26 Nov: "90 degrees or similar").
+    static let turnAngle = 60.0
     static let turnWindow = 20.0
     /// Edges shorter than this are junction links: the turn is measured across them, once.
     static let linkLength = 15.0

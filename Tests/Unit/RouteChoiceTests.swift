@@ -85,8 +85,8 @@ struct RouteChoiceTests {
         #expect(extra < 120)  // a lane-less kilometre is worth less than a 2-min detour
     }
 
-    /// Filippo, 26 Nov: City Best is the fastest among routes with, in this order, no rails along, no big cobbles,
-    /// the fewest turns, the fewest lights, bike lanes, slow-flow roads.
+    /// Filippo, 26 Nov: City Best is at most 20 % slower than Fastest; within that, the fewest big cobbles, rails along,
+    /// turns, lights, and the most bike lane, in that order.
     @Test func cityWeighsItsCriteriaInFilipposOrder() {
         func comfort(_ edit: (inout RouteAnalysis) -> Void) -> Double {
             var a = RouteAnalysis(shape: [], edges: [])
@@ -94,26 +94,35 @@ struct RouteChoiceTests {
             return RoutePlanner.comfort(a, rules: .defaults(for: .city))
         }
         let stop = SignalStop(distanceAlong: 0, location: LatLon(lat: 45.47, lon: 9.2))
-        let fiveTurns = comfort { $0.turns = 5 }
-        #expect(RoutePlanner.weight(.neverAlongTramRails) * 50 > fiveTurns)  // 1 rails along
-        #expect(RoutePlanner.weight(.noCobbles) * 50 > fiveTurns)  // 2 big cobbles
-        // 3 a turn over 4 a light, counting the light's average wait (in the riding time) and its effort
-        #expect(comfort { $0.turns = 1 } > comfort { $0.signalStops = [stop] } + RoutePlanner.signalWait)
-        #expect(comfort { $0.signalStops = [stop] } > comfort { $0.busyMeters = 100 })  // 4 over 5 lanes
-        #expect(comfort { $0.busyMeters = 100 } > comfort { $0.fastFlowMeters = 100 })  // 5 over 6 slow flow
-        #expect(comfort { $0.fastFlowMeters = 100 } > 0)
+        #expect(comfort { $0.bigCobbleMeters = 10 } > RoutePlanner.railsAlongWeight * 10)  // 1 big cobbles over 2 rails
+        #expect(RoutePlanner.railsAlongWeight * 20 > comfort { $0.turns = 1 })  // 2 rails over 3 turns
+        #expect(comfort { $0.turns = 1 } > comfort { $0.signalStops = [stop] })  // 3 turns over 4 lights
+        #expect(comfort { $0.signalStops = [stop] } > comfort { $0.lengthM = 200 })  // 4 lights over 5 off a lane
+        #expect(comfort { $0.lengthM = 200; $0.mix = [.painted: 200] } == 0)  // on a lane all the way
+        // Riding time breaks ties only: a minute is worth less than a light.
+        #expect(RoutePlanner.cityTimeWeight * 60 < RoutePlanner.lightWeight)
     }
 
-    @Test func aLaneBesideFastTrafficCountsAsFastFlow() {
-        let (shape, edges) = legsRoute([(0, 100), (0, 100), (0, 100), (0, 100)]) { i, e in
-            e = RouteEdge(wayId: e.wayId, lengthKm: e.lengthKm, cycleLane: i == 3 ? "none" : "dedicated",
-                          roadClass: i == 1 ? "residential" : "secondary", speedLimit: [50, nil, 30, 50][i],
-                          beginShapeIndex: e.beginShapeIndex, endShapeIndex: e.endShapeIndex)
+    @Test func cityBestIsAtMostAFifthSlowerThanFastest() {
+        #expect(RoutePlanner.cityLimit(fastestSeconds: 600) == 721)
+        // Within the cap, 6 fewer turns win over 100 s.
+        var quick = RouteAnalysis(shape: [], edges: []), calm = quick
+        quick.turns = 8
+        calm.turns = 2
+        let rules = RuleSet.defaults(for: .city)
+        #expect(RoutePlanner.score(seconds: 700, analysis: calm, rules: rules)
+                < RoutePlanner.score(seconds: 600, analysis: quick, rules: rules))
+    }
+
+    @Test func onlyBigCobblesCount() {
+        let (shape, edges) = legsRoute([(0, 100), (0, 100)])
+        func cobbles(way: Int64, detail: String) -> HazardRecord {
+            HazardRecord(id: way, type: .cobbles, isLine: true, lat: 0, lon: 0, lengthM: 100, polyline6: "", detail: detail,
+                         osm: "w\(way)", heading: nil)
         }
-        let a = RouteAnalyzer.analyze(shape: shape, edges: edges, hazards: FakeHazards())
-        // 50 km/h with a lane: yes; residential untagged: no; tagged 30: no; no lane: busy, not fast flow
-        #expect(abs(a.fastFlowMeters - 100) < 1)
-        #expect(abs(a.busyMeters - 100) < 1)
+        let hazards = FakeHazards(lines: [cobbles(way: 1, detail: "sett"), cobbles(way: 2, detail: "sett · mild")])
+        let a = RouteAnalyzer.analyze(shape: shape, edges: edges, hazards: hazards)
+        #expect(abs(a.bigCobbleMeters - 100) < 1)
     }
 
     @Test func otherRideTypesScoreTimeAndRulesOnly() {

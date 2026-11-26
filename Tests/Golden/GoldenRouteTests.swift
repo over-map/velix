@@ -183,6 +183,10 @@ enum GoldenExpectations {
             #expect(best.busyMeters < 2500, "City Best on lane-less main roads: \(Int(best.busyMeters)) m")
             #expect(best.turns <= fastest.turns + 12, "City Best turns \(best.turns), Fastest \(fastest.turns)")
         }
+        if type == .city, let f = o.fastest {
+            #expect(o.best.seconds <= RoutePlanner.cityLimit(fastestSeconds: f.seconds),
+                    "\(trip) City Best \(Int(o.best.seconds)) s, over Fastest \(Int(f.seconds)) s + \(Int(RoutePlanner.cityTimeCap * 100)) %")
+        }
         if type == .city {
             #expect(best.hazardCount(.steps) == 0 || best.hazards.filter { $0.type == .steps }.allSatisfy { $0.distanceAlong < 50 })
         }
@@ -233,7 +237,8 @@ enum GoldenReport {
             summary["bestTurns"] = ba.turns
             summary["bestLights"] = ba.signalStops.count
             summary["bestBusyM"] = Int(ba.busyMeters)
-            summary["bestFastFlowM"] = Int(ba.fastFlowMeters)
+            summary["bestBigCobblesM"] = Int(ba.bigCobbleMeters)
+            summary["bestOffLaneM"] = Int(RoutePlanner.offLaneMeters(ba))
             summary["bestRailsAlongM"] = Int(ba.hazardMeters(.along))
             summary["bestCobblesM"] = Int(ba.meters(.cobbles))
             var streets: [String] = []

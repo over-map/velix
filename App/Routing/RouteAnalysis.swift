@@ -168,9 +168,8 @@ struct RouteAnalysis: Equatable, Sendable {
     var pathMeters: Double = 0
     /// Metres on main roads (tertiary and up) without a painted or separated bike lane.
     var busyMeters: Double = 0
-    /// Metres on roads with a bike lane but fast traffic beside it (tagged over 30 km/h, or a main road with no limit
-    /// tagged): City's last tie-breaker, after lanes (``RouteAnalyzer/isFastFlowWithLane(_:)``).
-    var fastFlowMeters: Double = 0
+    /// Metres on big cobbles: cobbled ways without the pack's "· mild" detail (City's smoothest choice, 26 Nov).
+    var bigCobbleMeters: Double = 0
     /// Changes of direction over 45° at junctions (``RouteAnalyzer/turns(shape:edges:along:)``).
     var turns: Int = 0
 
