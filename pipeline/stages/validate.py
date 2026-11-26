@@ -9,7 +9,7 @@ import jsonschema
 from common import PIPELINE, load_config, log, out_dir, sha256
 
 
-ROLES = {"routing_tiles", "hazards", "routes", "transit", "basemap", "overlays", "city"}
+ROLES = {"routing_tiles", "hazards", "routes", "basemap", "overlays", "city"}
 
 
 def main() -> int:

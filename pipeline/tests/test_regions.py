@@ -11,8 +11,7 @@ try:
 except ImportError:  # pragma: no cover
     load_config = None
 
-REGIONS = sorted(p.stem for p in (Path(__file__).resolve().parents[1] / "config").glob("*.yml") if not p.stem.startswith("_")
-                 and p.stem != "bikes_allowed_rules")
+REGIONS = sorted(p.stem for p in (Path(__file__).resolve().parents[1] / "config").glob("*.yml") if not p.stem.startswith("_"))
 
 
 @unittest.skipIf(load_config is None, "run in the tools image")
@@ -32,13 +31,12 @@ class RegionConfigs(unittest.TestCase):
             self.assertGreaterEqual(c["coverage"]["buffer_km"], 0, r)
             self.assertTrue((PIPELINE / "config" / "smoke_trips" / f"{r}.txt").exists(), r)
 
-    def test_every_region_takes_trenitalia_from_the_nap(self):
-        self.assertEqual([f["id"] for f in load_config("lombardy")["transit"]["feeds"]], ["trenitalia", "trenord", "atm", "brescia"])
+    def test_no_region_carries_timetables(self):
+        # M11 PR 4b: bike + train comes from Transitous; the NAP timetables have no licence for public packs.
         for r in REGIONS:
-            feeds = load_config(r)["transit"]["feeds"]
-            self.assertEqual(feeds[0]["nap"], {"dataset": 1077621, "asset": "TRENITALIA"}, r)
-            self.assertTrue(all(f["format"] == "netex" and f["operator"] for f in feeds), r)
-        self.assertEqual(load_config("veneto")["transit"]["days"], 60)
+            c = load_config(r)
+            self.assertNotIn("transit", c, r)
+            self.assertFalse({"trains", "metro_stops", "metro_feed", "bike_rule_operators"} & set(c.get("smoke", {})), r)
 
 
 @unittest.skipIf(load_config is None, "run in the tools image")

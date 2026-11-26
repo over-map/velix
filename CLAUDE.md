@@ -46,7 +46,7 @@ If two sources disagree, follow the higher one and log the conflict in `docs/DEC
 | Tiles | OpenFreeMap vector tiles (OpenMapTiles schema), no key |
 | Navigation | Ferrostar (SPM: FerrostarCore, FerrostarMapLibreUI, FerrostarSwiftUI). Use the custom route-provider hook to plug in on-device Valhalla |
 | Routing | Valhalla on device (Rallista valhalla-mobile, SPM). Costing per ride type in `RoutingProfiles/*.json` |
-| Region pack | Valhalla tiles + hazard sidecar + transit + OSM routes, built by GitHub Actions (`pipeline/`), published as a GitHub Release |
+| Region pack | Valhalla tiles + hazard sidecar + OSM routes + city area (+ optional basemap), no timetables, built by GitHub Actions (`pipeline/`), published as a GitHub Release |
 | Search | Photon (`https://photon.komoot.io/api`), biased to the user's location, fair use, debounced |
 | Storage | SwiftData on device |
 | Voice / haptics | AVSpeechSynthesizer (en), Core Haptics |

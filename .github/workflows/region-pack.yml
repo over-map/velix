@@ -131,16 +131,6 @@ jobs:
           key: planetiler-sources-${{ steps.month.outputs.key }}
           restore-keys: planetiler-sources-
 
-      # Italy's NAP timetables (until M11 PR 4): the NAP cuts downloads off, so its regions keep their own cache.
-      # Other regions keep none: 219 entries would overflow the repo's 10 GB and evict each other.
-      - name: Cache timetables (hand-written regions)
-        if: hashFiles(format('pipeline/config/{0}.yml', matrix.region)) != ''
-        uses: actions/cache@v4
-        with:
-          path: pipeline/cache/gtfs
-          key: transit-${{ env.REGION }}-${{ steps.month.outputs.key }}
-          restore-keys: transit-${{ env.REGION }}-
-
       - name: Build pack
         run: make -C pipeline pack REGION="$REGION"
 
@@ -189,10 +179,9 @@ jobs:
           name: pack-lombardy
           path: build/pack
 
-      - name: Unpack tiles, hazards, timetable, city area and cycle routes
+      - name: Unpack tiles, hazards, city area and cycle routes
         run: |
-          xz -d -T0 build/pack/valhalla_tiles.tar.xz build/pack/hazards.sqlite.xz build/pack/transit.sqlite.xz build/pack/city.geojson.xz \
-            build/pack/routes.sqlite.xz
+          xz -d -T0 build/pack/valhalla_tiles.tar.xz build/pack/hazards.sqlite.xz build/pack/city.geojson.xz build/pack/routes.sqlite.xz
           ls -lh build/pack
 
       - name: Generate project

@@ -8,14 +8,10 @@ osm:
   licence: ODbL-1.0
   attribution: "© OpenStreetMap contributors"
 coverage:
-  # Routing data (tiles, hazards, cycle routes, timetable) reaches this far past the border, so trips just across it
+  # Routing data (tiles, hazards, cycle routes) reaches this far past the border, so trips just across it
   # (Milan → Novara) plan in either pack; the map tiles stop at the border. Valhalla tiles from separate builds can't be
   # joined on the phone (DECISIONS 2026-11-02).
   buffer_km: 10
-transit:
-  days: 60
-  bike_rules: bikes_allowed_rules.yml   # curated, per operator; used only where a feed has no trips.bikes_allowed
-  feeds: []
 elevation:
   # GEDTM30: global 30 m *terrain* model (buildings and trees removed), Cloud Optimized GeoTIFF, values in dm.
   # Replaces Copernicus GLO-30 (a surface model: rooftops gave flat Milan streets fake 8–15 % grades).

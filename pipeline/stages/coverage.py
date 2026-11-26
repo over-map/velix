@@ -1,6 +1,6 @@
 """Stage 1b: the area the pack covers → out/<region>/coverage.geojson: the region polygon grown by coverage.buffer_km.
 
-Routing, hazards, routes and the timetable reach past the border so a trip just across it plans in this pack (Valhalla
+Routing, hazards and routes reach past the border so a trip just across it plans in this pack (Valhalla
 tiles from two builds can't be joined on the phone). The map basemap and "you're in <region>" keep the exact border.
 Both polygons ship in the manifest, simplified (manifest_polygon)."""
 import json
