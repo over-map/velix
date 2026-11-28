@@ -73,6 +73,8 @@ final class RideSession {
     // The M7 review in the log: reroute timing, the back-off, the minute's health and Live Activity updates.
     private var rerouteAsked: Date?
     private var lastHeldLogged = Date.distantPast
+    /// Each step's end along the route being ridden (``StepSync``).
+    private var stepEnds: [Double] = []
     private var fixesThisMinute = 0
     /// The process CPU time and the clock at the last health line.
     private var lastCPU = (cpu: RideSession.cpuSeconds(), at: CACurrentMediaTime())
@@ -153,6 +155,7 @@ final class RideSession {
         #endif
         location.startUpdating()
         try core.startNavigation(route: route)
+        stepEnds = Self.stepEnds(route)
         self.core = core
         prefetch = MapPrefetch.warm(track.shape)
         UIApplication.shared.isIdleTimerDisabled = true
@@ -255,7 +258,9 @@ final class RideSession {
     }
 
     private func startRoute(_ next: RouteOption, choice: RideChoice, on core: FerrostarCore) throws {
-        try core.startNavigation(route: try Self.route(from: next))
+        let route = try Self.route(from: next)
+        try core.startNavigation(route: route)
+        stepEnds = Self.stepEnds(route)
         option = next
         self.choice = choice
         provider.choice = choice
@@ -291,6 +296,11 @@ final class RideSession {
         return Geo.bearing(track.point(at: track.position), track.point(at: track.position + 15))
     }
 
+    /// Each step's end along the route, for ``StepSync``.
+    nonisolated static func stepEnds(_ route: Route) -> [Double] {
+        StepSync.ends(of: route.steps.map { $0.geometry.map { LatLon(lat: $0.lat, lon: $0.lng) } })
+    }
+
     /// What the S4 screen shows now.
     func screen(chevron: Bool, now: Date = Date()) -> RideScreenState {
         RideScreenState(.init(turn: RideTurn(navigationState), option: option, track: track, next: nextHazard, gps: gps,
@@ -307,9 +317,17 @@ final class RideSession {
 
     private func stateChanged(_ state: NavigationState?) {
         navigationState = state
-        if case let .navigating(_, _, _, _, _, _, _, deviation, _, _, _) = state?.tripState {
+        if case let .navigating(_, _, _, remaining, _, _, _, deviation, _, _, _) = state?.tripState {
             let off: Bool = if case .deviation(.completelyOffRoute) = deviation { true } else { false }
             policy.fix(offRoute: off, at: Date())
+            // On a later step of the route (no reroute): bring Ferrostar's step to the rider, one step per update.
+            if case .deviation(.offStepOnRoute) = deviation, let core {
+                let current = stepEnds.count - remaining.count
+                if StepSync.shouldAdvance(position: track.position, offset: track.offset, ends: stepEnds, current: current) {
+                    log?.event(.reroute("step", meters: track.position, at: here))
+                    core.advanceToNextStep()
+                }
+            }
         }
         if case .complete = state?.tripState { arrive() }
     }
@@ -340,6 +358,7 @@ final class RideSession {
         }
         do {
             try core.startNavigation(route: route)
+            stepEnds = Self.stepEnds(route)
             option = planned
             avoided = provider.lastAvoided
             track = RouteTrack(shape: planned.analysis.shape)
