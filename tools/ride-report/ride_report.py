@@ -210,6 +210,9 @@ def check_bursts(ride: Ride) -> tuple[bool | None, str, list[str]]:
     if ms:
         details.append(f"reroute time: median {statistics.median(ms):.0f} ms, max {max(ms):.0f} ms")
     summary = f"{len(accepted)} accepted, {sum(1 for e in rr if e.get('s') == 'requested')} requested, {held} held by the back-off"
+    steps = sum(1 for e in rr if e.get("s") == "step")
+    if steps:
+        summary += f", {steps} step(s) caught up with the rider"
     return (not bursts), summary, details
 
 

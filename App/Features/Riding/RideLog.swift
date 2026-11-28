@@ -13,7 +13,8 @@ final class RideLog: @unchecked Sendable {
         case hazard(type: String, distance: Double, at: LatLon, speed: Double = -1, gps: String = "good", spoken: Bool = true)
         /// "requested" (position, ms since the last request), "accepted" (ms since the request, the new route's
         /// metres), "failed" (reason; the old route is kept), "held" (the back-off said no, once a minute at most),
-        /// "fastest" / "best" (bike + transit swaps).
+        /// "fastest" / "best" (bike + transit swaps), "step" (Ferrostar's step moved on to the rider, ``StepSync``;
+        /// metres along the route).
         case reroute(String, ms: Double? = nil, meters: Double? = nil, reason: String? = nil, at: LatLon? = nil)
         case gps(String)              // "weak", "good"
         case end(String)              // "arrived", "ended", "leg"
