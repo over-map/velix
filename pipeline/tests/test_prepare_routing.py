@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "stages"))
 try:
-    from prepare_routing import lift_gate_closed_to_bikes, open_to_bikes, stairs_closed_to_bikes, walkable_not_rideable  # needs osmium (tools image)
+    from prepare_routing import lift_gate_closed_to_bikes, open_to_bikes, rising_bollard_closed_to_bikes, stairs_closed_to_bikes, walkable_not_rideable  # needs osmium (tools image)
 except ImportError:  # pragma: no cover
     walkable_not_rideable = None
 
@@ -51,6 +51,14 @@ class WalkStretches(unittest.TestCase):
         self.assertFalse(lift_gate_closed_to_bikes({"barrier": "lift_gate"}))
         self.assertFalse(lift_gate_closed_to_bikes({"barrier": "lift_gate", "access": "private", "bicycle": "no"}))
         self.assertFalse(lift_gate_closed_to_bikes({"barrier": "gate", "access": "private"}))
+
+    def test_untagged_rising_bollards_open_to_bikes(self):
+        # OSM n11201798468, Alzaia Naviglio Pavese at Conca Fallata
+        self.assertTrue(rising_bollard_closed_to_bikes({"barrier": "bollard", "bollard": "rising", "material": "metal"}))
+        self.assertFalse(rising_bollard_closed_to_bikes({"barrier": "bollard"}))
+        self.assertFalse(rising_bollard_closed_to_bikes({"barrier": "bollard", "bollard": "rising", "bicycle": "no"}))
+        self.assertFalse(rising_bollard_closed_to_bikes({"barrier": "bollard", "bollard": "rising", "access": "no"}))
+        self.assertFalse(rising_bollard_closed_to_bikes({"barrier": "lift_gate", "bollard": "rising"}))
 
     def test_private_passages_lose_access_private_for_bikes(self):
         t = open_to_bikes({"highway": "service", "access": "private", "foot": "yes"})
