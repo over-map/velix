@@ -67,6 +67,14 @@ def lift_gate_closed_to_bikes(tags) -> bool:
     return tags.get("barrier") == "lift_gate" and tags.get("access") in CLOSED and "bicycle" not in tags
 
 
+def rising_bollard_closed_to_bikes(tags) -> bool:
+    """A retractable car bollard with no access tags: Valhalla closes it to bikes too, cutting the way at that node
+    (the Alzaia Naviglio Pavese cycleway at Conca Fallata, Milan: Road with "Bike lanes only" went 1.1 km round,
+    Filippo, 28 Nov). 131 of Lombardy's 199 rising bollards; any explicit bicycle or access tag is kept."""
+    return (tags.get("barrier") == "bollard" and tags.get("bollard") == "rising"
+            and "bicycle" not in tags and "access" not in tags)
+
+
 def stairs_closed_to_bikes(tags) -> bool:
     """Steps a rider can't wheel the bike up: no bicycle ramp and no explicit bicycle access."""
     return (tags.get("highway") == "steps" and tags.get("ramp:bicycle") not in {"yes", "both", "left", "right"}
@@ -199,7 +207,8 @@ def sidewalk_connectors(src, roads) -> list[tuple[int, list[int]]]:
 
 
 def transform(src, dst):
-    """Writes the routing copy of `src` to `dst`; returns (cobbled ways, walk-stretch way ids, steps, lift gates)."""
+    """Writes the routing copy of `src` to `dst`; returns (cobbled ways, walk-stretch way ids, steps, lift gates,
+    rising bollards)."""
     if dst.exists():
         dst.unlink()
     writer = osmium.SimpleWriter(str(dst))
@@ -207,6 +216,7 @@ def transform(src, dst):
     walk: list[int] = []
     stairs = 0
     gates = 0
+    bollards = 0
     roads = RoadIndex(src)
     links = sidewalk_connectors(src, roads)
     pending = True
@@ -218,11 +228,15 @@ def transform(src, dst):
                     "highway": "footway", "footway": "sidewalk", "bicycle": "yes", "velix:connector": str(wid)}))
                 walk.append(cid)
             pending = False
-        if obj.is_node() and lift_gate_closed_to_bikes(obj.tags):
+        if obj.is_node() and (lift_gate_closed_to_bikes(obj.tags) or rising_bollard_closed_to_bikes(obj.tags)):
+            bollard = obj.tags.get("barrier") == "bollard"
             tags = open_to_bikes(dict(obj.tags))
             tags["access"] = "yes"  # an access tag keeps Valhalla from timing it as an untagged gate (30 s)
             writer.add_node(obj.replace(tags=tags))
-            gates += 1
+            if bollard:
+                bollards += 1
+            else:
+                gates += 1
             continue
         if not obj.is_way() or "highway" not in obj.tags:
             writer.add(obj)
@@ -250,17 +264,17 @@ def transform(src, dst):
         writer.add_way(obj.replace(tags=tags) if touched else obj)
     writer.close()
     log(f"{len(links)} sidewalk connectors (≤ {CONNECTOR_MAX_M:.0f} m) between passages and crossings or streets")
-    return changed, walk, stairs, gates
+    return changed, walk, stairs, gates, bollards
 
 
 def main():
     cfg = load_config()
     out = out_dir(cfg)
     dst = out / "routing.osm.pbf"
-    changed, walk, stairs, gates = transform(out / "region.osm.pbf", dst)
+    changed, walk, stairs, gates, bollards = transform(out / "region.osm.pbf", dst)
     (out / "walk_ways.json").write_text(json.dumps(sorted(walk)))
     log(f"{dst.name}: {changed} cobbled ways retagged (rough → gravel, mild or smooth → paving_stones), {len(walk)} walk stretches bicycle=yes, "
-        f"{stairs} steps bicycle=no, {gates} private lift gates bicycle=yes")
+        f"{stairs} steps bicycle=no, {gates} private lift gates and {bollards} rising bollards bicycle=yes")
 
 
 if __name__ == "__main__":
